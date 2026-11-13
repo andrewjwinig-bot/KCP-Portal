@@ -30,6 +30,8 @@ type Row = {
   contact: string | null; phone: string | null; depositsHeld: number; balanceDue: number; tiesOut: boolean;
   lines: Line[]; credit: number; charges: number; net: number; oldestCredit: string | null; oldestDays: number | null;
   lastNotice: { sentAt: string; sentBy: string | null; id: string; source: string } | null;
+  /** How many times we have asked (credit notices + monthly account notices). */
+  attempts?: number;
   lastContact: { sentAt: string; kind: string } | null;
   note: { text: string; by: string | null; at: string } | null;
   /** Read off the laser statement — the report doesn't cover this property; its credits are one undated total. */
@@ -148,6 +150,7 @@ export default function OpenCreditsPage() {
                   <th style={th}>Net</th>
                   <th style={thL}>Oldest credit</th>
                   <th style={thL}>Last asked</th>
+                  <th style={th}>Attempts</th>
                   <th style={th} />
                 </tr>
               </thead>
@@ -159,7 +162,7 @@ export default function OpenCreditsPage() {
                       <td style={{ ...td, fontWeight: 700, color: "var(--c-15803d)" }}>({num(ts.reduce((a, t) => a + t.credit, 0))})</td>
                       <td style={{ ...td, fontWeight: 700 }}>{signed(ts.reduce((a, t) => a + t.charges, 0))}</td>
                       <td style={{ ...td, fontWeight: 700 }}>{signed(ts.reduce((a, t) => a + t.net, 0))}</td>
-                      <td style={td} colSpan={3} />
+                      <td style={td} colSpan={4} />
                     </tr>
                     {ts.map((t) => {
                       const isOpen = open.has(t.unitRef);
@@ -192,13 +195,14 @@ export default function OpenCreditsPage() {
                                 ? <span style={{ fontSize: "var(--fs-12-5)", color: stale ? "var(--c-b45309)" : undefined, fontWeight: stale ? 600 : 400 }}>{new Date(t.lastNotice.sentAt).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric" })} · {ago(t.lastNotice.sentAt)}</span>
                                 : <span style={{ color: "var(--c-b45309)", fontWeight: 600, fontSize: "var(--fs-12-5)" }}>Never asked</span>}
                             </td>
+                            <td style={{ ...td, fontWeight: (t.attempts ?? 0) >= 3 ? 700 : 400, color: (t.attempts ?? 0) >= 3 ? "var(--c-b45309)" : (t.attempts ?? 0) ? undefined : "var(--muted)" }}>{t.attempts ? t.attempts : "—"}</td>
                             <td style={{ ...td, whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
                               {canWork && <button className="btn sm" onClick={() => setEmailing(t)}>{t.lastNotice ? "Ask again" : "Email"}</button>}
                             </td>
                           </tr>
                           {isOpen && (
                             <tr>
-                              <td colSpan={7} style={{ padding: "6px 12px 16px 34px", maxWidth: 0, borderBottom: "1px solid var(--hairline)" }}>
+                              <td colSpan={8} style={{ padding: "6px 12px 16px 34px", maxWidth: 0, borderBottom: "1px solid var(--hairline)" }}>
                                 <Detail t={t} onView={setViewing} onNote={load} canWork={canWork} />
                               </td>
                             </tr>
@@ -208,7 +212,7 @@ export default function OpenCreditsPage() {
                     })}
                   </Fragment>
                 ))}
-                {!rows.length && <tr><td colSpan={7} style={{ ...tdL, color: "var(--muted)" }}>Nothing in this view.</td></tr>}
+                {!rows.length && <tr><td colSpan={8} style={{ ...tdL, color: "var(--muted)" }}>Nothing in this view.</td></tr>}
                 {rows.length > 0 && (() => {
                   const cr = rows.reduce((a, t) => a + t.credit, 0), ch = rows.reduce((a, t) => a + t.charges, 0), nt = rows.reduce((a, t) => a + t.net, 0);
                   return (
@@ -217,7 +221,7 @@ export default function OpenCreditsPage() {
                       <td style={{ ...td, fontWeight: 800, color: "var(--c-15803d)" }}>(${num(cr)})</td>
                       <td style={{ ...td, fontWeight: 800 }}>${num(ch)}</td>
                       <td style={{ ...td, fontWeight: 800 }}>{nt < -0.005 ? `($${num(nt)})` : `$${num(nt)}`}</td>
-                      <td style={td} colSpan={3} />
+                      <td style={td} colSpan={4} />
                     </tr>
                   );
                 })()}

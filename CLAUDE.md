@@ -1840,6 +1840,59 @@ variant="credit-balance"`. Its title prints "Aging Report (Detailed)".
   Skyline steps sit behind an ⓘ (`InfoPopover`, `app/components/`, shared with
   the CAM recon's year-end exports), never spelled out on the page.
 
+# Monthly tenant account notices — /tenant-statements/notices (Greg approves)
+
+Owner, 11/2026: every tenant with open charges or a credit is emailed once a
+month, before statements go out on the 25th. Pure parts in
+`lib/statements/monthlyReminder.ts` (the emails), `reminderBatch.ts` (the
+batch), `reminderSchedule.ts` (the calendar), `reminderInternalEmails.ts`
+(the team's emails); the flow in `reminderBatchStore.ts`.
+
+- **THE 15TH**: ANY Credit Balance Report import on or after the 15th
+  (`buildOnImport`, from `/api/tenant-statements/aging`; owner: "doesnt have to
+  be drew") builds the month's batch — every tenant on the newest laser
+  statement (+ the Credit Balance Report), each read through `statementOf` —
+  and the FIRST build emails Greg (`TENANT_NOTICE_APPROVER_TO`, gmasciantonio@).
+  A re-import before he sends REBUILDS it, keeping his unticks. Drew's import
+  reminder `imp-aging` is due the 15th and only an import on/after the 15th
+  satisfies it (`satisfiedFromDay`).
+- **THREE NOTICES** (`tierOf`): COURTESY (oldest open charge 0–2 calendar
+  months), PAST DUE (3+ — firm, NO late fees or default language), CREDIT (the
+  credit exceeds the charges). Under $5 is not sent; former occupants (`-FO`)
+  never. All itemize the account; the balance notices say "Payment already on
+  its way? Please disregard"; NO refund offer anywhere (owner); NO phone —
+  questions go to Tami's EMAIL, in the footer only.
+- **FROM THE COMPANY, NOT A PERSON** (owner): "Korman Commercial Properties"
+  at `TENANT_NOTICE_FROM` (default ar@ — falls back to the verified sender until
+  Postmark verifies it), Reply-To Tami, her statement PDF attached. Drawn in the
+  INTERPLEX NOTICE LOOK (navy hero, two-tone headline, olive panel, blue
+  callout, dark Korman footer — `noticeFrame`, palette `NOTICE_COLORS`), live
+  HTML not images; an Interplex building carries the Interplex logo.
+- **APPLY MY CREDIT**: any notice to a tenant with a credit carries a button
+  (`creditPlan`: the credit on the open charges in the MASTER ORDER, then the
+  next statement, the rest carried) — "or reply to pick specific charges". The
+  big figure on a credit notice is the CREDIT, "Not yet applied" — never "you
+  owe $0" before they click (owner). The link (`/credit-apply/<token>`, PUBLIC,
+  `creditApplyLink.ts`, domain-separated) opens a CONFIRM page; GET never
+  applies (scanners open links). Confirming records `tenant-credit-requests`,
+  emails Tami what to post (portal email style) and the tenant a confirmation —
+  leading with the credit still on account, itemizing what stays open. Open
+  through the 24th.
+- **GREG'S PAGE** (`TENANT_NOTICES_PAGE`, sidebar Invoicing → Tenant Notices;
+  API `/api/tenant-notices`, NOT under /api/tenant-statements so his writes
+  pass): every tenant TICKED BY DEFAULT, untick to hold back (owner), banded by
+  notice, Preview each, one Send (a confirm modal). Progress saves per email, so
+  a second press never double-sends. Below it, the credits tenants asked for —
+  Tami ticks each posted (her WRITE_SCOPE includes `/api/tenant-notices`).
+- **THE BUSINESS DAY BEFORE THE 25TH** (`creditSummaryDay`; weekends,
+  Thanksgiving, Dec 24–25): `/api/cron/credit-summary` (13:30 UTC daily) emails
+  Drew + Tami (`CREDIT_SUMMARY_TO`) every credit asked for, unposted first.
+- **Open Credits counts the asks** — "Attempts" beside Last asked: open-credit
+  notices + monthly notices. Greg VIEWS Open Credits.
+- The three staff emails are `portalEmail` (the portal's own look); only the
+  tenant-facing notices use the Interplex look. Pinned by
+  `monthlyReminder.test.ts`, `reminderBatch.test.ts`, `authz.test.ts`.
+
 # Management fees — the intercompany must tie exactly
 
 **No property or building pays an outside management fee. Every dollar goes to

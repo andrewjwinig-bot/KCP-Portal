@@ -26,7 +26,7 @@ export default function AppShell({ children, website = false }: { children: Reac
   // Public pages render without the internal app chrome (no staff sidebar, no
   // auth gate). The tenant statement/portal links carry their OWN tenant-facing
   // sidebar, so they must never inherit the internal one.
-  const isPublic = website || PUBLIC_PATHS.has(pathname) || pathname.startsWith("/statement/") || pathname.startsWith("/portal/") || pathname.startsWith("/investor/") || pathname.startsWith("/budget-review/") || pathname.startsWith("/commissions-review/") || pathname.startsWith("/centers/") || pathname === "/site" || pathname.startsWith("/site/");
+  const isPublic = website || PUBLIC_PATHS.has(pathname) || pathname.startsWith("/statement/") || pathname.startsWith("/portal/") || pathname.startsWith("/investor/") || pathname.startsWith("/credit-apply/") || pathname.startsWith("/budget-review/") || pathname.startsWith("/commissions-review/") || pathname.startsWith("/centers/") || pathname === "/site" || pathname.startsWith("/site/");
 
   // The new look applies to staff pages only — never the public website,
   // tenant portal or forms, even when a staff member opens one.
