@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { ALL_USERS, USERS, canSwitchUsers, type UserDef, type UserId } from "../../lib/users";
+import { rememberActiveUser } from "../../lib/ui/firstPaint";
 
 type Ctx = {
   user: UserDef;
@@ -12,6 +13,9 @@ type Ctx = {
   canSwitch: boolean;
   /** The user the site cookie was actually issued for. */
   loggedInUser: UserId;
+  /** The look the server drew the first frame in (so hooks start where the
+   *  server did and nothing swaps on hydration). */
+  initialSkin: "studio" | "classic";
 };
 
 const UserContext = createContext<Ctx | null>(null);
@@ -22,11 +26,20 @@ function isUserId(s: unknown): s is UserId {
   return typeof s === "string" && (ALL_USERS as readonly string[]).includes(s);
 }
 
-export function UserProvider({ children }: { children: React.ReactNode }) {
+export function UserProvider({ children, initialUser, initialActive, initialSkin = "studio" }: {
+  children: React.ReactNode;
+  /** Who the server read off the site cookie — so the FIRST frame is the real
+   *  person's sidebar, not Admin's (the flash the owner saw on refresh). */
+  initialUser?: string | null;
+  initialActive?: string | null;
+  initialSkin?: "studio" | "classic";
+}) {
   // loggedInUser is who the server says is signed in; activeUser is the
   // profile currently being viewed (only admin / alison can make these differ).
-  const [loggedInUser, setLoggedInUser] = useState<UserId>("admin");
-  const [activeUser, setActiveUser] = useState<UserId>("admin");
+  const firstUser: UserId = isUserId(initialUser) ? initialUser : "admin";
+  const firstActive: UserId = canSwitchUsers(firstUser) && isUserId(initialActive) ? initialActive : firstUser;
+  const [loggedInUser, setLoggedInUser] = useState<UserId>(firstUser);
+  const [activeUser, setActiveUser] = useState<UserId>(firstActive);
   const [hydrated, setHydrated] = useState(false);
   const [authed, setAuthed] = useState(false);
 
@@ -45,11 +58,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           // admin / alison resume whichever profile they last pivoted to.
           let stored: string | null = null;
           try { stored = localStorage.getItem(ACTIVE_USER_KEY); } catch { /* ignore */ }
-          setActiveUser(isUserId(stored) ? stored : li);
+          const next = isUserId(stored) ? stored : li;
+          setActiveUser(next);
+          rememberActiveUser(next);
         } else {
           // Everyone else is pinned to their own profile.
           setActiveUser(li);
-          try { localStorage.removeItem(ACTIVE_USER_KEY); } catch { /* ignore */ }
+          rememberActiveUser(null);
         }
       })
       .finally(() => setHydrated(true));
@@ -60,12 +75,12 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   function setUserId(id: UserId) {
     if (!canSwitch) return;
     setActiveUser(id);
-    try { localStorage.setItem(ACTIVE_USER_KEY, id); } catch { /* ignore */ }
+    rememberActiveUser(id);
   }
 
   return (
     <UserContext.Provider
-      value={{ user: USERS[activeUser], setUserId, hydrated, authed, canSwitch, loggedInUser }}
+      value={{ user: USERS[activeUser], setUserId, hydrated, authed, canSwitch, loggedInUser, initialSkin }}
     >
       {children}
     </UserContext.Provider>
