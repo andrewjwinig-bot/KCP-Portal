@@ -1,5 +1,6 @@
 "use client";
 
+import { rememberActiveUser } from "@/lib/ui/firstPaint";
 import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -29,7 +30,7 @@ function LoginForm() {
         throw new Error(j?.error ?? "Login failed");
       }
       // Successful login implies the user wants to assume the admin persona.
-      try { localStorage.setItem("kcp:activeUser", targetPersona); } catch { /* ignore */ }
+      rememberActiveUser(targetPersona);
       router.replace(next);
     } catch (e: any) {
       setError(e?.message ?? "Login failed");

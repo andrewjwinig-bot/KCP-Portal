@@ -340,7 +340,16 @@ touched UI to it.
   sidebar"). The pre-paint script in `app/layout.tsx` turns the new look on
   unless the browser saved "classic"; AppShell never clears that choice and
   does nothing while no one is signed in mid-switch; `useStudioSkin` reads it
-  in a layout effect, before paint.
+  in a layout effect, before paint. **The SERVER draws the real person's
+  first frame** (owner, again: "i still see old sidebar when i refresh" — the
+  first frame was ADMIN's sidebar and the classic dashboard, swapped once the
+  browser asked /api/site/status who was signed in): `app/layout.tsx` reads
+  the site cookie (`verifySiteToken`) and passes `initialUser` /
+  `initialActive` / `initialSkin` to `UserProvider`. The two browser-side
+  choices are mirrored into cookies by `lib/ui/firstPaint.ts`
+  (`rememberActiveUser` — the profile admin / Alison are viewing, set by the
+  logins and the switcher; `rememberSkin` — only "classic" is recorded).
+  Never set `kcp:activeUser` or `kcp:skin` without them.
 - **ONE LOADER: `LoadingState`** (`app/components/LoadingState.tsx` — the
   skyline + skeleton; owner: "bank rec loading state is different… should it
   be"). Every page's first load and every long run show it; a long one-request
