@@ -18,14 +18,14 @@ const BANK: Record<string, string> = { "JPM-Chase": "Chase", "Liberty Bank": "Li
 
 export const BASIS_NOTE =
   "Bank balances are each bank's ledger figure on the date shown (Chase Present balance, Liberty Current Balance, M&T Closing Ledger). " +
-  "Reserves are the budgeted Big Projects for this month and the next two, or the figure entered over them. Tenant security deposits are " +
+  "Reserves are the budgeted Big Projects for this month and the next two, or the figure entered over them, plus tenants' net open credits (prepaid or overpaid rent, owed back or applied to the next charges). Tenant security deposits are " +
   "tenants' money and are held back in full. The Leonard Korman Trust (Liberty x9245) is LIK money, hands off: not imported weekly, its balance is the last statement accrued at its rate (compounded daily, less the monthly charge) and it is held back in full. Debt service is each loan's next monthly payment including escrow, per the Debt Tracker, shown for " +
   "context and not deducted from net available cash. Week over week compares each account with its balance from the import at least five days earlier; " +
   "a line is compared only when every one of its accounts has that figure. Unaudited.";
 
 /** The PDF's short version of BASIS_NOTE (the Excel keeps the full one). */
 export const PDF_NOTE =
-  "Each bank's ledger balance on the date shown. Reserves are the budgeted big projects for this month and the next two. Security deposits " +
+  "Each bank's ledger balance on the date shown. Reserves are the budgeted big projects for this month and the next two plus tenants' net open credits. Security deposits " +
   "(tenants' money) and the Leonard Korman Trust are held back in full. Debt service is each loan's next payment including escrow, shown for " +
   "context, not deducted. Week over week compares the import at least five days earlier. $10K and up rounded to the nearest thousand. Unaudited.";
 
@@ -235,7 +235,7 @@ export function buildBalancePdf(v: BalanceView): Buffer {
     ["Cash in bank", dollars(totalCash), INK],
     ["Week over week", change == null ? "—" : change < 0 ? dollars(change) : `+${dollars(change)}`, change == null ? INK : change < 0 ? BAD : GOOD],
     ["Security deposits", dollars(deposits), INK],
-    ["Reserves", dollars(reserves), INK],
+    [(v.tenantCredits?.total ?? 0) > 0 ? `Reserves · ${dollars(v.tenantCredits!.total)} credits` : "Reserves", dollars(reserves), INK],
     ["Debt service / mo", dollars(debt), INK],
   ];
   const sx0 = m + 170, sw = (pageW - m - sx0) / stats.length;

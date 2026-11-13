@@ -3911,7 +3911,20 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
 - **Reserves** are the Cash Sheet's own (budget Big Projects, this month + the
   next two, or the figure typed over it — saved through the same
   `/api/financials/cash-sheet` `reserves` edit, keyed by the line's key), so the
-  two views cannot disagree. **Security deposits (x7216, x7448, and Liberty x8276 — LIK Management (SD) MM, owner) are tenants'
+  two views cannot disagree. **TENANTS' NET OPEN CREDITS ARE HELD IN RESERVE
+  TOO** (`tenantCredits.ts`; owner: "take the net open credits as reserves …
+  net credits only … on a hover show breakdown between credits and capex …
+  keep bank balances simple"; "say somewhere what total credits are just so
+  alison knows"): a tenant's credit beyond their own open charges (former
+  tenants in full, under $5 left off), read by `openCreditTenants`
+  (`lib/statements/openCreditTenants.ts` — the SAME read as Open Credits:
+  the Credit Balance report, else the newest laser statement), summed onto
+  each line by its `reserveCodes` (a fund's buildings). ONE Reserves column
+  still: `reserves` = Big Projects (`reservesCapex`) + credits, the cell's
+  hover splits them and names the top five tenants; typing the cell stores the
+  Big Projects part (typed − credits), so the credits keep moving with the
+  reports. The total is said on the Reserves tile, the PDF's figure row and the
+  Monday ownership email ("incl. $x tenant credits"). **Security deposits (x7216, x7448, and Liberty x8276 — LIK Management (SD) MM, owner) are tenants'
   money**: their own group, reserved in full, never in Net available.
 - **Debt is shown MONTHLY** (owner: "debt outstanding should be monthly view
   not total"): the column, tile, PDF, Excel and email carry each line's
