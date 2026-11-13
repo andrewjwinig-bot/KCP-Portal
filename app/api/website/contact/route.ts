@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { contactEmail } from "@/lib/site/inquiryEmails";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { checkContact, contactEmailText, contactRecipients } from "@/lib/site/contact";
+import { checkContact, contactRecipients } from "@/lib/site/contact";
 
 // Public endpoint behind the company website's Contact page (/site/contact).
 // Replaces the vendor's web3forms + hCaptcha: honeypot + per-IP rate limit,
@@ -37,10 +38,12 @@ export async function POST(req: NextRequest) {
   const { value } = check;
   let delivered = false;
   if (isMailConfigured()) {
+    const mail = contactEmail(value);
     delivered = await sendMail({
       to: contactRecipients().join(", "),
-      subject: `Website message from ${value.name}`,
-      textBody: contactEmailText(value),
+      subject: mail.subject,
+      textBody: mail.text,
+      htmlBody: mail.html,
       headers: [{ Name: "Reply-To", Value: value.email }],
     });
   }

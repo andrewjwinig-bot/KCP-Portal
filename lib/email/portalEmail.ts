@@ -88,7 +88,7 @@ export type PortalEmail = {
 
 export function portalEmail(e: PortalEmail): { subject: string; html: string; text: string } {
   const origin = portalOrigin();
-  const link = (path: string) => (/^https?:/.test(path) ? path : `${origin}${path}`);
+  const link = (path: string) => (/^(https?:|mailto:|tel:)/.test(path) ? path : `${origin}${path}`);
   const url = e.link ? link(e.link.path) : "";
   const rows = e.rows.filter((r) => r.value !== "");
   const footerLine = [e.footer, e.systemFooter === false ? "" : "Sent by the KCP Portal"].filter(Boolean).join(" \u00b7 ");
