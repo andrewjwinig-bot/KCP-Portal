@@ -31,8 +31,8 @@ import {
   batchCounts, buildItems, creditRequestId, itemCreditPlan, summaryOrder, willSend,
   type AccountIn, type BatchItem, type CreditRequest, type ReminderBatch,
 } from "./reminderBatch";
-import { approvalRequestEmail, creditSummaryEmail, postCreditEmail } from "./reminderInternalEmails";
-import { applyDeadline, creditSummaryDay, etToday, nextMonthOf, NOTICE_DAY } from "./reminderSchedule";
+import { approvalReminderEmail, approvalRequestEmail, creditSummaryEmail, postCreditEmail } from "./reminderInternalEmails";
+import { addBusinessDays, applyDeadline, AUTO_SEND_AFTER_BUSINESS_DAYS, creditSummaryDay, etToday, nextMonthOf, NOTICE_DAY, REMIND_AFTER_BUSINESS_DAYS } from "./reminderSchedule";
 import { signCreditApplyToken, creditApplySecret } from "./creditApplyLink";
 
 const BATCHES = "tenant-reminder-batches";
@@ -117,9 +117,12 @@ export async function buildBatch(opts: { by: string | null; origin: string; noti
     month, nextYM: nextMonthOf(month), builtAt: new Date().toISOString(), builtBy: opts.by, dataAsOf,
     origin: opts.origin, items: buildItems(accounts, prev?.items ?? []),
     approverNotifiedAt: prev?.approverNotifiedAt ?? null, approvedAt: null, approvedBy: null, summarySentAt: prev?.summarySentAt ?? null,
+    remindOn: prev?.remindOn ?? addBusinessDays(today, REMIND_AFTER_BUSINESS_DAYS),
+    autoSendOn: prev?.autoSendOn ?? addBusinessDays(today, AUTO_SEND_AFTER_BUSINESS_DAYS),
+    approverRemindedAt: prev?.approverRemindedAt ?? null,
   };
   if (opts.notify !== false && !batch.approverNotifiedAt) {
-    const mail = approvalRequestEmail({ month, nextYM: batch.nextYM, counts: batchCounts(batch.items), dataAsOf });
+    const mail = approvalRequestEmail({ month, nextYM: batch.nextYM, counts: batchCounts(batch.items), dataAsOf, autoSendOn: batch.autoSendOn ?? null });
     const r = await sendMailDetailed({ to: NOTICE_APPROVER_TO, subject: mail.subject, textBody: mail.text, htmlBody: mail.html });
     if (r.ok) batch.approverNotifiedAt = new Date().toISOString();
     else console.error(`[tenant-notices] could not email the approver: ${r.error}`);
@@ -218,6 +221,34 @@ export async function sendBatch(month: string, by: string | null, deadlineMs = 2
   }
   const remaining = b.items.filter(willSend).filter((i) => i.status !== "failed").length;
   return { batch: b, sent, failed, remaining };
+}
+
+// ─── If Greg forgets ─────────────────────────────────────────────────────────
+
+/** The daily cron: remind Greg one business day after the build, and send
+ *  every ticked notice on its own after two. Unticked tenants stay held. */
+export async function autoSendTick(opts: { today?: string } = {}): Promise<{ action: "none" | "reminded" | "sent"; detail?: string }> {
+  const today = opts.today ?? etToday();
+  const b = await getBatch(today.slice(0, 7));
+  if (!b || b.approvedAt && !b.items.some((i) => willSend(i) && i.status !== "failed")) return { action: "none" };
+  if (b.approvedAt) {
+    // A send that ran out of time — finish it.
+    const r = await sendBatch(b.month, b.approvedBy ?? "Automatic");
+    return { action: "sent", detail: `${r.sent} more sent` };
+  }
+  if (b.autoSendOn && today >= b.autoSendOn) {
+    b.autoSent = true;
+    await saveBatch(b);
+    const r = await sendBatch(b.month, "Automatic");
+    return { action: "sent", detail: `${r.sent} sent · ${r.failed} failed` };
+  }
+  if (b.remindOn && today >= b.remindOn && !b.approverRemindedAt) {
+    const mail = approvalReminderEmail({ month: b.month, counts: batchCounts(b.items), autoSendOn: b.autoSendOn ?? today });
+    const r = await sendMailDetailed({ to: NOTICE_APPROVER_TO, subject: mail.subject, textBody: mail.text, htmlBody: mail.html });
+    if (r.ok) { b.approverRemindedAt = new Date().toISOString(); await saveBatch(b); }
+    return { action: "reminded" };
+  }
+  return { action: "none" };
 }
 
 // ─── Apply my credit ─────────────────────────────────────────────────────────
