@@ -16,6 +16,10 @@ describe("which notice a tenant gets", () => {
     expect(tierOf(acct([ch("2026-08-01", "Base Rent", 100)]), "2026-11-15")).toBe("past-due");
     expect(tierOf(acct([ch("2026-11-01", "Base Rent", 100)], [{ dateISO: null, description: "Open Credits", amount: 500 }]), "2026-11-15")).toBe("credit");
     expect(tierOf(acct([ch("2026-11-01", "Base Rent", 3)]), "2026-11-15")).toBeNull();
+  });
+  it("no courtesy reminder when everything open is this month's — the 5th's statement can't tell if they've paid since", () => {
+    expect(tierOf(acct([ch("2026-11-01", "Base Rent", 3900), ch("2026-11-01", "CAM Estimate", 650)]), "2026-11-15")).toBeNull();
+    expect(tierOf(acct([ch("2026-10-01", "Electric Reimbursement", 212.37), ch("2026-11-01", "Base Rent", 3900)]), "2026-11-15")).toBe("courtesy");
     expect(oldestChargeMonths(acct([ch("2026-07-31", "Year End CAM Adjustment", 1)]), "2026-11-15")).toBe(4);
   });
 });
