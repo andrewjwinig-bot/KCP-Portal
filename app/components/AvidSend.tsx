@@ -193,6 +193,8 @@ export async function sendToAvid(args: {
   references?: { name: string; blob: Blob; contentType: string }[];
   /** Zip of all PDFs for the team's records only (never sent to Avid). */
   archiveZip?: Blob | null;
+  /** AP's register — each invoice's number and amount (emailed to Tanya). */
+  register?: { invoiceNumber: string; code: string; name: string; amount: number }[];
 }): Promise<{ sent: boolean; reason?: string; byProperty: AvidProperty[]; total: number; invoiceCount: number; sentAt: string }> {
   const chunk = 0x8000;
   const toB64 = async (blob: Blob) => {
@@ -214,7 +216,7 @@ export async function sendToAvid(args: {
     body: JSON.stringify({
       source: args.source, period: args.period, label: args.label,
       byProperty: args.byProperty, total: args.total,
-      invoices, references, archiveZipBase64,
+      invoices, references, archiveZipBase64, register: args.register,
     }),
   });
   const j = await res.json();
