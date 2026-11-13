@@ -242,6 +242,7 @@ export const MODULES: Module[] = [
   // ── Part 3 · Your Role ───────────────────────────────────────────────────
   {
     id: "role",
+    interactive: true,
     part: "role",
     title: "Your Role and the First 90 Days",
     minutes: 5,
@@ -264,6 +265,7 @@ export const MODULES: Module[] = [
   // ── Part 4 · The Recurring Work ──────────────────────────────────────────
   {
     id: "rhythm",
+    interactive: true,
     part: "work",
     title: "The Monthly Rhythm",
     minutes: 8,
@@ -325,6 +327,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "reporting",
+    interactive: true,
     part: "work",
     title: "Monthly Reporting and Budgets",
     minutes: 7,
@@ -351,6 +354,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "tenants",
+    interactive: true,
     part: "work",
     title: "Tenants, CAM and Deposits",
     minutes: 8,
@@ -377,6 +381,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "taxes",
+    interactive: true,
     part: "work",
     title: "Taxes, 1099s and Insurance",
     minutes: 6,
@@ -397,6 +402,7 @@ export const MODULES: Module[] = [
   },
   {
     id: "eisner",
+    interactive: true,
     part: "work",
     title: "Review, Workpapers and EisnerAmper",
     minutes: 5,
