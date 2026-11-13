@@ -427,6 +427,17 @@ export const TASK_DEFS: TaskDef[] = [
       ],
     },
   },
+  // The Credit Balance Report on the 15th (or the next work day — `effDay`):
+  // the import, by anyone, builds the month's tenant account notices and emails
+  // Greg to approve them. The import ticks this task itself.
+  {
+    id: "m-aging",
+    label: "Credit Balance Report",
+    category: "routine",
+    dueDay: 15,
+    link: "/tenant-statements/credits",
+    notes: "Import Skyline's Credit Balance report (Any With Open Credits). It builds this month's tenant notices and emails Greg to send them.",
+  },
   {
     id: "m-tenant",
     label: "Tenant Group Setup",
