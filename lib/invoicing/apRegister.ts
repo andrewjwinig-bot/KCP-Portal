@@ -78,8 +78,8 @@ async function registerXlsx(label: string, periodLabel: string, rows: RegisterRo
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
 
-/** The same register as a printable PDF — a tick box per invoice and a
- *  "Checked by / Date" line, so it can be checked off on paper against Avid. */
+/** The same register as a printable PDF — a tick box per invoice, so it
+ *  can be checked off on paper against Avid. */
 export function registerPdf(label: string, periodLabel: string, rows: RegisterRow[], by?: string | null): Buffer {
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
   useHanken(doc);
@@ -117,7 +117,7 @@ export function registerPdf(label: string, periodLabel: string, rows: RegisterRo
   let y = header(true);
   doc.setFontSize(10.5);
   for (const r of rows) {
-    if (y + rowH > H - m - 70) { doc.addPage(); y = header(false); }
+    if (y + rowH > H - m - 40) { doc.addPage(); y = header(false); }
     const mid = y + rowH / 2 + 4;
     doc.setDrawColor(150, 158, 170); doc.setLineWidth(0.8); doc.rect(xBox, mid - 9, 11, 11);
     doc.setFont("Hanken", "bold"); col(INK); doc.text(r.invoiceNumber, xInv, mid);
@@ -134,12 +134,6 @@ export function registerPdf(label: string, periodLabel: string, rows: RegisterRo
   doc.text("Total", xInv, y);
   doc.text(`${rows.length} invoices`, xProp, y);
   doc.text(money(total), xAmt, y, { align: "right" });
-  y += 46;
-  doc.setFont("Hanken", "normal"); doc.setFontSize(10); col(MUTED);
-  doc.text("Checked by", m, y);
-  doc.setDrawColor(150, 158, 170); doc.setLineWidth(0.8); doc.line(m + 64, y + 2, m + 250, y + 2);
-  doc.text("Date", m + 280, y);
-  doc.line(m + 310, y + 2, m + 420, y + 2);
   const pages = doc.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i); doc.setFont("Hanken", "normal"); doc.setFontSize(8.5); col(MUTED);
