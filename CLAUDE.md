@@ -4930,6 +4930,25 @@ then the user imports Skyline reports, so keep ingestion paths import-friendly.
   (from operating statements), the tenant's YTD escrow billed, and occupancy
   through the move-out date → `balance = YTD due − YTD escrow`. An interim/
   move-out statement layered on the existing per-tenant compute + PDF.
+- **ESCROW BILLED ← Skyline's activity report, and the statement carries the
+  account** (owner, 11/2026 — decided, not built; needs one real export to
+  write the parser). Run Skyline's itemized activity report once all twelve
+  months have billed (early Dec / first week of Jan); each tenant's CAM / RET /
+  INS escrow billed is the sum of its charges by type, LESS the prior year's
+  year-end adjustments dated 4/30 (YEC / RER / YEI — last year's true-up, not
+  this year's escrow). It also lists tenants who left mid-year. Cross-check
+  each tenant against the summed rent rolls (`sumRentRollEscrow`) and flag
+  disagreements. The recon still credits escrow AS BILLED; the statement
+  continues the waterfall: reconciliation balance → **plus billed estimates
+  still unpaid** (CAM / RET / INS open charges, from the newest laser
+  statement / Credit Balance report, as of a stated date) → **less open credits,
+  APPLES TO APPLES only** (owner): a CAM credit (YEC) against CAM, RET (RER)
+  against RET, INS (YEI) against INS — never across categories; a leftover
+  stays on account. A credit whose category is unknown (the laser
+  statement's undated "Open Credits" total) is shown, not applied — run the
+  Credit Balance report first. Only the reconciliation balance posts to
+  Skyline as the year-end charge (the unpaid estimates are already on the
+  account); the credits to apply go to Tanya as a list beside it.
 - **Per-year methodology snapshot.** Retail methodology is currently "current
   state" (the unit page), shared across years. For correct multi-year + mid-year
   close-outs, freeze each recon year's methodology when it closes (like office
