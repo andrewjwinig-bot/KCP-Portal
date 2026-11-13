@@ -9,6 +9,7 @@
 // He sends from Outlook, then marks it sent here. The seasonal ones carry
 // their timing and prompt on his dashboard when due.
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { CircleCheck, Eye, Mail, Plus, Trash2, TriangleAlert, X } from "lucide-react";
@@ -62,23 +63,17 @@ export default function CommunicationsPage() {
           the forecast calls for them.
         </>}
       />
-      {error && <div className="card" style={{ color: "var(--c-b42318)" }}>{error}</div>}
+      {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
       {!data && !error && <LoadingState status="Loading tenant emails" />}
       {data && (
         <>
-          {data.due.length > 0 && (
-            <div className="card" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {data.due.map((d) => (
-                <div key={d.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <TriangleAlert size={20} strokeWidth={1.75} color="var(--c-b54708)" />
-                  <span style={{ fontWeight: 700 }}>{d.name}</span>
-                  <span className="muted">{d.overdue ? "was due" : "is due"} {fmtDate(d.dueISO)}</span>
-                  <button className="btn primary sm" style={{ marginLeft: "auto" }}
-                    onClick={() => setSending(data.templates.find((t) => t.id === d.id) ?? null)}>Draft {d.name}</button>
-                </div>
-              ))}
-            </div>
-          )}
+          {data.due.map((d) => (
+            <StatusBanner key={d.id} tone={d.overdue ? "danger" : "warning"} icon="clock"
+              title={<>{d.name} {d.overdue ? "was due" : "is due"} {fmtDate(d.dueISO)}</>}
+              actions={<button className="btn primary" onClick={() => setSending(data.templates.find((t) => t.id === d.id) ?? null)}>Draft {d.name}</button>}>
+              Draft it here, then send it from Outlook to your distribution lists.
+            </StatusBanner>
+          ))}
 
           {(["seasonal", "weather", "notice"] as const).map((kind) => (
             <div className="card" key={kind}>

@@ -1,5 +1,6 @@
 "use client";
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { UnitSelect } from "@/app/components/UnitSelect";
 import { useEffect, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
@@ -390,11 +391,7 @@ export default function DepositForm({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       {error && (
-        <div style={{
-          padding: "8px 10px", borderRadius: 8,
-          background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))",
-          color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
-        }}>{error}</div>
+        <StatusBanner compact tone="danger" title={error} />
       )}
 
       {/* Tenant / unit */}
@@ -470,15 +467,11 @@ export default function DepositForm({
       </div>
 
       {dupMatch && (
-        <div style={{
-          padding: "8px 10px", borderRadius: 8,
-          background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))",
-          color: "var(--c-b45309)", fontSize: "var(--fs-12)", fontWeight: 600,
-        }}>
+        <StatusBanner compact tone="warning" title="Possible duplicate">
           This tenant already has {dupMatch.checkNumber ? `check #${dupMatch.checkNumber}` : "a check"}
           {dupMatch.amount ? ` for $${dupMatch.amount.toLocaleString("en-US")}` : ""}
           {dupMatch.checkDate ? ` dated ${dupMatch.checkDate}` : ""} on file. If it&apos;s the same check, don&apos;t enter it twice.
-        </div>
+        </StatusBanner>
       )}
 
       {/* Check fields */}
@@ -547,14 +540,9 @@ export default function DepositForm({
 
       {/* Running tally of checks added this session (multi-check deposits). */}
       {addedChecks.length > 0 && (
-        <div style={{
-          fontSize: "var(--fs-12)", color: "var(--muted)", padding: "8px 10px", borderRadius: 8,
-          background: "var(--tint-green-bg, rgba(22,163,74,0.06))", border: "1px solid var(--tint-green-line, rgba(22,163,74,0.25))",
-        }}>
-          Added {addedChecks.length} check{addedChecks.length === 1 ? "" : "s"} for this tenant
-          {" "}({addedChecks.map((c) => `${c.checkNumber ? `#${c.checkNumber} ` : ""}$${c.amount.toLocaleString("en-US")}`).join(", ")}).
-          {" "}Enter the next check, or finish below.
-        </div>
+        <StatusBanner compact tone="success" title={<>Added {addedChecks.length} check{addedChecks.length === 1 ? "" : "s"} for this tenant</>}>
+          {addedChecks.map((c) => `${c.checkNumber ? `#${c.checkNumber} ` : ""}$${c.amount.toLocaleString("en-US")}`).join(", ")} · enter the next check, or finish below.
+        </StatusBanner>
       )}
 
       {/* Actions — changes save automatically; the button just closes. */}

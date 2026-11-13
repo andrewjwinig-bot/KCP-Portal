@@ -7,6 +7,7 @@
 // each credit itemized with its description, date and how long it has been
 // open, the last time we asked, and a one-click email that asks.
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -107,7 +108,7 @@ export default function OpenCreditsPage() {
           <InfoPopover><ImportInstructions variant="credit-balance" /></InfoPopover>
         </> : undefined} />
 
-      {error && <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}
+      {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
 
       {data && (
         <div className="muted small">

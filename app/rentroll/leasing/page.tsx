@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import LoadingState from "@/app/components/LoadingState";
 
@@ -619,10 +620,9 @@ function SnowBaseExclusions({
             firstYearPct={firstYearPct}
             snowData={snowData}
           />
-          <div className="small" style={{ marginTop: 10, padding: "9px 12px", borderRadius: 8, background: "var(--tint-brand-bg, rgba(11,74,125,0.05))", border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.18))", color: "var(--text)" }}>
-            From <b>{MONTH_NAMES[effMonth - 1]} {effYear}</b>, {selectedOption.occupantName}&rsquo;s Snow Removal base year is treated as <b>$0</b> — they recover their full pro-rata share of snow.
-            {" "}In {effYear} it&rsquo;s prorated to <b>~{firstYearPct}%</b> of the exclusion (snow from {MONTH_NAMES[effMonth - 1]}&ndash;December); every {effYear + 1}+ reconciliation is 100%.
-          </div>
+          <StatusBanner compact tone="info" style={{ marginTop: 10 }} title={<>From {MONTH_NAMES[effMonth - 1]} {effYear}, {selectedOption.occupantName}&rsquo;s Snow Removal base year is $0</>}>
+            They recover their full pro-rata share of snow. In {effYear} it&rsquo;s prorated to <b>~{firstYearPct}%</b> of the exclusion (snow from {MONTH_NAMES[effMonth - 1]}&ndash;December); every {effYear + 1}+ reconciliation is 100%.
+          </StatusBanner>
         </>
       )}
       {error && <div style={{ marginTop: 8, fontSize: "var(--fs-12)", color: "var(--c-b91c1c)", fontWeight: 600 }}>{error}</div>}

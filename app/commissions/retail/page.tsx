@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { X } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
@@ -643,7 +644,7 @@ export default function RetailCommissionsPage() {
           </button>
         </div>
         {sendNote && (
-          <div style={{ marginTop: 10, fontSize: "var(--fs-13)", fontWeight: 600, color: sendNote.ok ? "var(--c-15803d)" : "var(--c-b45309)" }}>{sendNote.text}</div>
+          <StatusBanner compact tone={sendNote.ok ? "success" : "warning"} style={{ marginTop: 10 }} title={sendNote.text} />
         )}
       </div>
 

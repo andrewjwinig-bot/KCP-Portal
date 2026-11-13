@@ -5,6 +5,7 @@
 // does it — September kept, the 2025 invoices voided in the record, and the
 // balances held through August put back on hold — and disappears once applied.
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { useEffect, useState } from "react";
 import { StatPill, Pill, TONE_AMBER } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
@@ -41,7 +42,7 @@ export function RepairCard({ onApplied }: { onApplied?: () => void }) {
     } finally { setBusy(false); setConfirming(false); }
   }
 
-  if (msg?.ok) return <div className="card small" style={{ color: "var(--c-15803d)", fontWeight: 700 }}>{msg.text}</div>;
+  if (msg?.ok) return <StatusBanner tone="success" title={msg.text} />;
   if (!plan) return null;
   return (
     <div className="card" style={{ padding: 0, borderColor: "var(--tint-amber-line, rgba(217,119,6,0.45))" }}>

@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
@@ -1619,9 +1620,7 @@ export default function InvestorInfoPage() {
       {/* A batch that failed outright — no results panel renders in that case,
           so without this the button would simply stop and say nothing. */}
       {view === "investor" && k1reg.errorAll && (
-        <div className="card no-print" style={{  background: "var(--tint-red-bg, rgba(220,38,38,0.05))", color: "var(--c-b91c1c)", fontSize: "var(--fs-13)", fontWeight: 700 }}>
-          {k1reg.errorAll}
-        </div>
+        <StatusBanner className="no-print" tone="danger" title="Something went wrong">{k1reg.errorAll}</StatusBanner>
       )}
 
       {view === "investor" && k1reg.batch?.key === "all-investors" && (
@@ -2560,20 +2559,14 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
           const missing = ownerNames.filter((n) => { const c = resolveContact(n); return !c || (!c.address && !c.email); });
           if (missing.length === 0) return null;
           return (
-            <div className="card no-print" style={{  background: "var(--tint-amber-bg, rgba(217,119,6,0.05))" }}>
-              <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, marginBottom: 4 }}>
-                {missing.length} of {ownerNames.length} owners have no send-to contact
-              </div>
-              <div className="muted small" style={{ marginBottom: 8 }}>Add a mailing address or email before the annual mailing so each statement is ready to send.{canEdit ? " Click a name to add it." : ""}</div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <StatusBanner className="no-print" tone="warning" title={<>{missing.length} of {ownerNames.length} owners have no send-to contact</>}>
+              Add a mailing address or email before the annual mailing so each statement is ready to send.{canEdit ? " Click a name to add it." : ""}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                 {missing.map((n) => (
-                  <button key={n} type="button" onClick={() => onPickOwner(n)}
-                    style={{ fontSize: "var(--fs-11)", fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.3))", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
-                    {n}
-                  </button>
+                  <button key={n} type="button" onClick={() => onPickOwner(n)} className="btn sm">{n}</button>
                 ))}
               </div>
-            </div>
+            </StatusBanner>
           );
         })()}
 
@@ -2583,23 +2576,16 @@ function StatementView({ beneficiary, estimates, onSaveEstimates, resolveContact
             .filter((x) => x.r.nonresident);
           if (nonres.length === 0) return null;
           return (
-            <div className="card no-print" style={{  background: "var(--tint-amber-bg, rgba(217,119,6,0.04))" }}>
-              <div style={{ fontSize: "var(--fs-13)", fontWeight: 700, marginBottom: 4 }}>
-                {nonres.length} nonresident owner{nonres.length === 1 ? "" : "s"} — potential PA withholding
-              </div>
-              <div className="muted small" style={{ marginBottom: 8 }}>
-                Out-of-state / foreign owners may be subject to PA nonresident tax withholding (3.07% of PA-source income) — and other-state withholding for non-PA properties. This is a K-1-time determination; <strong>confirm with your CPA</strong>. Owners with no address on file aren&rsquo;t assessed here.
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            <StatusBanner className="no-print" tone="warning" title={<>{nonres.length} nonresident owner{nonres.length === 1 ? "" : "s"} — potential PA withholding</>}>
+              Out-of-state / foreign owners may be subject to PA nonresident tax withholding (3.07% of PA-source income) — and other-state withholding for non-PA properties. This is a K-1-time determination; <strong>confirm with your CPA</strong>. Owners with no address on file aren&rsquo;t assessed here.
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
                 {nonres.map(({ n, r }) => (
-                  <button key={n} type="button" onClick={() => onPickOwner(n)}
-                    title={r.label}
-                    style={{ fontSize: "var(--fs-11)", fontWeight: 600, padding: "2px 8px", borderRadius: 999, border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.35))", background: "var(--card)", color: "var(--text)", cursor: "pointer", fontFamily: "inherit" }}>
+                  <button key={n} type="button" onClick={() => onPickOwner(n)} className="btn sm" title={r.label}>
                     {n} <span style={{ color: "var(--c-b45309)" }}>· {r.state ?? r.country}</span>
                   </button>
                 ))}
               </div>
-            </div>
+            </StatusBanner>
           );
         })()}
 

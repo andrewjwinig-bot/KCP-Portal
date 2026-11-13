@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { heldAmount } from "@/lib/deposits/deposits";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 
@@ -165,7 +166,7 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
 
       {header}
 
-      {error && <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", color: RED, fontWeight: 700 }}>{error}</div>}
+      {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
       {loading && !report && (
         <LoadingState status="Assembling the company snapshot…" context={`${MONTHS[month - 1]} ${year} · occupancy, NOI, leasing & service`} columns={3} rows={4} />
       )}

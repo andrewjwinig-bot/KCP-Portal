@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { PageHeader } from "@/app/components/PageHeader";
 import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 
@@ -271,13 +272,9 @@ export default function SecurityDepositsPage() {
       </div>
 
       {!loading && dupIds.size > 0 && (
-        <div style={{
-          padding: "10px 14px", borderRadius: 10, fontSize: "var(--fs-13)", fontWeight: 600,
-          background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))", color: "var(--c-b45309)",
-        }}>
-          {dupIds.size} deposit{dupIds.size === 1 ? "" : "s"} look like possible duplicates (same tenant &amp; check # or amount/date).
-          They&apos;re flagged below — expand the tenant, open each check to compare, then delete the extra.
-        </div>
+        <StatusBanner tone="warning" title={<>{dupIds.size} deposit{dupIds.size === 1 ? "" : "s"} look like possible duplicates</>}>
+          Same tenant &amp; check # or amount/date. They&apos;re flagged below — expand the tenant, open each check to compare, then delete the extra.
+        </StatusBanner>
       )}
 
       {loading ? (

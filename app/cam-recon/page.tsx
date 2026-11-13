@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import QuarterlySend, { type QuarterSendRecord } from "./QuarterlySend";
@@ -657,20 +658,11 @@ export default function OfficeCamReconPage() {
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
 
       {!loading && warnings.length > 0 && (
-        <div style={{
-          padding: "12px 14px", borderRadius: 10,
-          background: "var(--tint-red-bg, rgba(220,38,38,0.06))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))",
-          display: "flex", flexDirection: "column", gap: 6,
-        }}>
-          <div style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "var(--c-b91c1c)" }}>
-            {warnings.length} data {warnings.length === 1 ? "warning" : "warnings"} — review before billing
-          </div>
-          {warnings.map((w, i) => (
-            <div key={`${w.unitRef}-${i}`} style={{ fontSize: "var(--fs-12-5)", color: "var(--c-7f1d1d)", lineHeight: 1.5 }}>
-              • {w.message}
-            </div>
-          ))}
-        </div>
+        <StatusBanner tone="danger" title={<>{warnings.length} data {warnings.length === 1 ? "warning" : "warnings"} — review before billing</>}>
+          <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+            {warnings.map((w, i) => <li key={`${w.unitRef}-${i}`}>{w.message}</li>)}
+          </ul>
+        </StatusBanner>
       )}
 
       {/* Quarter-billed pseudo-property (e.g. Wawa @ 9510) — its own worksheet. */}

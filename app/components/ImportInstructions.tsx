@@ -1,3 +1,4 @@
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronRight } from "lucide-react";
 // Skyline steps shown alongside a Skyline hand-off. Two directions:
 //   variant "charges" (default) — pushing CAM/RET charges INTO Skyline (the
@@ -79,10 +80,9 @@ export function ImportInstructions({ stop, variant = "charges" }: { stop?: boole
     <div style={{ marginTop: 14 }}>
       <div style={LABEL}>Skyline Import Steps</div>
       {stop && (
-        <div style={{ marginTop: 8, background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.4))", borderRadius: 8, padding: "9px 12px" }}>
-          <div style={{ color: "var(--c-b91c1c)", fontWeight: 800, fontSize: "var(--fs-12-5)" }}>STOP the current year&rsquo;s charges BEFORE importing — otherwise tenants are double-charged.</div>
-          <div style={{ color: "var(--c-7f1d1d)", fontSize: "var(--fs-12)", marginTop: 3 }}>Property Management → Additional Functions → Universal Charges → Stop CAM, INS &amp; RET.</div>
-        </div>
+        <StatusBanner compact tone="danger" style={{ marginTop: 8 }} title="Stop the current year’s charges before importing">
+          Otherwise tenants are double-charged. Property Management → Additional Functions → Universal Charges → Stop CAM, INS &amp; RET.
+        </StatusBanner>
       )}
       <ol style={{ margin: "8px 0 0", paddingLeft: 18, fontSize: "var(--fs-12-5)", color: "var(--muted)", lineHeight: 1.7 }}>
         <li>Paste values into a blank workbook — <strong>do not paste headers</strong>.</li>

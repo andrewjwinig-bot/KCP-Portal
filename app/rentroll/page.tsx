@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { ChevronDown, ChevronUp, CircleCheck, FileText, Info, X, Upload } from "lucide-react";
 
@@ -1769,20 +1770,8 @@ export default function RentRollPage() {
     <DbaContext.Provider value={dbaByCode}>
     <main>
       {importedFlash && (
-        <div
-          role="status"
-          onClick={() => setImportedFlash(null)}
-          style={{
-            display: "flex", alignItems: "center", gap: 10, cursor: "pointer",
-            marginBottom: 16, padding: "12px 16px", borderRadius: 10,
-            background: "var(--tint-green-bg, rgba(22,163,74,0.10))", border: "1px solid var(--tint-green-line, rgba(22,163,74,0.5))",
-            color: "var(--c-15803d)", fontWeight: 700,
-          }}
-        >
-          <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" aria-hidden style={{ flexShrink: 0 }} />
-          <span style={{ flex: 1 }}>{importedFlash}</span>
-          <span className="small" style={{ fontWeight: 600, opacity: 0.75 }}>Dismiss <X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
-        </div>
+        <StatusBanner tone="success" style={{ marginBottom: 16 }} title={importedFlash}
+          actions={<button type="button" className="btn sm" onClick={() => setImportedFlash(null)}>Dismiss</button>} />
       )}
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
         <h1 style={{ margin: 0 }}>Rent Roll</h1>

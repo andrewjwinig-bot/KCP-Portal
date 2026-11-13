@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 // 1099 Register — the worksheet handed to the accountants each January.
@@ -130,7 +131,7 @@ export default function Ten99Page() {
         </>}
         meta={(data?.years ?? []).length === 0 && data ? <MetaLine>No General Ledger uploaded yet.</MetaLine> : undefined} />
 
-      {error && <div className="card" style={{  color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
+      {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
       {loading && <div className="card muted">Loading…</div>}
 
       {data && !loading && (

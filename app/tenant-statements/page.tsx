@@ -351,9 +351,9 @@ export default function ReceiptReconciliationPage() {
           {(unit || answering) && <button className="btn sm" onClick={resetWork}>Clear</button>}
         </div>
         {answering && (
-          <div className="small" style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.2))", borderRadius: 10, padding: "8px 12px" }}>
+          <StatusBanner compact tone="info" title="The tenant answered">
             Pick the application they asked for (or keep ours), add what they said, and confirm. Nothing is emailed.
-          </div>
+          </StatusBanner>
         )}
 
         <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "end" }}>

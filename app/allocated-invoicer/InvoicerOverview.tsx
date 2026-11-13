@@ -276,7 +276,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
           )}
           {toolbar}
         </div>
-        {rebuildMsg && <div className="small" style={{ padding: "0 14px 10px", fontWeight: 700, color: rebuildMsg.ok ? GREEN : "var(--c-b91c1c)" }}>{rebuildMsg.text}</div>}
+        {rebuildMsg && <StatusBanner compact tone={rebuildMsg.ok ? "success" : "danger"} style={{ margin: "0 14px 10px" }} title={rebuildMsg.text} />}
         {periods && periods.length > 0 ? (
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead><tr><th style={thL}>Month</th><th style={thL}>Sent to AvidXchange</th><th style={th}>Invoices</th><th style={th}>Total</th></tr></thead>

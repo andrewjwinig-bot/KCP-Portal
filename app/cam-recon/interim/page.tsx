@@ -783,22 +783,15 @@ export default function InterimReconPage() {
     </div>
   );
   const sanityCard = sanity && (
-    <div className="card" style={{ borderColor: sanity.ok ? "var(--tint-green-line, rgba(21,128,61,0.4))" : "var(--tint-amber-line, rgba(180,83,9,0.45))", background: sanity.ok ? "var(--tint-green-bg, rgba(22,163,74,0.05))" : "var(--tint-amber-bg, rgba(217,119,6,0.06))" }}>
-      <div style={{ fontWeight: 800, color: sanity.ok ? "var(--c-15803d)" : "var(--c-b45309)", marginBottom: sanity.findings.length ? 8 : 0 }}>
-        {sanity.ok ? "Looks reasonable — nothing flagged" : `${sanity.findings.length} thing${sanity.findings.length === 1 ? "" : "s"} to check before sending`}
-      </div>
+    <StatusBanner compact tone={sanity.ok ? "success" : "warning"}
+      title={sanity.ok ? "Looks reasonable — nothing flagged" : `${sanity.findings.length} thing${sanity.findings.length === 1 ? "" : "s"} to check before sending`}>
       {sanity.findings.length > 0 && (
-        <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
-          {sanity.findings.map((f, i) => (
-            <li key={i} style={{ fontSize: "var(--fs-13)" }}>
-              {f.severity === "warn" && <span style={{ color: "var(--c-b45309)", fontWeight: 700, marginRight: 4 }}><TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>}
-              {f.note}
-            </li>
-          ))}
+        <ul style={{ margin: "4px 0 0", paddingLeft: 20, display: "flex", flexDirection: "column", gap: 4 }}>
+          {sanity.findings.map((f, i) => <li key={i}>{f.note}</li>)}
         </ul>
       )}
-      <div className="muted small" style={{ marginTop: 8, fontStyle: "italic" }}>AI review · a sanity check, not a guarantee — verify anything flagged.</div>
-    </div>
+      <div className="muted" style={{ marginTop: 6, fontStyle: "italic" }}>AI review · a sanity check, not a guarantee — verify anything flagged.</div>
+    </StatusBanner>
   );
 
   // ── Move-out close-out package: CAM statement balance + security deposit +
@@ -892,7 +885,7 @@ export default function InterimReconPage() {
             : <>Sent to {approver.first} for approval {fmtWhen(approval.notifiedAt)}{approval.notifiedBy ? ` by ${approval.notifiedBy}` : ""}</>}
         </div>
       )}
-      {sendMsg?.ok && <div style={{ fontSize: "var(--fs-13)", marginTop: 8, fontWeight: 600, color: "var(--c-15803d)" }}>{sendMsg.text}</div>}
+      {sendMsg?.ok && <StatusBanner compact tone="success" style={{ marginTop: 8 }} title={sendMsg.text} />}
       {finalizeMsg && <div style={{ fontSize: "var(--fs-13)", marginTop: 8, fontWeight: 600, color: finalizeDone ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>{finalizeMsg}</div>}
       {confirmedGone && !meta.manual && unpostedMonths > 0 && approval?.status !== "approved" && (
         <div style={{ fontSize: "var(--fs-12-5)", marginTop: 8, color: "var(--c-b45309)", fontWeight: 600 }}>

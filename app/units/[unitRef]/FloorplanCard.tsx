@@ -1,5 +1,6 @@
 "use client";
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { useEffect, useRef, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import type { SuiteAttachment } from "@/lib/suites/information";
@@ -116,11 +117,7 @@ export default function FloorplanCard({ unitRef }: { unitRef: string }) {
       <SectionLabel>Floorplan</SectionLabel>
 
       {error && (
-        <div style={{
-          margin: "0 0 8px", padding: "8px 10px", borderRadius: 8,
-          background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))",
-          color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
-        }}>{error}</div>
+        <StatusBanner compact tone="danger" style={{ margin: "0 0 8px" }} title={error} />
       )}
 
       {loading ? (

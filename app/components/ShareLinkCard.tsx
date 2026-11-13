@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { Check, TriangleAlert } from "lucide-react";
 
 // The share-a-private-link DIALOG, in one place.
@@ -602,16 +603,10 @@ export function ShareLinkCard({
                       nothing. Indistinguishable from a real send from in here,
                       which is exactly why it has to be said out loud. */}
                   {outcome.testMode && (
-                    <div style={{
-                      marginTop: 10, borderRadius: 9, padding: "10px 12px", textAlign: "left",
-                      border: "1.5px solid var(--tint-red-line, rgba(220,38,38,0.45))", background: "var(--tint-red-bg, rgba(220,38,38,0.07))",
-                      fontSize: "var(--fs-12-5)", color: "var(--c-b91c1c)", fontWeight: 600,
-                    }}>
-                      <b>Nothing was actually delivered.</b> Postmark is using its TEST token, which
-                      accepts every message and sends none. Set a real <code>POSTMARK_SERVER_TOKEN</code>{" "}
-                      in the project&rsquo;s environment — until then no investor receives anything,
-                      however this dialog reads.
-                    </div>
+                    <StatusBanner compact tone="danger" style={{ marginTop: 10, textAlign: "left" }} title="Nothing was actually delivered">
+                      Postmark is using its TEST token, which accepts every message and sends none. Set a real <code>POSTMARK_SERVER_TOKEN</code>{" "}
+                      in the project&rsquo;s environment — until then no investor receives anything, however this dialog reads.
+                    </StatusBanner>
                   )}
 
                   <div style={{ marginTop: 12, textAlign: outcome.error ? "left" : "center" }}>

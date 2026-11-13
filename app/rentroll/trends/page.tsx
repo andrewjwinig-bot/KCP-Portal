@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronLeft, Upload } from "lucide-react";
 import LoadingState from "@/app/components/LoadingState";
 
@@ -239,16 +240,7 @@ export default function TrendsPage() {
       )}
 
       {(uploadError || uploadOk) && (
-        <div style={{
-          padding: "10px 14px",
-          borderRadius: 8,
-          fontSize: "var(--fs-13)",
-          background: uploadError ? "var(--tint-red-bg, rgba(220,38,38,0.06))" : "var(--tint-green-bg, rgba(22,163,74,0.06))",
-          border: `1px solid ${uploadError ? "var(--tint-red-line, rgba(220,38,38,0.3))" : "var(--tint-green-line, rgba(22,163,74,0.3))"}`,
-          color: uploadError ? "var(--c-b91c1c)" : "var(--c-166534)",
-        }}>
-          {uploadError ?? uploadOk}
-        </div>
+        <StatusBanner compact tone={uploadError ? "danger" : "success"} title={uploadError ?? uploadOk} />
       )}
 
       {/* ── Chart card ── */}

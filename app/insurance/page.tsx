@@ -13,6 +13,7 @@
 // Replacing the form is a quiet link, for the rare year the broker changes it;
 // it must never read as the first step.
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
@@ -158,8 +159,8 @@ export default function InsurancePage() {
             }]}
           />} />
 
-      {error && <div className="card" style={{  color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{error}</div>}
-      {notice && <div className="card" style={{  color: "var(--c-15803d)", fontWeight: 600, fontSize: "var(--fs-13)" }}>{notice}</div>}
+      {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
+      {notice && <StatusBanner tone="success" title={notice} />}
       {loading && !data && <div className="card muted">Loading…</div>}
 
       {data && !data.stored && (

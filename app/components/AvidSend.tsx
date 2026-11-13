@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { CircleCheck, FileText, X } from "lucide-react";
 
 // Shared "Review before send to AvidXchange" gate + success confirmation, used
@@ -106,9 +107,7 @@ export function AvidReviewModal(props: {
           go to <b>AvidXchange</b> (<code style={{ fontSize: "var(--fs-11)" }}>kormancommercial@avidbill.com</code>) for processing, cc Marie, Drew &amp; Harry. Nothing has been sent yet.
         </div>
         {note && (
-          <div className="small" style={{ marginBottom: 10, padding: "7px 10px", borderRadius: 8, background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.25))", color: "var(--c-0b4a7d)", fontWeight: 600 }}>
-            {note}
-          </div>
+          <StatusBanner compact tone="info" style={{ marginBottom: 10 }} title={note} />
         )}
         <PropertyTable rows={byProperty} total={total} />
         {attachments && attachments.length > 0 && (

@@ -34,10 +34,12 @@ export default function AppShell({ children, website = false }: { children: Reac
   // until we know who is signed in, keep whatever the pre-paint script set.
   useEffect(() => {
     if (!hydrated) return;
-    const reviewer = isSkinReviewer(loggedInUser);
-    const skin = readSkin(reviewer);
-    // Remember it so the pre-paint script draws the right look next load.
-    try { if (reviewer) localStorage.setItem("kcp:skin", skin); else localStorage.removeItem("kcp:skin"); } catch { /* ignore */ }
+    // Mid sign-in / user switch there is briefly no one signed in: keep the
+    // look already on the page rather than flashing classic for a frame. The
+    // stored choice is never cleared here — it is the person's, per browser,
+    // and the pre-paint script reads it (new look unless "classic").
+    if (!loggedInUser && !isPublic) return;
+    const skin = readSkin(isSkinReviewer(loggedInUser));
     applySkin(skin, isPublic);
     setTipsOn(skin === "studio" && !isPublic);
   }, [isPublic, hydrated, loggedInUser]);

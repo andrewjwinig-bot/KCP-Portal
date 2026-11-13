@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { heldAmount } from "@/lib/deposits/deposits";
 import { ChevronRight, X } from "lucide-react";
 
@@ -925,41 +926,15 @@ function DashboardInner() {
                 const id = `bank-rec-${bankRec.period}`;
                 if (dismissedNotices.has(id)) return null;
                 return (
-              <div style={{
-                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
-                padding: "10px 12px",
-                border: "1px solid var(--border)",
-                background: "var(--card)",
-                borderRadius: 8,
-              }}>
-                <span style={{
-                  width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0,
-                  background: bankRec.status === "done" ? "var(--c-16a34a)"
-                    : bankRec.status === "overdue" ? "var(--c-b91c1c)"
-                    : bankRec.status === "today" ? "var(--c-dc2626)"
-                    : bankRec.status === "soon" ? "var(--c-d97706)"
-                    : "var(--c-64748b)",
-                }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>
-                    Reconcile Bank Statements — {bankRecPeriodLabel(bankRec.period)}
-                    {bankRec.status === "overdue" && (
-                      <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>
-                        PAST DUE
-                      </Pill></span>
-                    )}
-                  </div>
-                  <div className="muted small" style={{ marginTop: 2 }}>
-                    {bankRec.recDone === bankRec.total
-                      ? `All ${bankRec.total} accounts reconciled`
-                      : `${bankRec.recDone}/${bankRec.total} reconciled · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
-                  </div>
-                </div>
-                <Link href="/bank-rec" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                  Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
-                </Link>
-                <DismissBtn onClick={() => dismissNotice(id)} />
-              </div>
+              <StatusBanner compact style={{ flex: "1 1 260px", minWidth: 0 }}
+                tone={bankRec.status === "done" ? "success" : bankRec.status === "overdue" || bankRec.status === "today" ? "danger" : bankRec.status === "soon" ? "warning" : "info"}
+                icon={bankRec.status === "done" ? "check" : "clock"}
+                title={<>Reconcile Bank Statements — {bankRecPeriodLabel(bankRec.period)}{bankRec.status === "overdue" ? " · past due" : ""}</>}
+                actions={<><Link className="btn sm" href="/bank-rec" style={{ textDecoration: "none" }}>Open</Link><DismissBtn onClick={() => dismissNotice(id)} /></>}>
+                {bankRec.recDone === bankRec.total
+                  ? `All ${bankRec.total} accounts reconciled`
+                  : `${bankRec.recDone}/${bankRec.total} reconciled · due ${bankRec.date.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+              </StatusBanner>
                 );
               })()}
 
@@ -969,25 +944,11 @@ function DashboardInner() {
                 const id = `ach-wires-${currentPeriod("weekly")}`;
                 if (dismissedNotices.has(id)) return null;
                 return (
-              <div style={{
-                display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
-                padding: "10px 12px",
-                border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.35))",
-                background: "var(--tint-brand-bg, rgba(11,74,125,0.07))",
-                borderRadius: 8,
-              }}>
-                <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "var(--c-0b4a7d)" }} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>Download ACH &amp; Incoming Wires</div>
-                  <div className="muted small" style={{ marginTop: 2 }}>
-                    Weekly · Mondays — download tenant ACH/wires and send to Tami.
-                  </div>
-                </div>
-                <Link href="/tracker" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                  Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
-                </Link>
-                <DismissBtn onClick={() => dismissNotice(id)} />
-              </div>
+              <StatusBanner compact tone="warning" icon="clock" style={{ flex: "1 1 260px", minWidth: 0 }}
+                title="Download ACH & Incoming Wires"
+                actions={<><Link className="btn sm" href="/tracker" style={{ textDecoration: "none" }}>Open</Link><DismissBtn onClick={() => dismissNotice(id)} /></>}>
+                Weekly · Mondays — download tenant ACH/wires and send to Tami.
+              </StatusBanner>
                 );
               })()}
 
@@ -1001,52 +962,12 @@ function DashboardInner() {
                   const border = "var(--border)";
                   const relative = overdue ? `${Math.abs(n.daysUntil)} day${Math.abs(n.daysUntil) === 1 ? "" : "s"} ago` : n.daysUntil === 0 ? "today" : `in ${n.daysUntil} day${n.daysUntil === 1 ? "" : "s"}`;
                   return (
-                    <div
-                      key={n.id}
-                      style={{
-                        display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 260px", minWidth: 0,
-                        padding: "10px 12px",
-                        border: `1px solid ${border}`,
-                        background: bg,
-                        borderRadius: 8,
-                      }}
-                    >
-                      <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: accent }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>
-                          Exercise Option Notice Date — {n.tenant || "(no tenant)"}
-                          {overdue && (
-                            <span style={{ marginLeft: 8 }}><Pill tone={TONE_RED}>PAST DUE</Pill></span>
-                          )}
-                        </div>
-                        <div className="muted small" style={{ marginTop: 2 }}>
-                          {n.building && <span>Bldg {n.building} · </span>}
-                          <span>{n.noticeDate}</span>
-                          <span style={{ marginLeft: 6, color: accent, fontWeight: 600 }}>({relative})</span>
-                        </div>
-                      </div>
-                      <Link href="/rentroll/leasing" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                        Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
-                      </Link>
-                      <button
-                        onClick={() => dismissNotice(n.id)}
-                        title="Dismiss"
-                        aria-label="Dismiss notice item"
-                        style={{
-                          width: 22, height: 22, padding: 0, marginTop: 1, marginLeft: 4,
-                          borderRadius: 4,
-                          border: "1px solid rgba(15,23,42,0.18)",
-                          background: "rgba(255,255,255,0.6)",
-                          color: "var(--muted)",
-                          cursor: "pointer",
-                          fontSize: "var(--fs-13)", lineHeight: 1, fontWeight: 700,
-                          display: "inline-flex", alignItems: "center", justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
-                      </button>
-                    </div>
+                    <StatusBanner key={n.id} compact tone={overdue || urgent ? "danger" : "warning"} icon="clock" style={{ flex: "1 1 260px", minWidth: 0 }}
+                      title={<>Exercise Option Notice Date — {n.tenant || "(no tenant)"}{overdue ? " · past due" : ""}</>}
+                      actions={<><Link className="btn sm" href="/rentroll/leasing" style={{ textDecoration: "none" }}>Open</Link><DismissBtn onClick={() => dismissNotice(n.id)} /></>}>
+                      {n.building && <span>Bldg {n.building} · </span>}
+                      {n.noticeDate} · {relative}
+                    </StatusBanner>
                   );
                 })}
             </div>
@@ -1086,32 +1007,12 @@ function DashboardInner() {
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {bankTransferNotices.filter((n) => !dismissedNotices.has(n.id)).map((n) => (
-                <div
-                  key={n.id}
-                  style={{
-                    display: "flex", alignItems: "flex-start", gap: 10, flex: "1 1 320px", minWidth: 0,
-                    padding: "10px 12px",
-                    border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.30))",
-                    background: "var(--tint-brand-bg, rgba(11,74,125,0.06))",
-                    borderRadius: 8,
-                  }}
-                >
-                  <span style={{ width: 10, height: 10, borderRadius: 999, marginTop: 5, flexShrink: 0, background: "var(--c-0b4a7d)" }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: "var(--fs-14)" }}>
-                      {n.amount.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 })}
-                      <span style={{ color: "var(--muted)", fontWeight: 500 }}> · {n.from} → {n.to}</span>
-                    </div>
-                    <div className="muted small" style={{ marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {formatShortDate(new Date(n.date + "T00:00:00"))}
-                      {n.description ? ` · ${n.description}` : ""}
-                    </div>
-                  </div>
-                  <Link href="/bank-transfers" style={{ fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-0b4a7d)", textDecoration: "none", flexShrink: 0, alignSelf: "center" }}>
-                    Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} />
-                  </Link>
-                  <DismissBtn onClick={() => dismissNotice(n.id)} />
-                </div>
+                <StatusBanner key={n.id} compact tone="info" style={{ flex: "1 1 320px", minWidth: 0 }}
+                  title={<>{n.amount.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 })} · {n.from} to {n.to}</>}
+                  actions={<><Link className="btn sm" href="/bank-transfers" style={{ textDecoration: "none" }}>Open</Link><DismissBtn onClick={() => dismissNotice(n.id)} /></>}>
+                  {formatShortDate(new Date(n.date + "T00:00:00"))}
+                  {n.description ? ` · ${n.description}` : ""}
+                </StatusBanner>
               ))}
             </div>
           </div>

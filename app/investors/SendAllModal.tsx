@@ -10,6 +10,7 @@
 // fewer K-1s than they hold. So it is a real dialog, rendered like the share
 // card it sits beside.
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pill, TONE_NEUTRAL, TONE_GREEN, TONE_RED, TONE_AMBER } from "@/app/components/Pill";
@@ -228,17 +229,7 @@ export function SendAllModal({
 }
 
 function Note({ tone, title, children }: { tone: "amber" | "neutral"; title: string; children: React.ReactNode }) {
-  const amber = tone === "amber";
-  return (
-    <div style={{
-      borderRadius: 9, padding: "9px 12px", fontSize: "var(--fs-12-5)", lineHeight: 1.5,
-      background: amber ? "var(--tint-amber-bg, rgba(217,119,6,0.08))" : "var(--tint-neutral-faint, rgba(15,23,42,0.035))",
-      border: `1px solid ${amber ? "var(--tint-amber-line, rgba(217,119,6,0.35))" : "var(--border)"}`,
-    }}>
-      <div style={{ fontWeight: 700, color: amber ? "var(--c-b45309)" : "var(--text)" }}>{title}</div>
-      <div className="muted" style={{ marginTop: 2 }}>{children}</div>
-    </div>
-  );
+  return <StatusBanner compact tone={tone === "amber" ? "warning" : "info"} title={title}>{children}</StatusBanner>;
 }
 
 /**
