@@ -97,6 +97,9 @@ export function composeCashPosition(view: BalanceView, now = new Date()) {
   const deposits = rows.filter((r) => r.restricted).reduce((s, r) => s + num(r.balance), 0);
   const reserves = ops.reduce((s, r) => s + (r.balance == null ? 0 : r.reserves), 0);
   const net = ops.reduce((s, r) => s + num(r.netAvailable), 0);
+  // Tenants' net open credits, held inside Reserves (owner: "say somewhere what
+  // total credits are just so alison knows").
+  const credits = view.tenantCredits?.total ?? 0;
   const debt = rows.reduce((s, r) => s + num(r.debt), 0) + (view.unplacedDebt ?? 0);
   const debtService = rows.reduce((s, r) => s + num(r.debtService), 0) + (view.unplacedDebtService ?? 0);
   const compared = rows.filter((r) => r.change != null);
@@ -133,7 +136,7 @@ export function composeCashPosition(view: BalanceView, now = new Date()) {
       { label: "Cash in bank", value: big(cash) },
       ...(change != null ? [{ label: "Week over week", value: `${signed(change)}${priorAsOf ? ` since ${longDate(priorAsOf)}` : ""}`, tone: (change >= 0 ? "good" : "bad") as "good" | "bad" }] : []),
       { label: "Security deposits", value: `${big(deposits)} held for tenants` },
-      { label: "Reserves", value: big(reserves) },
+      { label: "Reserves", value: credits > 0 ? `${big(reserves)} incl. ${big(credits)} tenant credits` : big(reserves) },
       { label: "Debt service", value: `${big(debtService)} a month` },
       ...(lowRows.length ? [{ label: `Below ${big(LOW_BALANCE)}`, value: lowRows.map((r) => `${r.name} ${cell(r.balance)}`).join(" · "), tone: "warn" as const }] : []),
     ],
@@ -150,7 +153,7 @@ export function composeCashPosition(view: BalanceView, now = new Date()) {
     `Cash in bank          ${money0(cash)}`,
     ...(change != null ? [`  Week over week       ${change >= 0 ? "+" : ""}${money0(change)}${priorAsOf ? ` since ${longDate(priorAsOf)}` : ""}`] : []),
     `Security deposits     ${money0(deposits)}  (tenants' money, held in full)`,
-    `Reserves              ${money0(reserves)}`,
+    `Reserves              ${money0(reserves)}${credits > 0 ? `  (incl. ${money0(credits)} tenant credits)` : ""}`,
     `Net available         ${money0(net)}`,
     `Debt service / month  ${money0(debtService)}  (${money0(debt)} principal; not deducted)`,
     "",

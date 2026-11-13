@@ -28,6 +28,7 @@ type Account = { id: string; bank: string; last4: string; name: string; link: st
 type Row = {
   key: string; name: string; group: string; restricted: boolean; accounts: Account[];
   balance: number | null; reserves: number; reservesAuto: number; reservesOverridden: boolean; netAvailable: number | null;
+  reservesCapex?: number; tenantCredits?: { total: number; asOf: string | null; tenants: { unitRef: string; tenantName: string; credit: number }[] } | null;
   change: number | null; priorBalance: number | null; priorAsOf: string | null;
   debt: number | null;
   debtService: number | null;
@@ -36,6 +37,7 @@ type Row = {
 };
 type View = {
   ym: string; rows: Row[]; groups: string[]; canEdit: boolean; unplacedDebt: number; unplacedDebtService: number;
+  tenantCredits?: { total: number; asOf: string | null };
   unmatched: { bank: string; last4: string; name: string; balance: number }[];
   byBank: { bank: string; asOf: string | null; importedAt: string | null; importedBy: string | null; accounts: number }[];
   /** The header tiles over time — one point per import date. */
@@ -76,6 +78,24 @@ function ChangeCell({ change, prior, priorAsOf, now, bold }: { change: number | 
   );
 }
 /** The rows that can be compared, and their figures. */
+/** The reserve hover: the Big Projects part and the tenants' net credits,
+ *  the largest five tenants named (owner: "on a hover show breakdown between
+ *  credits and capex items"). */
+function reserveRows(r: Row): { label: string; value: string; color?: string }[] {
+  const capex = r.reservesCapex ?? r.reserves;
+  const out: { label: string; value: string; color?: string }[] = [
+    { label: r.reservesOverridden ? "Big Projects · typed over" : "Big Projects · next 3 months", value: money0(capex), color: r.reservesOverridden ? "var(--input-typed)" : undefined },
+  ];
+  const tc = r.tenantCredits;
+  if (tc && tc.total > 0) {
+    out.push({ label: `Tenant credits${tc.asOf ? ` · as of ${shortDate(tc.asOf)}` : ""}`, value: money0(tc.total) });
+    for (const t of tc.tenants.slice(0, 5)) out.push({ label: `  ${t.tenantName}`, value: money0(t.credit), color: "var(--muted)" });
+    if (tc.tenants.length > 5) out.push({ label: `  ${tc.tenants.length - 5} others`, value: money0(tc.tenants.slice(5).reduce((a, t) => a + t.credit, 0)), color: "var(--muted)" });
+    out.push({ label: "Total reserve", value: money0(r.reserves) });
+  }
+  return out;
+}
+
 function changeOf(rs: Row[]) {
   const c = rs.filter((r) => r.change != null);
   if (!c.length) return { change: null, prior: null, now: null, priorAsOf: null };
@@ -179,9 +199,13 @@ export default function BankBalancesView() {
     const value = t === "" ? null : Number(t);
     if (value != null && !Number.isFinite(value)) return;
     if (value === (row.reservesOverridden ? row.reserves : null)) return;
+    // The cell shows the WHOLE reserve; what is stored is the Big Projects part
+    // (typed − the tenants' credits), so the credits keep moving with the reports.
+    const credits = row.tenantCredits?.total ?? 0;
+    const capex = value == null ? null : Math.max(0, Math.round(value - credits));
     fetch("/api/financials/cash-sheet", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ym: data?.ym, code: row.key, kind: "reserves", value }),
+      body: JSON.stringify({ ym: data?.ym, code: row.key, kind: "reserves", value: capex }),
     }).then((r) => { if (r.ok) { setDraft((d) => { const n = { ...d }; delete n[row.key]; return n; }); load(); } }).catch(() => {});
   };
 
@@ -249,7 +273,8 @@ export default function BankBalancesView() {
           <StatPill label="Cash in bank" value={money0(totalCash)} onClick={() => setTrendOpen("cash")} hint="Cash in bank over time"
             sub={wow.change != null ? `${wow.change >= 0 ? "Up" : "Down"} ${money0(Math.abs(wow.change))} since ${shortDate(wow.priorAsOf)}` : undefined} />
           <StatPill label="Security deposits" value={money0(restricted)} sub="Tenants' money" onClick={() => setTrendOpen("deposits")} hint="Security deposits over time" />
-          <StatPill label="Reserves" value={money0(reserves)} sub={handsOff ? `Big Projects · incl. ${money0(handsOff)} hands off` : "Big Projects, next 3 months"} />
+          <StatPill label="Reserves" value={money0(reserves)}
+            sub={[(data.tenantCredits?.total ?? 0) > 0 ? `Incl. ${money0(data.tenantCredits!.total)} tenant credits` : "Big Projects, next 3 months", handsOff ? `${money0(handsOff)} hands off` : ""].filter(Boolean).join(" · ")} />
           <StatPill label="Net available" value={money0(net)} total onClick={() => setTrendOpen("net")} hint="Net available over time" />
           <StatPill label="Debt service / mo" value={money0(debtService)} sub={`${money0(debt)} principal · not netted`} />
         </div>
@@ -336,11 +361,7 @@ export default function BankBalancesView() {
                                   <span>{money0(r.balance)}</span>
                                 </HoverCard>
                               ) : data.canEdit ? (
-                                <HoverCard title="Reserve"
-                                  rows={[
-                                    { label: "Budget Big Projects (this month + next 2)", value: money0(r.reservesAuto) },
-                                    ...(r.reservesOverridden ? [{ label: "Typed over", value: money0(r.reserves), color: "var(--c-0b4a7d)" }] : []),
-                                  ]}
+                                <HoverCard title="Reserve" rows={reserveRows(r)}
                                   footer={{ label: "Blank it to go back to the budget", value: "" }}>
                                   <input value={draft[r.key] ?? (r.reserves ? Math.round(r.reserves).toLocaleString("en-US") : "")} placeholder="—"
                                     onChange={(e) => setDraft((d) => ({ ...d, [r.key]: e.target.value }))}
@@ -348,6 +369,8 @@ export default function BankBalancesView() {
                                     onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
                                     style={{ ...reserveInput, fontWeight: r.reservesOverridden ? 700 : 400, color: r.reservesOverridden ? "var(--input-typed)" : undefined }} />
                                 </HoverCard>
+                              ) : r.tenantCredits ? (
+                                <HoverCard title="Reserve" rows={reserveRows(r)}><span>{money0(r.reserves)}</span></HoverCard>
                               ) : money0(r.reserves)}
                             </td>
                             <td style={netCol}>{r.restricted ? "—" : money0(r.netAvailable)}</td>

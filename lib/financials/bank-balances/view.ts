@@ -16,6 +16,8 @@ import { priorFor } from "./weekOverWeek";
 import { ACCRUED_ACCOUNTS, accruedBalance } from "./accrued";
 import { listLoans } from "@/lib/debt/storage";
 import { summarizeLoan, monthlyOutlay } from "@/lib/debt/amortization";
+import { openCreditTenants } from "@/lib/statements/openCreditTenants";
+import { creditsForLine, netCreditsByProperty, type LineCredits } from "./tenantCredits";
 
 // A fund's loan is booked on its holding entity; the cash is the fund's line.
 const LOAN_TO_ROW: Record<string, string> = { "3600": "PJV3", "4000": "PNIPLX" };
@@ -31,7 +33,13 @@ export type ViewRow = {
   accounts: ViewAccount[];
   /** Null when none of the line's accounts has been imported. */
   balance: number | null;
+  /** Everything held back: the Big Projects part (typed or the budget's) plus
+   *  the tenants' net credits (`tenantCredits.ts`). */
   reserves: number; reservesAuto: number; reservesOverridden: boolean;
+  /** The Big Projects part alone — what the reserve cell types over. */
+  reservesCapex?: number;
+  /** Tenants' net open credits on this line's properties, held in reserve. */
+  tenantCredits?: LineCredits | null;
   netAvailable: number | null;
   /** Week over week: balance − last week's, only when EVERY imported account
    *  of the line has a baseline (a half-compared line would mislead). */
@@ -59,6 +67,8 @@ export type BalanceView = {
   unplacedDebt: number;
   /** Monthly debt service of those loans. */
   unplacedDebtService: number;
+  /** Every line's tenant credits together, and the report date they read. */
+  tenantCredits?: { total: number; asOf: string | null };
   byBank: { bank: string; asOf: string | null; importedAt: string | null; importedBy: string | null; accounts: number }[];
 };
 
@@ -75,7 +85,8 @@ function linkFor(last4: string): string | null {
 export async function buildBalanceView(now = new Date()): Promise<BalanceView> {
   const year = now.getFullYear(), month = now.getMonth() + 1;
   const ym = monthKey(year, month);
-  const [doc, reserveData, sheet, loans, snapshots] = await Promise.all([loadBalances(), bigProjectsReserveFor(year, month), getMonth(ym), listLoans().catch(() => []), loadSnapshots()]);
+  const [doc, reserveData, sheet, loans, snapshots, credits] = await Promise.all([loadBalances(), bigProjectsReserveFor(year, month), getMonth(ym), listLoans().catch(() => []), loadSnapshots(),
+    openCreditTenants().then((c) => netCreditsByProperty(c.tenants)).catch(() => new Map<string, LineCredits>())]);
 
   const rows = new Map<string, ViewRow>();
   const known = new Set<string>();
@@ -88,9 +99,13 @@ export async function buildBalanceView(now = new Date()): Promise<BalanceView> {
     if (!row) {
       const auto = e.reserveCodes.reduce((s, c) => s + (reserveData.byCode[c.toUpperCase()] ?? 0), 0);
       const ov = sheet?.rows?.[e.key]?.reserves;
+      const capex = e.restricted ? 0 : ov != null ? ov : auto;
+      const tc = e.restricted ? null : creditsForLine(credits, e.reserveCodes);
+      const held = tc && tc.total > 0 ? tc : null;
       row = {
         key: e.key, name: e.name, group: e.group, restricted: !!e.restricted, accounts: [], balance: null,
-        reserves: e.restricted ? 0 : ov != null ? ov : auto, reservesAuto: auto, reservesOverridden: !e.restricted && ov != null, netAvailable: null,
+        reserves: Math.round((capex + (held?.total ?? 0)) * 100) / 100, reservesAuto: auto, reservesOverridden: !e.restricted && ov != null,
+        reservesCapex: capex, tenantCredits: held, netAvailable: null,
         change: null, priorBalance: null, priorAsOf: null,
         debt: null, debtService: null, loans: [],
       };
@@ -112,7 +127,7 @@ export async function buildBalanceView(now = new Date()): Promise<BalanceView> {
       key: x.key, name: x.name, group: "Management", restricted: false,
       accounts: [{ id, bank: x.bank, last4: x.last4, name: x.name, link: linkFor(x.last4), balance, available: b?.available ?? null, asOf,
         prior: b ? priorFor(id, b.asOf, snapshots) : { balance: accruedBalance(x, weekAgo), asOf: weekAgo } }],
-      balance: null, reserves: 0, reservesAuto: 0, reservesOverridden: false, netAvailable: null,
+      balance: null, reserves: 0, reservesAuto: 0, reservesOverridden: false, reservesCapex: 0, tenantCredits: null, netAvailable: null,
       change: null, priorBalance: null, priorAsOf: null, debt: null, debtService: null, loans: [],
       handsOff: { accrued: !b, anchor: x.anchor, rate: x.rate, monthlyFee: x.monthlyFee },
     });
@@ -157,8 +172,14 @@ export async function buildBalanceView(now = new Date()): Promise<BalanceView> {
   }
 
   const order = (g: BalanceGroup) => BALANCE_GROUPS.indexOf(g);
+  const held = [...rows.values()].filter((r) => r.balance != null && r.tenantCredits);
+  const tenantCredits = {
+    total: Math.round(held.reduce((t, r) => t + (r.tenantCredits?.total ?? 0), 0) * 100) / 100,
+    asOf: held.map((r) => r.tenantCredits?.asOf ?? "").filter(Boolean).sort().pop() ?? null,
+  };
   return {
     ym,
+    tenantCredits,
     rows: [...rows.values()].sort((a, b) => order(a.group) - order(b.group) || a.key.localeCompare(b.key)),
     groups: [...BALANCE_GROUPS],
     unplacedDebt,

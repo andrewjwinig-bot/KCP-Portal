@@ -12,9 +12,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { currentAging, importAging } from "@/lib/statements/agingStore";
-import { agingLookup, creditLinesOf, daysOpen, laserCreditTenants, MIN_OPEN_CREDIT, type CurrentAgingTenant, type OpenCreditTenant } from "@/lib/statements/aging";
-import { allRuns } from "@/lib/statements/store";
-import { laserDate } from "@/lib/statements/currentAccount";
+import { agingLookup, creditLinesOf, daysOpen, MIN_OPEN_CREDIT, type CurrentAgingTenant, type OpenCreditTenant } from "@/lib/statements/aging";
+import { openCreditTenants } from "@/lib/statements/openCreditTenants";
 import { creditNoticeParts, creditNoticeTableHtml, creditTotals, nextMonthLabel, renderCreditNotice } from "@/lib/statements/creditNotice";
 import { allCorrespondence, newCorrespondenceId, recordTenantEmail } from "@/lib/statements/correspondenceStore";
 import { creditNotes } from "@/lib/statements/creditNoteStore";
@@ -38,17 +37,6 @@ async function who(): Promise<string | null> {
   return u ? USERS[u]?.label ?? u : null;
 }
 const money2 = (n: number) => `$${Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-
-/** Every tenant with a credit: the Credit Balance report where it covers the
- *  property, else the newest laser statement — the same account Receipt
- *  Reconciliation reads. */
-async function openCreditTenants(): Promise<{ tenants: OpenCreditTenant[]; coverage: Record<string, string>; laserPeriod: string | null; laserAsOf: string | null }> {
-  const [aging, runs] = await Promise.all([currentAging(), allRuns().catch(() => [])]);
-  const run = runs[0] ?? null;
-  const laser = run ? laserCreditTenants(run.statements, aging.coverage, (st) => laserDate(st, run.updatedAt)) : [];
-  const laserAsOf = laser.map((t) => t.asOf).sort().pop() ?? null;
-  return { tenants: [...aging.tenants, ...laser], coverage: aging.coverage, laserPeriod: laser.length ? run!.period : null, laserAsOf };
-}
 
 async function tenantOf(unit: string): Promise<CurrentAgingTenant | null> {
   const hit = agingLookup(await currentAging(), unit);
