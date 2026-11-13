@@ -1,7 +1,7 @@
 "use client";
 
 // The month-end close at a glance (owner, 11/2026): what is still open for
-// last month, each line saying what is left. The full checklist and the
+// last month — one row per item, what is left on hover. The full checklist and the
 // sign-off are on /close. Flags to Investigate is counted there, not here —
 // its sweep is too slow for the dashboard.
 
@@ -11,6 +11,10 @@ import { CLOSE_ITEM_STEPS } from "@/lib/tracker/importSteps";
 import Link from "next/link";
 import { ChevronRight, Circle, CircleCheck } from "lucide-react";
 import type { MonthClose } from "@/lib/close/monthClose";
+import { HoverCard } from "@/app/components/HoverCard";
+
+const TOP = 5;
+const statusStyle = (done: boolean): React.CSSProperties => ({ fontSize: "var(--fs-13)", fontWeight: 700, color: done ? "var(--c-067647)" : "var(--c-b54708)", textAlign: "right", whiteSpace: "nowrap" });
 
 export default function MonthCloseCard({ close }: { close?: MonthClose | null } = {}) {
   const [own, setData] = useState<MonthClose | null>(null);
@@ -47,18 +51,18 @@ export default function MonthCloseCard({ close }: { close?: MonthClose | null } 
           {it.done
             ? <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" aria-label="Done" />
             : <Circle size={20} strokeWidth={1.75} color="var(--c-98a2b3)" aria-label="Open" />}
-          <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: "var(--fs-14)" }}>{it.label}{CLOSE_ITEM_STEPS[it.id] && <ImportStepsButton id={CLOSE_ITEM_STEPS[it.id]} />}</span>
-            {/* What is left, by name — "33 of 37 in" alone left the owner
-                guessing which four (11/2026). */}
-            {!it.done && it.detail.length > 0 && (
-              <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)", lineHeight: 1.4 }}>
-                Still to {it.id === "gl" ? "import" : "do"}: {it.detail.slice(0, 6).map((d) => d.meta ? `${d.text} (${d.meta})` : d.text).join(" · ")}
-                {it.detail.length > 6 ? ` · +${it.detail.length - 6} more` : ""}
-              </span>
-            )}
-          </span>
-          <span style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: it.done ? "var(--c-067647)" : "var(--c-b54708)", textAlign: "right" }}>{it.status}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: "var(--fs-14)", minWidth: 0 }}>{it.label}{CLOSE_ITEM_STEPS[it.id] && <ImportStepsButton id={CLOSE_ITEM_STEPS[it.id]} />}</span>
+          {/* What is left lives in the hover, not on the card (owner: "too
+              much to list on here"). */}
+          {!it.done && it.detail.length > 0 ? (
+            <HoverCard title={`Still to ${it.id === "gl" ? "import" : "do"}`} width={300}
+              rows={it.detail.slice(0, TOP).map((d) => ({ label: d.text, value: d.meta ?? "" }))}
+              footer={it.detail.length > TOP ? { label: `${it.detail.length - TOP} more`, value: "on the checklist" } : undefined}>
+              <span style={statusStyle(false)}>{it.status}</span>
+            </HoverCard>
+          ) : (
+            <span style={statusStyle(it.done)}>{it.status}</span>
+          )}
         </Link>
       ))}
       {data && (
