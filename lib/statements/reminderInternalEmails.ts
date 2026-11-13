@@ -23,12 +23,14 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
 export function approvalRequestEmail(x: { month: string; nextYM: string; counts: BatchCounts; dataAsOf: string | null }): { subject: string; html: string; text: string } {
   const c = x.counts;
+  // The three counts ARE the headline (owner: "put the 9 23 and 10 where the
+  // 40 is … clean it up a little bit and tighten").
   return portalEmail({
     subject: `${c.toSend} tenant account notices ready to send — ${monthName(x.month)}`,
     eyebrow: "Tenant Notices",
-    title: "This month's notices are ready",
-    figure: { value: String(c.toSend), label: "ready to send" },
-    lead: `Every tenant with open charges or a credit is set to send. Untick anyone to hold back, then press Send.`,
+    title: `${c.toSend} notices ready to send`,
+    lead: "Everyone is set to send. Untick anyone to hold back, then press Send.",
+    statsFirst: true,
     stats: [
       { label: "Past due", value: String(c.byTier["past-due"]), tone: c.byTier["past-due"] ? "warn" : undefined },
       { label: "Courtesy", value: String(c.byTier.courtesy) },
@@ -36,8 +38,7 @@ export function approvalRequestEmail(x: { month: string; nextYM: string; counts:
     ],
     rows: [
       { label: "Data through", value: x.dataAsOf ? shortDate(x.dataAsOf) : "" },
-      { label: "No email on file", value: c.blocked ? `${plural(c.blocked, "tenant")} · will not be sent` : "", tone: "warn" },
-      { label: "Credits", value: `Tenants can click to apply theirs before the ${monthName(x.nextYM)} statements` },
+      { label: "No email on file", value: c.blocked ? `${plural(c.blocked, "tenant")} · not sent` : "", tone: "warn" },
     ],
     link: { label: `Review and send ${c.toSend} notices`, path: NOTICES_PATH },
   });
