@@ -4,7 +4,7 @@
 // This is the source of truth for "what do I need to import." Add/adjust
 // entries here; the weekly email and (later) the dashboard read from it.
 
-import type { TaskOwner } from "./taskDefs";
+import { workday, type TaskOwner } from "./taskDefs";
 
 export type ImportCadence = "monthly" | "weekly" | "biweekly" | "quarterly" | "as-needed";
 
@@ -54,6 +54,9 @@ export type ImportReminder = {
    *  — the Credit Balance Report is re-run on the 15th for the tenant
    *  notices, so a mid-month import from the 3rd does not satisfy it. */
   satisfiedFromDay?: number;
+  /** A due day on a weekend moves to the next work day (owner: "on the 15th or
+   *  closest business day to it"). */
+  nextWorkday?: boolean;
   /** Who imports it — Drew unless said otherwise (`ownerOf`). The CC statement
    *  and the payroll report are Harry's. */
   owner?: TaskOwner;
@@ -99,9 +102,9 @@ export const IMPORT_REMINDERS: ImportReminder[] = [
     periodIs: "current-month", dueFromDay: 5 },
   // Skyline's Credit Balance report, re-run on the 15th: the import (by anyone)
   // builds the month's tenant account notices and emails Greg to approve them.
-  { id: "imp-aging", label: "Credit Balance Report", cadence: "monthly", when: "On the 15th",
+  { id: "imp-aging", label: "Credit Balance Report", cadence: "monthly", when: "On the 15th (next business day)",
     link: "/tenant-statements/credits", feeds: "The monthly tenant account notices (Greg approves)",
-    periodIs: "current-month", dueFromDay: 15, satisfiedFromDay: 15 },
+    periodIs: "current-month", dueFromDay: 15, satisfiedFromDay: 15, nextWorkday: true },
 ];
 
 /** A recorded import event (client-safe mirror of the server store's value). */
@@ -134,7 +137,7 @@ export type ImportCoverage = { done: number; total: number; behind: string[] };
  * else is due as soon as its period starts.
  */
 export function reminderDueYet(reminder: ImportReminder, now: Date): boolean {
-  if (reminder.dueFromDay != null) return now.getDate() >= reminder.dueFromDay;
+  if (reminder.dueFromDay != null) return now.getDate() >= dueDayIn(reminder, now);
   if (reminder.cadence !== "weekly" || reminder.dueFromWeekday == null) return true;
   // Days elapsed since Monday, for both — so a Sunday reminder is the END of
   // its week rather than the start of the next one.
@@ -156,6 +159,13 @@ export function reminderOutstanding(
   coverage?: ImportCoverage | null,
 ): boolean {
   return reminderDueYet(reminder, now) && !reminderSatisfied(reminder, lastAt, now, coverage);
+}
+
+/** A reminder's due day this month — a weekend moves to the next work day
+ *  (the Credit Balance Report due the 15th is due Monday the 16th). */
+export function dueDayIn(reminder: ImportReminder, now: Date): number {
+  if (reminder.dueFromDay == null) return 1;
+  return reminder.nextWorkday ? workday(now.getFullYear(), now.getMonth(), reminder.dueFromDay) : reminder.dueFromDay;
 }
 
 /** Is a reminder satisfied by its last import, given its cadence?
@@ -219,7 +229,7 @@ export function reminderStatus(
   }
   // A reminder with a real deadline is judged against it, not against a guess:
   // past its day and not done is late, the day itself is simply today's job.
-  if (reminder.dueFromDay != null) return now.getDate() > reminder.dueFromDay ? "overdue" : "due";
+  if (reminder.dueFromDay != null) return now.getDate() > dueDayIn(reminder, now) ? "overdue" : "due";
   const days = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   return now.getDate() / days >= OVERDUE_AFTER ? "overdue" : "due";
 }

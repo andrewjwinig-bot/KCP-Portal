@@ -195,3 +195,17 @@ describe("owners and the biweekly payroll import", () => {
     expect(wk(new Date(2026, 9, 5), new Date(2026, 9, 11)).some((r: any) => r.id === "imp-payroll")).toBe(true);
   });
 });
+
+import { IMPORT_REMINDERS as ALL_REMINDERS, reminderStatus as statusOf } from "./imports";
+describe("the Credit Balance Report — the 15th or the next business day", () => {
+  const r = ALL_REMINDERS.find((x) => x.id === "imp-aging")!;
+  it("Nov 15 2026 is a Sunday: not due until Monday the 16th, late after it", () => {
+    expect(statusOf(r, undefined, new Date(2026, 10, 14, 12))).toBe("not-yet-due");
+    expect(statusOf(r, undefined, new Date(2026, 10, 16, 12))).toBe("due");
+    expect(statusOf(r, undefined, new Date(2026, 10, 17, 12))).toBe("overdue");
+  });
+  it("an import before the 15th does not count; one on the 16th does", () => {
+    expect(statusOf(r, new Date(2026, 10, 3, 12).toISOString(), new Date(2026, 10, 16, 12))).toBe("due");
+    expect(statusOf(r, new Date(2026, 10, 16, 9).toISOString(), new Date(2026, 10, 16, 12))).toBe("done");
+  });
+});

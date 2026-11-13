@@ -1853,9 +1853,10 @@ batch), `reminderSchedule.ts` (the calendar), `reminderInternalEmails.ts`
   be drew") builds the month's batch — every tenant on the newest laser
   statement (+ the Credit Balance Report), each read through `statementOf` —
   and the FIRST build emails Greg (`TENANT_NOTICE_APPROVER_TO`, gmasciantonio@).
-  A re-import before he sends REBUILDS it, keeping his unticks. Drew's import
-  reminder `imp-aging` is due the 15th and only an import on/after the 15th
-  satisfies it (`satisfiedFromDay`).
+  A re-import before he sends REBUILDS it, keeping his unticks. Drew's monthly
+  task `m-aging` ("Credit Balance Report") is due the 15th or the NEXT WORK DAY
+  (`effDay`; the import reminder `imp-aging` matches via `nextWorkday`), and
+  only an import on/after the 15th satisfies it — the import ticks it.
 - **THREE NOTICES** (`tierOf`): COURTESY (oldest open charge 0–2 calendar
   months), PAST DUE (3+ — firm, NO late fees or default language), CREDIT (the
   credit exceeds the charges). Under $5 is not sent; former occupants (`-FO`)

@@ -26,6 +26,7 @@ import { USERS } from "@/lib/users";
 import { logAudit, auditIp } from "@/lib/audit";
 import { buildOnImport } from "@/lib/statements/reminderBatchStore";
 import { recordImport } from "@/lib/tracker/importEvents";
+import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { linkOrigin } from "@/lib/linkOrigin";
 
 export const runtime = "nodejs";
@@ -115,6 +116,9 @@ export async function POST(req: NextRequest) {
       const result = await importAging(Buffer.from(await file.arrayBuffer()), file.name, by);
       await logAudit({ event: "tenant-statements.aging-import", user: by, ip: auditIp(req), detail: `${file.name} · as of ${result.asOf} · ${result.tenants} tenants` });
       await recordImport("imp-aging", { at: new Date().toISOString(), by }).catch(() => {});
+      // Ticks Drew's monthly "Credit Balance Report" task — from the 15th on.
+      const [ty, tm, td] = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }).split("-").map(Number);
+      if (td >= 15) await markTaskComplete(ty, tm - 1, "m-aging", { at: new Date().toISOString(), by: by ?? undefined, source: "credit-balance" }).catch(() => {});
       // Whoever imports it, on or after the 15th: build the month's tenant
       // notices and email Greg to approve them (owner, 11/2026).
       const notices = await buildOnImport(by, linkOrigin(req));
