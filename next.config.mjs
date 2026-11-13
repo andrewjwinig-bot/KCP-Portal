@@ -49,6 +49,7 @@ const nextConfig = {
     // The insurance SOV routes read the broker's form shipped in data/.
     outputFileTracingIncludes: {
       "/api/insurance/**": ["./data/insurance/**"],
+      "/api/onboarding/handbook": ["./data/onboarding/**"],
       // Designed center pages read their HTML template at request time.
       "/centers/**": ["./lib/centers/designed/**"],
       // The Office Works website reads its HTML the same way.
