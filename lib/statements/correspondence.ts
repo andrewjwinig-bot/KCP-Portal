@@ -11,7 +11,7 @@
 //   • allocation requests sent before the log existed (`askedAt` on the
 //     request) — their wording was never kept, so they read as a summary.
 
-export type CorrespondenceKind = "receipt" | "allocation-request" | "portal-link" | "balance-reminder" | "credit-notice";
+export type CorrespondenceKind = "receipt" | "allocation-request" | "portal-link" | "balance-reminder" | "credit-notice" | "monthly-notice" | "credit-applied";
 
 export const KIND_LABEL: Record<CorrespondenceKind, string> = {
   receipt: "Receipt email",
@@ -19,6 +19,8 @@ export const KIND_LABEL: Record<CorrespondenceKind, string> = {
   "portal-link": "Portal link",
   "balance-reminder": "Balance reminder",
   "credit-notice": "Open credit notice",
+  "monthly-notice": "Monthly account notice",
+  "credit-applied": "Credit applied confirmation",
 };
 
 /** One email as the log stores it. `html` / `text` / attachment are kept so

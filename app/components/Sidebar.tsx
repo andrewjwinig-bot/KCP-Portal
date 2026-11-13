@@ -27,6 +27,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Leasing Activity":   "leasing-activity",
   "Receivables":        "tenant-statements",
   "Open Credits": "tenant-statements",
+  "Tenant Notices": "tenant-statements",
   "Expense History":    "base-years",
   "Expense Trends":     "base-years",
   "CAM Reconciliation": "base-years",
@@ -423,6 +424,22 @@ const NAV = [
         <rect x="2" y="5" width="20" height="14" rx="2" />
         <line x1="2" y1="10" x2="22" y2="10" />
         <polyline points="8 15 10 17 14 13" />
+      </svg>
+    ),
+  },
+  {
+    // The month's tenant account notices — built on the 15th's Credit Balance
+    // Report import, approved and sent by Greg.
+    label: "Tenant Notices",
+    href: "/tenant-statements/notices",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "invoicing",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="5" width="18" height="14" rx="2" />
+        <polyline points="3 7 12 13 21 7" />
       </svg>
     ),
   },
@@ -989,7 +1006,9 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     const passesRole = !roleKey || user.navKeys.has("all") || user.navKeys.has(roleKey)
       || (item.label === "Operating Statements" && user.navKeys.has("operating-statements"))
       // Open Credits alone answers to its own key (Harry, Alison, Nancy view it).
-      || (item.label === "Open Credits" && user.navKeys.has("open-credits"));
+      || (item.label === "Open Credits" && user.navKeys.has("open-credits"))
+      // Tenant Notices answers to its own key too (Greg approves them).
+      || (item.label === "Tenant Notices" && user.navKeys.has("tenant-notices"));
     if (!passesRole) return false;
     if (item.label === "Orientation" && !user.navKeys.has("onboarding")) return false;
     if (item.label === "Reports" && NO_REPORT_CENTER.has(user.id)) return false;

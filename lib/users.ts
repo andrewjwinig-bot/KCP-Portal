@@ -54,6 +54,11 @@ const SC_AND_RESIDENTIAL = new Set([...SC_INDIVIDUAL, ...RESIDENTIAL_INDIVIDUAL]
  *  Alison, Nancy) without the rest of Monthly Statements. */
 export const OPEN_CREDITS_PAGE = "/tenant-statements/credits";
 
+/** The monthly tenant notices — Greg approves and sends them (owner, 11/2026:
+ *  "greg should approve … give him access to that page"). Granted on its own,
+ *  without Monthly Statements; its API answers to it (`/api/tenant-notices`). */
+export const TENANT_NOTICES_PAGE = "/tenant-statements/notices";
+
 /** Works Open Credits (import, email, notes) — the Monthly Statements grant;
  *  anyone else with the page only reads it. */
 export const canWorkCredits = (userId: UserId) => isPathAllowed(userId, "/tenant-statements");
@@ -233,8 +238,11 @@ export const USERS: Record<UserId, UserDef> = {
   greg: {
     ...serviceUser("greg", "GREG"),
     // "communications": the Interplex tenant emails (Tenant Emails, /communications).
-    navKeys: new Set([...SERVICE_NAV, "financials-budgets", "communications"]),
-    allowedPathPrefixes: [...SERVICE_PATHS, "/financials/budgets", "/communications"],
+    // "tenant-notices" + Open Credits (view): he approves the month's tenant
+    // account notices (owner, 11/2026: "greg should approve … greg should see
+    // open credits page").
+    navKeys: new Set([...SERVICE_NAV, "financials-budgets", "communications", "tenant-notices", "open-credits"]),
+    allowedPathPrefixes: [...SERVICE_PATHS, "/financials/budgets", "/communications", TENANT_NOTICES_PAGE, OPEN_CREDITS_PAGE],
   },
   charles: serviceUser("charles", "CHARLES"),
   jay: serviceUser("jay", "JAY"),
@@ -314,7 +322,8 @@ export const NO_REPORT_CENTER: ReadonlySet<UserId> = new Set<UserId>(["tami"]);
  *  the assistant). They read whatever their pages reach; a write anywhere else
  *  is refused in `authorizeRequest`, whatever the page grant. */
 export const WRITE_SCOPE: Partial<Record<UserId, string[]>> = {
-  tami: ["/api/tenant-statements", "/api/cam-recon/tenant-link"],
+  // + the tenant notices: she marks the credits tenants asked to apply posted.
+  tami: ["/api/tenant-statements", "/api/cam-recon/tenant-link", "/api/tenant-notices"],
 };
 
 /** Users who may READ everything their profile reaches but WRITE nothing —
@@ -458,6 +467,8 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   // VIEW_ONLY_API below. Everything else under /api/tenant-statements is the
   // Monthly Statements' (it was open to any signed-in login).
   ["/api/tenant-statements/aging", ["/tenant-statements", OPEN_CREDITS_PAGE]],
+  // The monthly tenant notices: Greg's page, and anyone with Monthly Statements.
+  ["/api/tenant-notices", ["/tenant-statements", TENANT_NOTICES_PAGE]],
   ["/api/tenant-statements/correspondence", ["/tenant-statements", OPEN_CREDITS_PAGE]],
   ["/api/tenant-statements", "/tenant-statements"],
   ["/api/cam-recon", "/cam-recon"],

@@ -178,3 +178,25 @@ describe("Open Credits — Harry, Alison and Nancy VIEW it", () => {
     expect(authorizeRequest("tami", "/api/tenant-statements/credit-notes", "POST")).toBe(true);
   });
 });
+
+describe("Tenant Notices — Greg approves and sends the month's notices", () => {
+  it("Greg opens the page, works it, and views Open Credits", () => {
+    expect(authorizeRequest("greg", "/tenant-statements/notices")).toBe(true);
+    expect(authorizeRequest("greg", "/api/tenant-notices")).toBe(true);
+    expect(authorizeRequest("greg", "/api/tenant-notices", "POST")).toBe(true);
+    expect(authorizeRequest("greg", "/tenant-statements/credits")).toBe(true);
+    expect(authorizeRequest("greg", "/api/tenant-statements/aging")).toBe(true);
+  });
+  it("Greg gets nothing else of Monthly Statements, and cannot import or email credits", () => {
+    expect(authorizeRequest("greg", "/tenant-statements")).toBe(false);
+    expect(authorizeRequest("greg", "/api/tenant-statements/2026-11")).toBe(false);
+    expect(authorizeRequest("greg", "/api/tenant-statements/aging", "POST")).toBe(false);
+  });
+  it("Tami marks credits posted; the other service logins have no access", () => {
+    expect(authorizeRequest("tami", "/api/tenant-notices", "POST")).toBe(true);
+    for (const u of ["maint", "charles", "jay"] as const) {
+      expect(authorizeRequest(u, "/tenant-statements/notices")).toBe(false);
+      expect(authorizeRequest(u, "/api/tenant-notices")).toBe(false);
+    }
+  });
+});

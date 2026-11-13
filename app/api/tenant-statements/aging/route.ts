@@ -24,6 +24,9 @@ import { isMailConfigured } from "@/lib/mail";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
 import { logAudit, auditIp } from "@/lib/audit";
+import { buildOnImport } from "@/lib/statements/reminderBatchStore";
+import { recordImport } from "@/lib/tracker/importEvents";
+import { linkOrigin } from "@/lib/linkOrigin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,13 +80,17 @@ export async function GET(req: NextRequest) {
       const totals = creditTotals(t.lines);
       if (totals.credit < MIN_OPEN_CREDIT) { small++; return null; } // not worth an email
       const mine = corr.filter((e) => e.unitRef.toUpperCase() === t.unitRef.toUpperCase());
-      const notice = mine.find((e) => e.kind === "credit-notice") ?? null;
+      // Every time we asked about the credit: the open-credit notice and the
+      // monthly account notice (owner: "should we also have # attempts").
+      const asks = mine.filter((e) => e.kind === "credit-notice" || e.kind === "monthly-notice");
+      const notice = asks[0] ?? null;
       return {
         unitRef: t.unitRef, tenantName: t.tenantName, propertyCode: t.propertyCode, propertyName: propertyLabel(t.propertyCode),
         suite: t.suite, asOf: t.asOf, contact: t.contact, phone: t.phone, depositsHeld: t.depositsHeld, balanceDue: t.balanceDue,
         tiesOut: t.tiesOut, lines: t.lines, ...totals, fromLaser: !!(t as OpenCreditTenant).fromLaser,
         oldestCredit: credits[0].dateISO, oldestDays: daysOpen(credits[0].dateISO, t.asOf),
         lastNotice: notice ? { sentAt: notice.sentAt, sentBy: notice.sentBy, id: notice.id, source: notice.source } : null,
+        attempts: asks.length,
         lastContact: mine[0] ? { sentAt: mine[0].sentAt, kind: mine[0].kind } : null,
         note: (notes as Record<string, { text: string; by: string | null; at: string }>)[t.unitRef.toUpperCase()] ?? null,
       };
@@ -107,7 +114,11 @@ export async function POST(req: NextRequest) {
     try {
       const result = await importAging(Buffer.from(await file.arrayBuffer()), file.name, by);
       await logAudit({ event: "tenant-statements.aging-import", user: by, ip: auditIp(req), detail: `${file.name} · as of ${result.asOf} · ${result.tenants} tenants` });
-      return NextResponse.json({ ok: true, result });
+      await recordImport("imp-aging", { at: new Date().toISOString(), by }).catch(() => {});
+      // Whoever imports it, on or after the 15th: build the month's tenant
+      // notices and email Greg to approve them (owner, 11/2026).
+      const notices = await buildOnImport(by, linkOrigin(req));
+      return NextResponse.json({ ok: true, result, notices });
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Could not read that file." }, { status: 400 });
     }

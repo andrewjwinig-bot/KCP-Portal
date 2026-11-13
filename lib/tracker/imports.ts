@@ -50,6 +50,10 @@ export type ImportReminder = {
    * is the difference between a nag and an instruction.
    */
   periodIs?: "current-month" | "prior-month" | "this-week";
+  /** A monthly import counts as done only if it happened on or after this day
+   *  — the Credit Balance Report is re-run on the 15th for the tenant
+   *  notices, so a mid-month import from the 3rd does not satisfy it. */
+  satisfiedFromDay?: number;
   /** Who imports it — Drew unless said otherwise (`ownerOf`). The CC statement
    *  and the payroll report are Harry's. */
   owner?: TaskOwner;
@@ -93,6 +97,11 @@ export const IMPORT_REMINDERS: ImportReminder[] = [
   { id: "imp-stmts", label: "Laser Statements", cadence: "monthly", when: "By the 5th",
     link: "/tenant-statements", feeds: "Tenant portal open A/R + statement PDFs",
     periodIs: "current-month", dueFromDay: 5 },
+  // Skyline's Credit Balance report, re-run on the 15th: the import (by anyone)
+  // builds the month's tenant account notices and emails Greg to approve them.
+  { id: "imp-aging", label: "Credit Balance Report", cadence: "monthly", when: "On the 15th",
+    link: "/tenant-statements/credits", feeds: "The monthly tenant account notices (Greg approves)",
+    periodIs: "current-month", dueFromDay: 15, satisfiedFromDay: 15 },
 ];
 
 /** A recorded import event (client-safe mirror of the server store's value). */
@@ -169,6 +178,7 @@ export function reminderSatisfied(
     const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - sinceMon);
     return at >= weekStart;
   }
+  if (reminder.satisfiedFromDay != null && at.getDate() < reminder.satisfiedFromDay) return false;
   return at.getFullYear() === now.getFullYear() && at.getMonth() === now.getMonth();
 }
 

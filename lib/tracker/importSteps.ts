@@ -62,6 +62,17 @@ export const IMPORT_STEPS: Record<string, ImportSteps> = {
     importAt: { label: "Receivables", href: "/tenant-statements" },
     note: "Upload the files as saved — every tenant is checked against the Total Amount Due Skyline printed.",
   },
+  "imp-aging": {
+    title: "Credit Balance Report",
+    where: ["Skyline", "Property Management", "Reports", "Financial Reports", "Credit Balance"],
+    steps: [
+      "Occupants to Include: Any With Open Credits. Preview.",
+      "Export as Microsoft Excel (97-2003) (.xls).",
+      "In the portal: Open Credits (or Receivables), Import Credit Balance Report, and pick the file.",
+    ],
+    importAt: { label: "Open Credits", href: "/tenant-statements/credits" },
+    note: "Anyone can import it. On or after the 15th the import builds the month's tenant notices and emails Greg to approve them.",
+  },
   "imp-bank": {
     title: "Bank Balances",
     where: ["Chase, Liberty and M&T online banking", "Accounts page"],

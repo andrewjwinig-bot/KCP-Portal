@@ -28,6 +28,10 @@
     {
       "path": "/api/cron/not-posted",
       "schedule": "15 13 * * *"
+    },
+    {
+      "path": "/api/cron/credit-summary",
+      "schedule": "30 13 * * *"
     }
   ]
 }
