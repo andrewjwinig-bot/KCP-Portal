@@ -4949,6 +4949,14 @@ then the user imports Skyline reports, so keep ingestion paths import-friendly.
   Credit Balance report first. Only the reconciliation balance posts to
   Skyline as the year-end charge (the unpaid estimates are already on the
   account); the credits to apply go to Tanya as a list beside it.
+  GUARDRAILS (owner agreed): the recon section stays the lease's own math
+  (share − escrow billed); the open charges and credits sit in a SEPARATE
+  "Your account as of <date>" block under it, so the recon stands alone in a
+  dispute and a tenant can pay the undisputed part. Every credit the statement
+  applies, Tanya applies in Skyline the same week — the statement and the next
+  laser statement must agree. A lease that requires an overpayment REFUNDED
+  (some nationals) gets a flag on its unit CAM config; its credit is shown,
+  never applied.
 - **Per-year methodology snapshot.** Retail methodology is currently "current
   state" (the unit page), shared across years. For correct multi-year + mid-year
   close-outs, freeze each recon year's methodology when it closes (like office
