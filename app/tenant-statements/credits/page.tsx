@@ -170,7 +170,11 @@ export default function OpenCreditsPage() {
                               <span style={{ display: "inline-flex", gap: 6, alignItems: "flex-start" }}>
                                 {isOpen ? <ChevronDown {...ICON} /> : <ChevronRight {...ICON} />}
                                 <span style={{ display: "grid", lineHeight: 1.3 }}>
-                                  <span style={{ fontWeight: 600 }}>{t.tenantName}</span>
+                                  {/* The name opens the tenant's full account — Receivables for
+                                      those who work it, else the unit page; the rest of the
+                                      row still opens the quick dropdown (owner). */}
+                                  <a className="text-link" style={{ fontWeight: 600 }} href={canWork ? `/tenant-statements?unit=${encodeURIComponent(t.unitRef)}` : `/units/${encodeURIComponent(t.unitRef)}`}
+                                    onClick={(e) => e.stopPropagation()}>{t.tenantName}</a>
                                   <code style={{ fontSize: "var(--fs-12)", justifySelf: "start" }}>{t.unitRef}</code>
                                 </span>
                               </span>
@@ -266,7 +270,7 @@ function Detail({ t, onView, onNote, canWork }: { t: Row; onView: (src: string) 
       <div className="small muted">
         {t.contact ? <>Contact {t.contact}{t.phone ? ` · ${t.phone}` : ""} · </> : null}
         Deposit held {usd(t.depositsHeld)}
-        {canWork && <> · <a className="text-link" href={`/tenant-statements?unit=${encodeURIComponent(t.unitRef)}`}>Work a payment <ChevronRight {...ICON} /></a></>}
+        {canWork && <> · <a className="text-link" href={`/tenant-statements?unit=${encodeURIComponent(t.unitRef)}`}>Open in Receivables <ChevronRight {...ICON} /></a></>}
         {t.lastNotice && <> · <a href="#" className="text-link" onClick={(e) => { e.preventDefault(); onView(`/api/tenant-statements/correspondence?source=${t.lastNotice!.source}&id=${encodeURIComponent(t.lastNotice!.id)}`); }}>View the last email <ChevronRight {...ICON} /></a></>}
       </div>
       {!canWork ? (t.note && <div className="small"><span style={SECTION}>Follow-up</span> {t.note.text} <span className="muted">· {t.note.by ? `${t.note.by} · ` : ""}{new Date(t.note.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span></div>) : <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
