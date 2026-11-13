@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronRight, X } from "lucide-react";
 
 import Link from "next/link";
@@ -237,19 +238,11 @@ export default function DailyDigestModal({ userId, owner = "drew" }: { userId: s
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
                   {openImports.map((r) => (
-                    <Link key={r.id} href={r.link} onClick={dismiss} style={{
-                      display: "flex", alignItems: "center", gap: 10,
-                      padding: "8px 10px", borderRadius: 8,
-                      border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.28))",
-                      background: "var(--tint-amber-bg, rgba(180,83,9,0.06))",
-                      textDecoration: "none", color: "inherit",
-                    }}>
-                      <span style={{ width: 9, height: 9, borderRadius: 999, background: "var(--c-b45309)", flexShrink: 0 }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: "var(--fs-13)", fontWeight: 600, color: "var(--c-7c3d06)" }}>{r.label}</div>
-                        <div className="muted small" style={{ marginTop: 1 }}>feeds {r.feeds}</div>
-                      </div>
-                      <div style={{ flexShrink: 0, fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-b45309)" }}>{r.when}</div>
+                    <Link key={r.id} href={r.link} onClick={dismiss} style={{ textDecoration: "none", color: "inherit" }}>
+                      <StatusBanner compact tone="warning" icon="clock" title={r.label}
+                        actions={<span style={{ fontWeight: 700, color: "var(--c-b54708)" }}>{r.when}</span>}>
+                        Feeds {r.feeds}
+                      </StatusBanner>
                     </Link>
                   ))}
                 </div>

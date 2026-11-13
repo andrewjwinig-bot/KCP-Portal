@@ -849,21 +849,15 @@ function TenantRows({ t, period, open, onToggle, linkInfo, onLinkChange, onClose
               </HoverCard>
             )}
             {t.pendingPayment ? (
-              <div style={{ margin: "10px 10px 14px", border: "1.5px solid var(--tint-amber-line, rgba(217,119,6,0.45))", borderRadius: 10, background: "var(--tint-amber-bg, rgba(217,119,6,0.06))", padding: "12px 14px" }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ fontSize: "var(--fs-12)", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--c-b45309)" }}>Payment we can&rsquo;t apply</span>
-                  <span style={{ fontSize: 17, fontWeight: 800 }}>{money2(t.pendingPayment.amount)}</span>
-                  <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>
-                    {t.pendingPayment.paymentRef ? `${t.pendingPayment.paymentRef} · ` : ""}
-                    {t.pendingPayment.receivedOn ? `received ${t.pendingPayment.receivedOn} · ` : ""}
-                    {t.pendingPayment.askedAt
-                      ? `asked ${t.pendingPayment.askedTo.join(", ")}`
-                      : "not sent to the tenant yet"}
-                  </span>
-                  <button className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 10px", marginLeft: "auto" }}
-                    onClick={() => onCloseRequest(t.pendingPayment!.id)}>Close it</button>
-                </div>
-              </div>
+              <StatusBanner compact tone="warning" style={{ margin: "10px 10px 14px" }}
+                title={<>Payment we can&rsquo;t apply · {money2(t.pendingPayment.amount)}</>}
+                actions={<button className="btn sm" onClick={() => onCloseRequest(t.pendingPayment!.id)}>Close it</button>}>
+                {t.pendingPayment.paymentRef ? `${t.pendingPayment.paymentRef} · ` : ""}
+                {t.pendingPayment.receivedOn ? `received ${t.pendingPayment.receivedOn} · ` : ""}
+                {t.pendingPayment.askedAt
+                  ? `asked ${t.pendingPayment.askedTo.join(", ")}`
+                  : "not sent to the tenant yet"}
+              </StatusBanner>
             ) : null}
             {t.declared && (
               <div style={{ margin: "10px 10px 14px", border: "1.5px solid var(--tint-green-line, rgba(22,163,74,0.4))", borderRadius: 10, background: "var(--tint-green-bg, rgba(22,163,74,0.05))", padding: "12px 14px" }}>

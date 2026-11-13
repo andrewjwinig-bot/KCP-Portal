@@ -1168,16 +1168,13 @@ function StatementTable({ s, viewKey, budgetYear, budgetFallback, notes, noteSou
   if (flagFilter) {
     const matchSecs = s.sections.filter((sec) => sec.lines.some((l) => carriesInvestigateMark(sec.name, l, dismissedFlags)));
     const count = matchSecs.reduce((n, sec) => n + sec.lines.filter((l) => carriesInvestigateMark(sec.name, l, dismissedFlags)).length, 0);
-    const color = "var(--c-b45309)";
     const word = "still to investigate";
     return (
       <>
-        <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", borderColor: color, background: "var(--tint-amber-bg, rgba(180,83,9,0.05))" }}>
-          <span style={{ fontWeight: 700, color }}>
-            Showing {count} line{count === 1 ? "" : "s"} {word} — dismiss the &ldquo;?&rdquo; on a line once you have confirmed it is right
-          </span>
-          <button type="button" className="btn" onClick={onClearFilter} style={{ fontSize: "var(--fs-13)", padding: "6px 12px", fontWeight: 700 }}>Clear filter</button>
-        </div>
+        <StatusBanner tone="warning" title={<>Showing {count} line{count === 1 ? "" : "s"} {word}</>}
+          actions={<button type="button" className="btn" onClick={onClearFilter}>Clear filter</button>}>
+          Dismiss the &ldquo;?&rdquo; on a line once you have confirmed it is right.
+        </StatusBanner>
         {matchSecs.length === 0
           ? <div className="card"><div className="muted small">Nothing left to investigate this month.</div></div>
           : matchSecs.map((sec) => <SectionCard key={sec.name} sec={sec} nf={nf} monthLabel={monthLabel} view={view} thresh={thresh} onOpenDetail={openDetail} filterClass={flagFilter} />)}

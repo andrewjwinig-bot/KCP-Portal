@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { X } from "lucide-react";
 
 // THE 2010 LIK PAYROLL BUDGET — the owner's payroll workbook, as four tables
@@ -130,7 +131,7 @@ export function PayrollBudget({ year }: { year: number }) {
 
   const a = useMemo(() => (doc ? allocatePayroll(doc) : null), [doc]);
 
-  if (error) return <div className="card" style={{ color: "var(--c-b91c1c)" }}>{error}</div>;
+  if (error) return <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>;
   if (!doc || !a) return <LoadingState status={`Loading the ${year} payroll budget…`} columns={4} rows={6} />;
   const r = doc.rates;
   const setRate = (k: keyof Rates, v: number) => update((d) => ({ ...d, rates: { ...d.rates, [k]: v } }));

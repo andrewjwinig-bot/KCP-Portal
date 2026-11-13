@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronDown, ChevronUp } from "lucide-react";
 
 // Balance Sheet — the statement of financial position for one partnership,
@@ -21,7 +22,7 @@ import { Select, YearSelect } from "@/app/components/YearSelect";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { AccountListCard } from "@/app/components/AccountListCard";
 import { HoverCard } from "@/app/components/HoverCard";
-import { Pill, StatPill, TONE_GREEN, TONE_RED, TONE_AMBER, TONE_NEUTRAL } from "@/app/components/Pill";
+import { Pill, StatPill, TONE_GREEN, TONE_AMBER, TONE_NEUTRAL } from "@/app/components/Pill";
 import { th, td, thL, tdL } from "@/app/components/tableStyles";
 
 const CARD_TITLE: React.CSSProperties = { fontSize: 15, fontWeight: 800, letterSpacing: "0.01em", color: "var(--text)" };
@@ -171,12 +172,7 @@ export default function BalanceSheetPage() {
           <TitleBlock data={data!} sheet={sheet} month={month} />
 
           {sheet.warnings.map((w, i) => (
-            <div key={i} className="card" style={{ borderColor: "var(--tint-amber-line, rgba(217,119,6,0.4))", background: "var(--tint-amber-bg, rgba(217,119,6,0.06))" }}>
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <Pill tone={TONE_AMBER}>CHECK</Pill>
-                <div style={{ fontSize: "var(--fs-13)" }}>{w}</div>
-              </div>
-            </div>
+            <StatusBanner key={i} tone="warning" title="Check this">{w}</StatusBanner>
           ))}
 
           <div className="pills">
@@ -280,41 +276,23 @@ function TitleBlock({ data, sheet, month }: { data: Payload; sheet: Sheet; month
 function ProofCard({ sheet }: { sheet: Sheet }) {
   const ok = sheet.proof.balances;
   return (
-    <div
-      className="card"
-      style={{
-        borderColor: ok ? "var(--tint-green-line, rgba(22,163,74,0.35))" : "var(--tint-red-line, rgba(220,38,38,0.4))",
-        background: ok ? "var(--tint-green-bg, rgba(22,163,74,0.05))" : "var(--tint-red-bg, rgba(220,38,38,0.05))",
-        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap",
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <Pill tone={ok ? TONE_GREEN : TONE_RED}>{ok ? "IN BALANCE" : "OUT OF BALANCE"}</Pill>
-        <HoverCard
+    <StatusBanner tone={ok ? "success" : "danger"} title={ok ? "In balance" : "Out of balance"}
+      actions={<HoverCard
           title="How this is proved"
           rows={[
             { label: "Total assets", value: moneyFull(sheet.proof.assets) },
             { label: "Liabilities + capital", value: moneyFull(sheet.proof.liabilitiesAndEquity) },
             { label: "Difference", value: moneyFull(sheet.proof.difference), color: ok ? "var(--c-15803d)" : "var(--c-b91c1c)" },
           ]}
-          footer={{
-            label: "",
-            value: ok
-              ? "Every account is on the sheet"
-              : "Gap = accounts to assign below",
-          }}
-        >
-          <span style={{ fontSize: "var(--fs-13)" }}>
-            {ok
-              ? "Assets equal liabilities plus partners' capital, to the penny."
-              : `Assets and liabilities plus capital differ by $${moneyFull(Math.abs(sheet.proof.difference))}.`}
+          footer={{ label: "", value: ok ? "Every account is on the sheet" : "Gap = accounts to assign below" }}>
+          <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>
+            {money0(sheet.proof.assets)} <span className="muted" style={{ fontWeight: 400 }}>vs</span> {money0(sheet.proof.liabilitiesAndEquity)}
           </span>
-        </HoverCard>
-      </div>
-      <div style={{ fontSize: "var(--fs-13)", fontVariantNumeric: "tabular-nums", fontWeight: 700 }}>
-        {money0(sheet.proof.assets)} <span className="muted" style={{ fontWeight: 400 }}>vs</span> {money0(sheet.proof.liabilitiesAndEquity)}
-      </div>
-    </div>
+        </HoverCard>}>
+      {ok
+        ? "Assets equal liabilities plus partners' capital, to the penny."
+        : `Assets and liabilities plus capital differ by $${moneyFull(Math.abs(sheet.proof.difference))}.`}
+    </StatusBanner>
   );
 }
 
@@ -340,22 +318,11 @@ function TieOutCard({ sheet }: { sheet: Sheet }) {
   }
   const ok = t.mismatches.length === 0;
   return (
-    <div
-      className="card"
-      style={{
-        borderColor: ok ? "var(--tint-green-line, rgba(22,163,74,0.35))" : "var(--tint-amber-line, rgba(217,119,6,0.4))",
-        background: ok ? "var(--tint-green-bg, rgba(22,163,74,0.05))" : "var(--tint-amber-bg, rgba(217,119,6,0.06))",
-        display: "grid", gap: ok ? 0 : 10,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <Pill tone={ok ? TONE_GREEN : TONE_AMBER}>{ok ? "TIES TO THE LEDGER" : `${t.mismatches.length} DO NOT TIE`}</Pill>
-        <div style={{ fontSize: "var(--fs-13)" }}>
-          {ok
-            ? `All ${t.checked} account balances equal the ending balance the general ledger prints for them.`
-            : `${t.mismatches.length} of ${t.checked} account balances differ from the ledger's own printed ending balance.`}
-        </div>
-      </div>
+    <StatusBanner tone={ok ? "success" : "warning"}
+      title={ok ? "Ties to the ledger" : `${t.mismatches.length} account balance${t.mismatches.length === 1 ? "" : "s"} don’t tie to the ledger`}>
+      {ok
+        ? `All ${t.checked} account balances equal the ending balance the general ledger prints for them.`
+        : `${t.mismatches.length} of ${t.checked} account balances differ from the ledger's own printed ending balance.`}
       {!ok && (
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%" }}>
@@ -379,7 +346,7 @@ function TieOutCard({ sheet }: { sheet: Sheet }) {
           </table>
         </div>
       )}
-    </div>
+    </StatusBanner>
   );
 }
 

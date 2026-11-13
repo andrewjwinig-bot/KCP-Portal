@@ -326,7 +326,18 @@ touched UI to it.
   again — the Allocated invoicer, Payroll / CC "ready to send", Operating
   Statements (time to post, debt not posted, errors), Receivables freshness,
   T-12 missing months, Bank Recs and Month-End Close sign-off, the move-out
-  close-out's GL notices and the K-1 send results all use it.
+  close-out's GL notices and the K-1 send results all use it — and so does
+  every page error ("Something went wrong"), every import / save result, the
+  dashboard's reminder notices (bank recs, ACH & wires, option notice dates,
+  bank transfers), the morning digest's files to import, and Greg's tenant
+  emails due. Public pages (tenant portal, forms, login, the website) keep
+  their own look.
+- **THE NEW LOOK PAINTS FIRST, NEVER A FLASH OF CLASSIC** (owner: "when i
+  refresh the page or switch users sometimes it flashes the old style on the
+  sidebar"). The pre-paint script in `app/layout.tsx` turns the new look on
+  unless the browser saved "classic"; AppShell never clears that choice and
+  does nothing while no one is signed in mid-switch; `useStudioSkin` reads it
+  in a layout effect, before paint.
 - **ONE LOADER: `LoadingState`** (`app/components/LoadingState.tsx` — the
   skyline + skeleton; owner: "bank rec loading state is different… should it
   be"). Every page's first load and every long run show it; a long one-request

@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { X } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
@@ -626,21 +627,10 @@ export default function CommissionsPage() {
         const due = daysLeft <= 21;
         const qEndStr = `${qEnd.getMonth() + 1}/${qEnd.getDate()}/${qEnd.getFullYear()}`;
         return (
-          <div style={{
-            padding: "10px 14px", borderRadius: 8, fontSize: "var(--fs-13)", lineHeight: 1.5,
-            border: `1px solid ${due ? "var(--tint-amber-line, rgba(217,119,6,0.45))" : "var(--border)"}`,
-            background: due ? "var(--tint-amber-bg, rgba(217,119,6,0.08))" : "var(--tint-neutral-faint, rgba(15,23,42,0.025))",
-            display: "flex", alignItems: "center", gap: 10,
-          }}>
-            <span style={{ width: 9, height: 9, borderRadius: 999, flexShrink: 0, background: due ? "var(--c-d97706)" : "var(--c-64748b)" }} />
-            <span>
-              {due ? (
-                <><b>Time to submit.</b> Nancy&rsquo;s incentive compensation goes to Payroll at the end of each quarter — Q{qNum} ends {qEndStr} ({daysLeft} day{daysLeft === 1 ? "" : "s"} left).</>
-              ) : (
-                <>Nancy&rsquo;s incentive compensation is submitted to Payroll at the end of each quarter. The current quarter (Q{qNum}) ends {qEndStr}.</>
-              )}
-            </span>
-          </div>
+          <StatusBanner compact tone={due ? "warning" : "info"} icon="clock"
+            title={due ? <>Time to submit — Q{qNum} ends {qEndStr} ({daysLeft} day{daysLeft === 1 ? "" : "s"} left)</> : <>Q{qNum} ends {qEndStr}</>}>
+            Nancy&rsquo;s incentive compensation goes to Payroll at the end of each quarter.
+          </StatusBanner>
         );
       })()}
 

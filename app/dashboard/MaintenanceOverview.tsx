@@ -1,5 +1,6 @@
 "use client";
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import QuickLinks from "./QuickLinks";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -169,10 +170,7 @@ export default function MaintenanceOverview() {
       <QuickLinks />
 
       {error && (
-        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
-          <div style={{ fontWeight: 700, color: ACCENT_RED, marginBottom: 4 }}>Couldn&apos;t load requests</div>
-          <div className="muted small">{error}</div>
-        </div>
+        <StatusBanner tone="danger" title="Couldn&apos;t load requests">{error}</StatusBanner>
       )}
 
       {/* Filters */}

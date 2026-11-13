@@ -1,6 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
+
+// Before paint on the client (no frame of the classic layout), plain effect on the server.
+const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
 import { useUser } from "./UserProvider";
 
 /**
@@ -88,7 +91,7 @@ export default function SkinToggle() {
  *  reads this, so switching back to classic brings the old page back. */
 export function useStudioSkin(): boolean {
   const [on, setOn] = useState(false);
-  useEffect(() => {
+  useBeforePaint(() => {
     const el = document.documentElement;
     const read = () => setOn(el.dataset.skin === "studio");
     read();

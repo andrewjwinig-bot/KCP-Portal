@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { ChevronDown, ChevronRight, ChevronUp, Upload } from "lucide-react";
 
@@ -239,7 +240,7 @@ export default function BankBalancesView() {
             </InfoPopover>
           </MetaLine>
         }>
-        {notice && <div style={{ marginTop: 8, color: "var(--c-15803d)", fontWeight: 600, fontSize: "var(--fs-14)" }}>{notice}</div>}
+        {notice && <StatusBanner compact tone="success" style={{ marginTop: 8 }} title={notice} />}
         {error && <div style={{ marginTop: 8, color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-14)" }}>{error}</div>}
       </PageHeader>
 

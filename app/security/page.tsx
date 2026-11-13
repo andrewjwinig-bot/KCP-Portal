@@ -89,7 +89,7 @@ export default function SecurityPage() {
           </StatusBanner>
         )}
 
-        {msg && <div className="small" style={{ color: "var(--c-15803d)", fontWeight: 700 }}>{msg}</div>}
+        {msg && <StatusBanner compact tone="success" title={msg} />}
 
         {!enroll && !status?.enabled && (
           <button className="btn primary" disabled={busy} onClick={startEnroll} style={{ alignSelf: "flex-start", fontSize: "var(--fs-14)", padding: "9px 16px", fontWeight: 700 }}>

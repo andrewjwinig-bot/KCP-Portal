@@ -1,5 +1,6 @@
 "use client";
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { useEffect, useMemo, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
@@ -177,11 +178,7 @@ export default function ContactsCard({
       </div>
 
       {error && (
-        <div style={{
-          margin: "8px 0", padding: "8px 10px", borderRadius: 8,
-          background: "var(--tint-red-bg, rgba(220,38,38,0.08))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))",
-          color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", fontWeight: 600,
-        }}>{error}</div>
+        <StatusBanner compact tone="danger" style={{ margin: "8px 0" }} title={error} />
       )}
 
       {loading ? (

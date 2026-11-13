@@ -1,5 +1,6 @@
 "use client";
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { reviewGroupOf } from "@/lib/financials/budgets/reviewGroups";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { StatPill, Pill, TONE_BLUE, TONE_NEUTRAL, TONE_GREEN, TONE_TEAL, TONE_RED, type PillTone } from "../../../components/Pill";
@@ -426,11 +427,10 @@ export default function BudgetDraftPage() {
       {loading && !draft && (
         <LoadingState status={`Building the ${year} draft…`} context="Rent schedule, leasing calls, recoveries, expenses and loans" columns={4} rows={5} />
       )}
-
       {missingBasis && !loading && (
-        <div className="card" style={{ borderColor: "var(--tint-amber-line, rgba(217,119,6,0.5))", background: "var(--tint-amber-bg, rgba(217,119,6,0.07))", color: "var(--c-b45309)" }}>
-          No {year - 1} reprojection is available for {label?.propertyCode ?? key} yet — import its {year - 1} GL so the draft has an expense baseline to grow from.
-        </div>
+        <StatusBanner tone="warning" icon="clock" title={<>No {year - 1} reprojection for {label?.propertyCode ?? key} yet</>}>
+          Import its {year - 1} GL so the draft has an expense baseline to grow from.
+        </StatusBanner>
       )}
 
       {draft && (
@@ -451,7 +451,7 @@ export default function BudgetDraftPage() {
               ? <>The sum of {draft.consolidated.properties.length} properties — click a line for its split by property · edit on each property&rsquo;s own tab</>
               : <>Click any month or the Budget total to type it · <b>Accept</b> keeps a keyed line as shown</>}</span>
           </div>
-          {editError && <div className="card" style={{ color: "var(--c-b91c1c)", borderColor: "var(--tint-red-line, rgba(185,28,28,0.4))" }}>{editError}</div>}
+          {editError && <StatusBanner tone="danger" title="That change didn’t save">{editError}</StatusBanner>}
           <BudgetStatementTable
             draft={draft}
             onEdit={draft.lineEditScope && !draft.consolidated ? editLine : undefined}

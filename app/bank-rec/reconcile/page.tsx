@@ -628,8 +628,9 @@ function MarieDiff({ vs, file }: { vs: NonNullable<NonNullable<AccountRow["skyli
   const off = (x: { marie: number | null; portal: number | null }) => x.marie != null && x.portal != null && Math.round(x.marie * 100) !== Math.round(x.portal * 100);
   const row = (it: OpenItem) => [dateLabel(it.dateISO), it.ref || "—", it.description, money(it.amount)];
   return (
-    <div style={{ border: "1px solid #f3d19c", background: "var(--tint-amber-bg, rgba(245,158,11,0.06))", borderRadius: 10, padding: "12px 14px", display: "grid", gap: 10 }}>
-      <div style={{ ...SECTION, color: "var(--c-b45309)" }}>Against Marie&rsquo;s rec <span style={{ textTransform: "none", letterSpacing: 0, fontWeight: 500 }}>· {file}</span></div>
+    <StatusBanner compact tone="warning" title="Doesn’t match Marie’s rec">
+      <div style={{ display: "grid", gap: 10 }}>
+      <div className="muted">{file}</div>
       {(off(vs.statement) || off(vs.checkBook)) && (
         <ItemTable title="" head={["", "Marie", "Portal", "Difference"]} rows={[
           ...(off(vs.statement) ? [["Statement balance", money(vs.statement.marie), money(vs.statement.portal), money((vs.statement.portal ?? 0) - (vs.statement.marie ?? 0))]] : []),
@@ -638,6 +639,7 @@ function MarieDiff({ vs, file }: { vs: NonNullable<NonNullable<AccountRow["skyli
       )}
       {vs.onlyMarie.length > 0 && <ItemTable title={`Open on Marie's rec, cleared by the portal (${vs.onlyMarie.length})`} head={["Date", "Check #", "Description", "Amount"]} rows={vs.onlyMarie.map(row)} />}
       {vs.onlyPortal.length > 0 && <ItemTable title={`Open in the portal, not on Marie's rec (${vs.onlyPortal.length})`} head={["Date", "Ref", "Description", "Amount"]} rows={vs.onlyPortal.map(row)} />}
-    </div>
+      </div>
+    </StatusBanner>
   );
 }

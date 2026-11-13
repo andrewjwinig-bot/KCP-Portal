@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Pro-rata Share Audit — every office tenant whose STIPULATED pro-rata share
@@ -138,7 +139,7 @@ function ProRataAuditInner() {
       </div>
 
       {error && (
-        <div className="card" style={{ marginTop: 16, borderColor: "var(--tint-red-line, rgba(220,38,38,0.4))", color: "var(--c-b91c1c)" }}>{error}</div>
+        <StatusBanner tone="danger" style={{ marginTop: 16 }} title="Something went wrong">{error}</StatusBanner>
       )}
 
       {rows === null ? (

@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { abbrev } from "@/lib/ui/abbrev"; // the grid always uses the short forms
 import { ChevronDown, ChevronRight } from "lucide-react";
 
@@ -940,12 +941,9 @@ export function BudgetStatementTable({ draft, badgeFor, onLine, onEdit, notes, o
   const negatives = negativeLines(draft);
   if (negatives.length) {
     body.push(
-      <div key="neg" className="card" style={{ padding: "9px 14px",  background: "var(--tint-amber-bg, rgba(217,119,6,0.06))", fontSize: "var(--fs-13)" }}>
-        <b style={{ color: NEGATIVE_FG }}>{negatives.length} line{negatives.length === 1 ? "" : "s"} go{negatives.length === 1 ? "es" : ""} negative</b>
-        <span className="muted"> — a revenue or expense should not: </span>
-        {negatives.slice(0, 8).map((n) => n.label).join(" · ")}{negatives.length > 8 ? ` · +${negatives.length - 8} more` : ""}
-        <span className="muted">. The cells are filled amber.</span>
-      </div>,
+      <StatusBanner key="neg" tone="warning" title={<>{negatives.length} line{negatives.length === 1 ? "" : "s"} go{negatives.length === 1 ? "es" : ""} negative</>}>
+        A revenue or expense should not: {negatives.slice(0, 8).map((n) => n.label).join(" · ")}{negatives.length > 8 ? ` · +${negatives.length - 8} more` : ""}. The cells are filled amber.
+      </StatusBanner>,
     );
   }
 

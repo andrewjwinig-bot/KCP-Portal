@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronRight, X, Sparkles } from "lucide-react";
 
 import { TabButton } from "@/app/components/TabButton";
@@ -152,10 +153,7 @@ function ReservationsPageInner() {
       </header>
 
       {error && (
-        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
-          <div style={{ fontWeight: 700, color: "var(--c-b91c1c)", marginBottom: 4 }}>Couldn&apos;t load reservations</div>
-          <div className="muted small">{error}</div>
-        </div>
+        <StatusBanner tone="danger" title="Couldn&apos;t load reservations">{error}</StatusBanner>
       )}
 
       <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border)" }}>

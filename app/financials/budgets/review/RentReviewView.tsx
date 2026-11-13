@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 // The Rent Roll Review itself — shared by the signed-in page and the emailed
@@ -81,7 +82,7 @@ export function RentReviewView({ api, headerExtra, initialGroup, onGroupChange }
     </div>
   ) : null;
 
-  if (error && !data) return <div className="card" style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>{error}</div>;
+  if (error && !data) return <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>;
   if (!data) return <LoadingState status="Loading the rent rolls…" context="Every property's leasing calls and sign-off" columns={3} rows={5} />;
 
   const owner = { id: data.person.id, label: data.person.label.charAt(0) + data.person.label.slice(1).toLowerCase(), group: data.group };

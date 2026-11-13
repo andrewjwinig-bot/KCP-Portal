@@ -1,5 +1,6 @@
 "use client";
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import LoadingState from "@/app/components/LoadingState";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
@@ -156,10 +157,7 @@ export default function HistoricalOpExPage() {
       </div>
 
       {error && (
-        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
-          <div style={{ fontWeight: 700, color: "var(--c-b91c1c)" }}>Error</div>
-          <div className="muted small">{error}</div>
-        </div>
+        <StatusBanner tone="danger" title="Error">{error}</StatusBanner>
       )}
 
       {!entries && !error && (

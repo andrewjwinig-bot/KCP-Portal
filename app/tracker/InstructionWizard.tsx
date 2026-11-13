@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { Check, ChevronLeft, ChevronRight, Circle, CircleCheck, TriangleAlert, X } from "lucide-react";
 
 // The guided run-through for a task's instructions.
@@ -587,18 +588,11 @@ function StepBody({ step, runState, onToggleRun }: {
             If it reports errors
           </button>
           {showFix && (
-            <div style={{
-              marginTop: 8, padding: "10px 12px", borderRadius: 8,
-              background: "var(--tint-amber-bg, rgba(180,83,9,0.05))", border: "1px solid var(--tint-amber-line, rgba(180,83,9,0.22))",
-              display: "flex", flexDirection: "column", gap: 6,
-            }}>
-              {step.troubleshooting.map((t, i) => (
-                <div key={i} style={{ display: "flex", gap: 9, fontSize: "var(--fs-12-5)", lineHeight: 1.5 }}>
-                  <span style={{ color: "var(--c-b45309)", fontWeight: 900, flexShrink: 0 }}>·</span>
-                  <span>{t}</span>
-                </div>
-              ))}
-            </div>
+            <StatusBanner compact tone="warning" style={{ marginTop: 8 }} title="If it doesn’t work">
+              <ul style={{ margin: "2px 0 0", paddingLeft: 18 }}>
+                {step.troubleshooting.map((t, i) => <li key={i}>{t}</li>)}
+              </ul>
+            </StatusBanner>
           )}
         </div>
       )}
@@ -632,15 +626,7 @@ function StepBody({ step, runState, onToggleRun }: {
         // run where a wrong click costs real work to undo, so it gets weight:
         // its own tinted band, upright type, and the ⚠ that says stop reading
         // for a second.
-        <div style={{
-          marginTop: 12, padding: "9px 12px", borderRadius: 8,
-          background: "var(--tint-red-bg, rgba(220,38,38,0.07))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.30))",
-          fontSize: "var(--fs-12-5)", fontWeight: 700, color: "var(--c-b91c1c)",
-          display: "flex", gap: 8, alignItems: "flex-start", lineHeight: 1.45,
-        }}>
-          <span style={{ flexShrink: 0 }}><TriangleAlert color="var(--c-b54708, #B54708)" size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
-          {step.note}
-        </div>
+        <StatusBanner compact tone="warning" style={{ marginTop: 12 }} title={step.note} />
       ) : (
         <div style={{
           marginTop: 10, paddingLeft: 8, fontSize: "var(--fs-12)", fontStyle: "italic",
