@@ -10,7 +10,8 @@
 
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BookOpen, ChevronLeft, ChevronRight, Circle, CircleCheck, Clock, Download, Search, CircleX } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, Circle, CircleCheck, Clock, Download, Search, MousePointerClick } from "lucide-react";
+import MoneyMoves from "./lessons/MoneyMoves";
 import { PageHeader } from "../components/PageHeader";
 import { StatPill } from "../components/Pill";
 import { TabButton } from "../components/TabButton";
@@ -21,7 +22,7 @@ import { th, thL, td, tdL } from "../components/tableStyles";
 import { CHECKLIST, GLOSSARY, MODULES, PARTS, totalMinutes, type Block, type Module } from "@/lib/onboarding/modules";
 
 type Progress = {
-  modules: Record<string, { doneAt: string; score: number; of: number }>;
+  modules: Record<string, { doneAt: string }>;
   checklist: Record<string, { doneAt: string; by: string }>;
   startedAt?: string;
 };
@@ -70,57 +71,6 @@ function BlockView({ b }: { b: Block }) {
   );
 }
 
-/** The three-question check at the end of a module. */
-function Check({ mod, onFinished, done }: { mod: Module; onFinished: (score: number) => void; done?: { score: number; of: number } }) {
-  const [picked, setPicked] = useState<(number | null)[]>(() => mod.quiz.map(() => null));
-  useEffect(() => setPicked(mod.quiz.map(() => null)), [mod.id]);
-  const answered = picked.every((p) => p !== null);
-  const score = picked.filter((p, i) => p === mod.quiz[i].answer).length;
-  return (
-    <section style={{ display: "grid", gap: 16 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <h3 style={{ margin: 0, fontSize: "var(--fs-17, 17px)" }}>Check Yourself</h3>
-        {done && <span style={{ color: "var(--c-067647)", fontWeight: 700, display: "inline-flex", gap: 6, alignItems: "center" }}><CircleCheck size={16} strokeWidth={1.75} /> Completed · {done.score} of {done.of}</span>}
-      </div>
-      {mod.quiz.map((q, qi) => {
-        const p = picked[qi];
-        return (
-          <div key={qi} style={{ display: "grid", gap: 8 }}>
-            <div style={{ fontWeight: 700, lineHeight: 1.45 }}>{qi + 1}. <Rich text={q.q} /></div>
-            <div style={{ display: "grid", gap: 6 }}>
-              {q.options.map((o, oi) => {
-                const chosen = p === oi, right = oi === q.answer, reveal = p !== null;
-                const tone = reveal && right ? "var(--c-067647)" : reveal && chosen ? "var(--c-b42318)" : undefined;
-                return (
-                  <button key={oi} type="button" disabled={reveal} onClick={() => setPicked((x) => x.map((v, i) => i === qi ? oi : v))}
-                    style={{ display: "flex", alignItems: "center", gap: 10, textAlign: "left", padding: "10px 12px", borderRadius: 8, cursor: reveal ? "default" : "pointer",
-                      border: `1px solid ${tone ?? "var(--border)"}`, background: "var(--card)", color: "var(--text)", fontSize: "var(--fs-14)", fontWeight: chosen ? 700 : 500 }}>
-                    {reveal && right ? <CircleCheck size={18} strokeWidth={1.75} style={{ color: tone, flexShrink: 0 }} />
-                      : reveal && chosen ? <CircleX size={18} strokeWidth={1.75} style={{ color: tone, flexShrink: 0 }} />
-                      : <Circle size={18} strokeWidth={1.75} style={{ color: "var(--muted)", flexShrink: 0 }} />}
-                    <span><Rich text={o} /></span>
-                  </button>
-                );
-              })}
-            </div>
-            {p !== null && (
-              <div style={{ color: "var(--muted)", lineHeight: 1.5 }}>
-                <strong style={{ color: p === q.answer ? "var(--c-067647)" : "var(--c-b42318)" }}>{p === q.answer ? "Right." : "Not quite."}</strong> <Rich text={q.why} />
-              </div>
-            )}
-          </div>
-        );
-      })}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <button type="button" className="btn primary" disabled={!answered} onClick={() => onFinished(score)}>
-          {done ? "Save New Score" : "Complete Module"}
-        </button>
-        <span style={{ color: "var(--muted)" }}>{answered ? `${score} of ${mod.quiz.length} right` : "Answer all three to finish the module"}</span>
-      </div>
-    </section>
-  );
-}
-
 export default function OnboardingPage() {
   return <Suspense fallback={<LoadingState status="Loading your orientation" />}><Orientation /></Suspense>;
 }
@@ -157,8 +107,6 @@ function Orientation() {
   const doneCount = progress ? MODULES.filter((m) => progress.modules[m.id]).length : 0;
   const checkItems = CHECKLIST.flatMap((g) => g.items);
   const checksDone = progress ? checkItems.filter((i) => progress.checklist[i.id]).length : 0;
-  const scored = progress ? Object.values(progress.modules) : [];
-  const right = scored.reduce((s, m) => s + m.score, 0), asked = scored.reduce((s, m) => s + m.of, 0);
   const minutesLeft = MODULES.filter((m) => !progress?.modules[m.id]).reduce((s, m) => s + m.minutes, 0);
 
   const glossary = useMemo(() => {
@@ -172,7 +120,7 @@ function Orientation() {
     <main style={{ display: "grid", gap: 20 }}>
       <PageHeader
         title="Orientation"
-        info={<>Your guided path through the New Accountant Handbook: {MODULES.length} short modules, each with the portal pages to open and a three-question check, plus the 90-day plan you work through with Drew. The handbook is the full reference — download it any time.</>}
+        info={<>Your guided path through the New Accountant Handbook: {MODULES.length} short modules to click through, each with the portal pages to open, plus the 90-day plan you work through with Drew. The handbook is the full reference — download it any time.</>}
         actions={<a className="btn" href="/api/onboarding/handbook" style={{ textDecoration: "none" }}><Download size={16} strokeWidth={1.75} /> Download Handbook</a>}
         meta={<div style={{ color: "var(--muted)", fontSize: "var(--fs-14)", marginTop: 8 }}>
           {firstName ? `${firstName}'s progress` : "Progress"} · {MODULES.length} modules · about {totalMinutes()} minutes in all{progress?.startedAt ? ` · started ${fmtDate(progress.startedAt)}` : ""}
@@ -185,8 +133,7 @@ function Orientation() {
       {progress && <>
         <div className="pills">
           <StatPill label="Modules done" value={`${doneCount} of ${MODULES.length}`} sub={doneCount === MODULES.length ? "All done" : `Next: ${MODULES.find((m) => !progress.modules[m.id])?.title}`} />
-          <StatPill label="Checks" value={asked ? `${Math.round((right / asked) * 100)}%` : "—"} sub={asked ? `${right} of ${asked} questions right` : "No checks taken yet"} />
-          <StatPill label="Time left" value={`${minutesLeft} min`} sub="Reading and checks" />
+          <StatPill label="Time left" value={`${minutesLeft} min`} sub="At your own pace" />
           <StatPill label="90-day plan" value={`${checksDone} of ${checkItems.length}`} sub="Ticked off with Drew" onClick={() => setTab("plan")} />
         </div>
 
@@ -210,7 +157,7 @@ function Orientation() {
                           padding: "11px 2px", border: 0, borderBottom: "1px solid var(--hairline)", background: "transparent", cursor: "pointer", color: "var(--text)" }}>
                         {rec ? <CircleCheck size={20} strokeWidth={1.75} style={{ color: "var(--c-067647)" }} /> : <Circle size={20} strokeWidth={1.75} style={{ color: on ? "var(--brand)" : "var(--c-98a2b3)" }} />}
                         <span style={{ fontWeight: on ? 800 : 600, color: on ? "var(--brand)" : undefined }}>{m.title}</span>
-                        <span style={{ color: "var(--muted)", fontSize: "var(--fs-13)" }}>{rec ? `${rec.score}/${rec.of}` : `${m.minutes} min`}</span>
+                        <span style={{ color: "var(--muted)", fontSize: "var(--fs-13)" }}>{rec ? "Done" : `${m.minutes} min`}</span>
                       </button>
                     );
                   })}
@@ -226,10 +173,16 @@ function Orientation() {
                   <span>{active.summary}</span>
                   <span style={{ display: "inline-flex", gap: 4, alignItems: "center" }}><Clock size={16} strokeWidth={1.75} /> {active.minutes} min</span>
                   <span>Handbook {active.handbook}</span>
+                  {active.interactive && <span style={{ display: "inline-flex", gap: 4, alignItems: "center", color: "var(--brand)", fontWeight: 700 }}><MousePointerClick size={16} strokeWidth={1.75} /> Interactive</span>}
                 </div>
               </header>
 
-              {active.blocks.map((b, i) => <BlockView key={`${active.id}-${i}`} b={b} />)}
+              {active.interactive === "money-moves"
+                ? <MoneyMoves key={active.id} done={!!progress.modules[active.id]} onFinish={async () => {
+                    if (!progress.modules[active.id]) await save({ module: active.id });
+                    if (idx < MODULES.length - 1) open(MODULES[idx + 1].id);
+                  }} />
+                : active.blocks.map((b, i) => <BlockView key={`${active.id}-${i}`} b={b} />)}
 
               {active.portal.length > 0 && (
                 <div style={{ display: "grid", gap: 8, borderTop: "1px solid var(--hairline)", paddingTop: 16 }}>
@@ -242,12 +195,13 @@ function Orientation() {
                 </div>
               )}
 
-              <div style={{ borderTop: "1px solid var(--hairline)", paddingTop: 18 }}>
-                <Check mod={active} done={progress.modules[active.id]} onFinished={async (score) => {
-                  await save({ module: active.id, score, of: active.quiz.length });
-                  if (idx < MODULES.length - 1) open(MODULES[idx + 1].id);
-                }} />
-              </div>
+              {!active.interactive && (
+                <div style={{ borderTop: "1px solid var(--hairline)", paddingTop: 16, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  {progress.modules[active.id]
+                    ? <span style={{ color: "var(--c-067647)", fontWeight: 700, display: "inline-flex", gap: 6, alignItems: "center" }}><CircleCheck size={16} strokeWidth={1.75} /> Done {fmtDate(progress.modules[active.id].doneAt)}</span>
+                    : <button type="button" className="btn primary" onClick={async () => { await save({ module: active.id }); if (idx < MODULES.length - 1) open(MODULES[idx + 1].id); }}>Mark as Done</button>}
+                </div>
+              )}
 
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, borderTop: "1px solid var(--hairline)", paddingTop: 16 }}>
                 {idx > 0 ? <button type="button" className="btn" onClick={() => open(MODULES[idx - 1].id)}><ChevronLeft size={16} strokeWidth={1.75} /> {MODULES[idx - 1].title}</button> : <span />}

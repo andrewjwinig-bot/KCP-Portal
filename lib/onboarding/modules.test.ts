@@ -11,11 +11,8 @@ describe("orientation modules", () => {
     const items = CHECKLIST.flatMap((g) => g.items.map((i) => i.id));
     expect(new Set(items).size).toBe(items.length);
   });
-  it("every check has three questions with a valid answer", () => {
-    for (const m of MODULES) {
-      expect(m.quiz).toHaveLength(3);
-      for (const q of m.quiz) expect(q.answer).toBeGreaterThanOrEqual(0), expect(q.answer).toBeLessThan(q.options.length);
-    }
+  it("every module teaches something — a lesson or written blocks", () => {
+    for (const m of MODULES) expect(m.interactive || m.blocks.length > 0, m.id).toBeTruthy();
   });
   it("every portal link is a real page Randy can open", () => {
     for (const m of MODULES) for (const l of m.portal) {
