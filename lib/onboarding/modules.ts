@@ -310,7 +310,7 @@ export const MODULES: Module[] = [
         { title: "1 · Shared bill comes in", text: "Paid once, from 2000" },
         { title: "2 · Coded to an allocation", text: "`-9301` business parks · `-9302` shopping centers · `-9303` all properties" },
         { title: "3 · 2000 GL imported", text: "Monthly, January to the latest month, into the portal" },
-        { title: "4 · Split by building", text: "Each account × the building's allocation %. Under $100 is held until it adds up" },
+        { title: "4 · Split by building", text: "Each account × the building's allocation %. Under $250 is held until it adds up" },
         { title: "5 · One invoice per building", text: "`AE` + code + MMYY, a PDF, each emailed to Avid on its own" },
         { title: "6 · Building pays 2000 back", text: "Vendor LIKM4, through AP. 2000 nets back to zero" },
       ] },

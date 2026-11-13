@@ -24,12 +24,13 @@ const FROM = "dwinig@kormancommercial.com"; // verified sender
 export type RegisterFlow = { source: "allocated" | "credit-card" | "payroll"; label: string };
 
 export type RegisterRow = { invoiceNumber: string; code: string; name: string; amount: number };
-/** A property held under the $100 floor this time — no invoice in Avid for it
+/** A property held under the hold threshold this time — no invoice in Avid for it
  *  (or, `partial`, only part of its charges held). It bills with a later batch. */
 export type HeldRow = { code: string; name: string; amount: number; partial?: boolean };
 
 const heldLine = (h: HeldRow) => `${`${h.code} ${h.name}`.trim()} · ${money(h.amount)}${h.partial ? " (part held — the rest is invoiced above)" : ""}`;
-const HELD_LABEL = "Held under $100 — no invoice this time";
+import { CARRYOVER_THRESHOLD } from "@/lib/allocated-invoicer/carryover";
+const HELD_LABEL = `Held under $${CARRYOVER_THRESHOLD} — no invoice this time`;
 const HELD_NOTE = "These carry forward and bill with a later batch, so you won't find them in AvidXchange yet.";
 
 const money = (n: number) => "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });

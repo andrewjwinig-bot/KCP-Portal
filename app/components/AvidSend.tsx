@@ -195,7 +195,7 @@ export async function sendToAvid(args: {
   archiveZip?: Blob | null;
   /** AP's register — each invoice's number and amount (emailed to Tanya). */
   register?: { invoiceNumber: string; code: string; name: string; amount: number }[];
-  /** Properties held under $100 this time — no invoice; the register notes them. */
+  /** Properties held under the hold threshold this time — no invoice; the register notes them. */
   held?: { code: string; name: string; amount: number }[];
 }): Promise<{ sent: boolean; reason?: string; byProperty: AvidProperty[]; total: number; invoiceCount: number; sentAt: string }> {
   const chunk = 0x8000;

@@ -3,6 +3,11 @@ import { computeMonths } from "./autoProcess";
 import { emptyLedger, finalizeMonth, applyRecognized, recognizedFor, type CarryoverLedger } from "./carryover";
 import type { GLParseResult } from "./glParser";
 
+// These pin the carry-forward / catch-up LOGIC at a $100 hold (the figures
+// below were written for it); the live hold is CARRYOVER_THRESHOLD ($250).
+const T = 100;
+
+
 // Minimal 2000 G&A GL fixture: account totals only (single-month path needs no
 // transactions). Each entry allocates by its suffix via ALLOC_PCT.
 function gl(month: string, entries: { code: string; suffix: "9301" | "9302" | "9303"; net: number }[]): GLParseResult {
@@ -18,14 +23,14 @@ function gl(month: string, entries: { code: string; suffix: "9301" | "9302" | "9
 // baselines (what sendAllocation does on commit).
 function commit(ledger: CarryoverLedger, res: Extract<ReturnType<typeof computeMonths>, { months: unknown }>): CarryoverLedger {
   let led = ledger;
-  for (const m of res.months) led = finalizeMonth(led, m.statementMonth, m.expenses, "NOW").ledger;
+  for (const m of res.months) led = finalizeMonth(led, m.statementMonth, m.expenses, "NOW", T).ledger;
   led = applyRecognized(led, res.recognizedUpdates, "NOW");
   return led;
 }
 
 describe("computeMonths — recognized delta + catch-up", () => {
   it("processes a fresh month normally (no catch-up) and records a recognized baseline", () => {
-    const res = computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10000 }]), emptyLedger());
+    const res = computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10000 }]), emptyLedger(), T);
     if ("error" in res) throw new Error(res.error);
     expect(res.months).toHaveLength(1);
     expect(res.catchup).toBeNull();
@@ -39,8 +44,8 @@ describe("computeMonths — recognized delta + catch-up", () => {
 
   it("is idempotent — re-importing the identical GL yields no fresh month and no catch-up", () => {
     const g = gl("2025-07", [{ code: "8220", suffix: "9301", net: 10000 }]);
-    const led = commit(emptyLedger(), computeMonths(g, emptyLedger()) as any);
-    const res2 = computeMonths(g, led);
+    const led = commit(emptyLedger(), computeMonths(g, emptyLedger(), T) as any);
+    const res2 = computeMonths(g, led, T);
     if ("error" in res2) throw new Error(res2.error);
     expect(res2.months).toHaveLength(0);
     expect(res2.catchup).toBeNull();
@@ -48,9 +53,9 @@ describe("computeMonths — recognized delta + catch-up", () => {
   });
 
   it("catches up a late charge to an already-finalized month as a supplemental", () => {
-    const led = commit(emptyLedger(), computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10000 }]), emptyLedger()) as any);
+    const led = commit(emptyLedger(), computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10000 }]), emptyLedger(), T) as any);
     // A $500 late charge posts to July → re-export shows $10,500.
-    const res = computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10500 }]), led);
+    const res = computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10500 }]), led, T);
     if ("error" in res) throw new Error(res.error);
     expect(res.months).toHaveLength(0); // July is committed, not re-billed in full
     expect(res.catchup).not.toBeNull();
@@ -62,10 +67,10 @@ describe("computeMonths — recognized delta + catch-up", () => {
   });
 
   it("holds a small late delta under $100 instead of billing it", () => {
-    const led = commit(emptyLedger(), computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10000 }]), emptyLedger()) as any);
+    const led = commit(emptyLedger(), computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10000 }]), emptyLedger(), T) as any);
     // A tiny $50 late charge → 40A0's share = 2.81% of $50 = $1.41 (held), and
     // 4080's share = 23.8% of $50 = $11.90 (held) — all under $100.
-    const res = computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10050 }]), led);
+    const res = computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10050 }]), led, T);
     if ("error" in res) throw new Error(res.error);
     // Nothing crosses $100 → the catch-up bills nobody this pass.
     expect(res.catchup?.byProperty ?? []).toHaveLength(0);
@@ -75,7 +80,7 @@ describe("computeMonths — recognized delta + catch-up", () => {
     // A ledger that committed July before this feature: committedPeriods has it,
     // but recognizedMonths does NOT.
     const legacy: CarryoverLedger = { balances: {}, committedPeriods: ["2025-07"], recognized: {}, recognizedMonths: [], updatedAt: "" };
-    const res = computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10000 }]), legacy);
+    const res = computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 10000 }]), legacy, T);
     if ("error" in res) throw new Error(res.error);
     expect(res.months).toHaveLength(0);
     expect(res.catchup).toBeNull(); // no retro re-bill
@@ -83,7 +88,7 @@ describe("computeMonths — recognized delta + catch-up", () => {
     // Applying the recognized updates baselines July → a later real late charge is caught.
     const led = applyRecognized(legacy, res.recognizedUpdates, "NOW");
     expect(recognizedFor(led, "4080", "8220", "2025-07")).toBeCloseTo(2380, 2);
-    const res2 = computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 11000 }]), led);
+    const res2 = computeMonths(gl("2025-07", [{ code: "8220", suffix: "9301", net: 11000 }]), led, T);
     if ("error" in res2) throw new Error(res2.error);
     expect(res2.catchup).not.toBeNull(); // now a real delta is caught up
   });
@@ -93,14 +98,14 @@ describe("computeMonths — never bills a month older than the newest one billed
   it("skips an uncommitted month before the latest committed one (10/19/26: Oct–Dec 2025 re-billed)", () => {
     let led = emptyLedger();
     for (const m of ["2026-07", "2026-08"]) {
-      led = commit(led, computeMonths(gl(m, [{ code: "8220", suffix: "9301", net: 1000 }]), led) as any);
+      led = commit(led, computeMonths(gl(m, [{ code: "8220", suffix: "9301", net: 1000 }]), led, T) as any);
     }
-    const res = computeMonths(gl("2025-10", [{ code: "8220", suffix: "9301", net: 10000 }]), led);
+    const res = computeMonths(gl("2025-10", [{ code: "8220", suffix: "9301", net: 10000 }]), led, T);
     if ("error" in res) throw new Error(res.error);
     expect(res.months).toHaveLength(0);
     expect(res.skipped).toContain("2025-10");
     // A month AFTER the latest committed one still bills as new.
-    const sep = computeMonths(gl("2026-09", [{ code: "8220", suffix: "9301", net: 10000 }]), led);
+    const sep = computeMonths(gl("2026-09", [{ code: "8220", suffix: "9301", net: 10000 }]), led, T);
     if ("error" in sep) throw new Error(sep.error);
     expect(sep.months.map((m) => m.statementMonth)).toEqual(["2026-09"]);
   });

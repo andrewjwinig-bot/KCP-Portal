@@ -15,7 +15,9 @@
 // Pure types + math only (NO server-only imports) so the client page, the API
 // route, and the tests can all share one source of truth.
 
-export const CARRYOVER_THRESHOLD = 100;
+// $250 (owner, 11/13/26, with the Allocated Expenses hold — fewer invoices,
+// each carrying an AvidXchange fee). It was $100.
+export const CARRYOVER_THRESHOLD = 250;
 
 // Properties never held (internal / non-check). 2010 is the LIK Management
 // "DO NOT PROCESS" tracking statement and is specially handled by the GL

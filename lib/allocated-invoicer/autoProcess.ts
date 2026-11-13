@@ -290,6 +290,7 @@ function buildCatchup(
   catchup: Map<string, Map<string, CatchupEntry>>,
   sourceMonths: string[],
   ledger: CarryoverLedger,
+  threshold: number = CARRYOVER_THRESHOLD,
 ): ComputedAllocation | null {
   if (!catchup.size) return null;
   const months = [...sourceMonths].sort();
@@ -305,7 +306,7 @@ function buildCatchup(
     for (const [base, c] of cm) {
       const prior = round2(ledger.balances[pid]?.accounts?.[base]?.heldTotal ?? 0);
       const accrued = round2(c.delta + prior);
-      const billed = yearEnd || accrued >= CARRYOVER_THRESHOLD;
+      const billed = yearEnd || accrued >= threshold;
       const row: AllocExportRow = { propertyId: pid, propertyName: propName(pid), accountCode: base, accountName: c.name, accountSuffix: c.suffix, grossAmount: c.delta, allocPct: 0, allocAmount: c.delta };
       rows.push(row);
       decs.push({ base, name: c.name, thisMonth: c.delta, prior, accrued, billed, rows: [row] });
@@ -338,7 +339,7 @@ function buildCatchup(
  *     is backfilled from the current GL and it's skipped (no retro re-bill).
  * Pure — mutates nothing.
  */
-export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger): MonthsResult | { error: string } {
+export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger, threshold: number = CARRYOVER_THRESHOLD): MonthsResult | { error: string } {
   const parts = splitIntoMonths(gl);
   if (!parts.length) return { error: "no-statement-month" };
 
@@ -370,10 +371,10 @@ export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger): Month
       skipped.push(month);
     } else if (!working.committedPeriods.includes(month)) {
       // Fresh month → normal per-month invoice batch.
-      const c = computeOneMonth(part, working);
+      const c = computeOneMonth(part, working, threshold);
       if ("error" in c) return { error: c.error };
       months.push(c);
-      working = finalizeMonth(working, month, c.expenses, nowISO).ledger;
+      working = finalizeMonth(working, month, c.expenses, nowISO, threshold).ledger;
     } else if (!isMonthBaselined(working, month)) {
       // Legacy committed month (no per-account baseline) → establish the baseline
       // from the current GL, don't re-bill it. Future late charges will be caught.
@@ -400,7 +401,7 @@ export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger): Month
     }
   }
 
-  const catchupResult = buildCatchup(catchup, [...catchupMonths], working);
+  const catchupResult = buildCatchup(catchup, [...catchupMonths], working, threshold);
 
   const map = new Map<string, { code: string; name: string; amount: number }>();
   let invoiceCount = 0;
@@ -434,7 +435,7 @@ function registerRows(c: ComputedAllocation): RegisterRow[] {
   return out;
 }
 
-/** Properties with charges held under the $100 floor in this batch — no
+/** Properties with charges held under the hold threshold in this batch — no
  *  invoice for them (or only part), so AP's register says why. */
 /** Across a range send, a property's held amount is what is held after its
  *  LAST month (each later month carries the earlier hold forward). */

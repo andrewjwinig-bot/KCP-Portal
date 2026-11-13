@@ -318,7 +318,7 @@ export function buildAllocInvoicePdf(args: BuildAllocInvoicePdfArgs): Blob {
     doc.setTextColor(0, 0, 0);
     y += subRowH;
 
-    // Carried-forward note: this account was held under $100 in prior months and
+    // Carried-forward note: this account was held under the hold threshold in prior months and
     // is now billing the accrued total. Show what portion rolled forward.
     if (prior > 0) {
       doc.setFont("helvetica", "italic");

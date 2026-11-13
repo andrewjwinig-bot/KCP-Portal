@@ -33,9 +33,10 @@ describe("isYearEndMonth", () => {
 
 describe("isAccountBilled", () => {
   it("bills at or above the threshold", () => {
-    expect(isAccountBilled(100, "2026-06")).toBe(true);
-    expect(isAccountBilled(100.01, "2026-06")).toBe(true);
-    expect(isAccountBilled(99.99, "2026-06")).toBe(false);
+    expect(isAccountBilled(250, "2026-06")).toBe(true);
+    expect(isAccountBilled(250.01, "2026-06")).toBe(true);
+    expect(isAccountBilled(249.99, "2026-06")).toBe(false);
+    expect(isAccountBilled(150, "2026-06")).toBe(false); // billed under the old $100 hold
   });
   it("bills everything at year-end", () => {
     expect(isAccountBilled(1, "2026-12")).toBe(true);
@@ -52,29 +53,29 @@ describe("finalizeMonth — per-account holding", () => {
     expect(ledger.committedPeriods).toContain("2026-06");
   });
 
-  it("accrues across months and bills once the account crosses $100", () => {
-    let led = finalizeMonth(emptyLedger(), "2026-06", [exp("3640", "7000", 42.36)], NOW).ledger;
+  it("accrues across months and bills once the account crosses $250", () => {
+    let led = finalizeMonth(emptyLedger(), "2026-06", [exp("3640", "7000", 142.36)], NOW).ledger;
     led = finalizeMonth(led, "2026-07", [exp("3640", "7000", 40)], NOW).ledger;
-    expect(priorForAccount(led, "3640", "7000")).toBe(82.36); // still held
-    const r = finalizeMonth(led, "2026-08", [exp("3640", "7000", 30)], NOW);
+    expect(priorForAccount(led, "3640", "7000")).toBe(182.36); // still held
+    const r = finalizeMonth(led, "2026-08", [exp("3640", "7000", 80)], NOW);
     const d = r.decisions.find((x) => x.accountCode === "7000")!;
-    expect(d.prior).toBe(82.36);
-    expect(d.accrued).toBe(112.36);
+    expect(d.prior).toBe(182.36);
+    expect(d.accrued).toBe(262.36);
     expect(d.billed).toBe(true);
     // billed → resets to $0 (account removed from ledger)
     expect(priorForAccount(r.ledger, "3640", "7000")).toBe(0);
     expect(r.ledger.balances["3640"]).toBeUndefined();
   });
 
-  it("bills a single account immediately when it is over $100 on its own", () => {
-    const { ledger, decisions } = finalizeMonth(emptyLedger(), "2026-06", [exp("3640", "8220", 150)], NOW);
+  it("bills a single account immediately when it is over $250 on its own", () => {
+    const { ledger, decisions } = finalizeMonth(emptyLedger(), "2026-06", [exp("3640", "8220", 300)], NOW);
     expect(decisions[0].billed).toBe(true);
     expect(ledger.balances["3640"]).toBeUndefined();
   });
 
   it("holds some accounts while billing others in the same property", () => {
     const { ledger, decisions } = finalizeMonth(emptyLedger(), "2026-06", [
-      exp("3640", "8220", 150, "Big"),
+      exp("3640", "8220", 300, "Big"),
       exp("3640", "7000", 20, "Small"),
     ], NOW);
     const big = decisions.find((d) => d.accountCode === "8220")!;
@@ -133,7 +134,7 @@ describe("finalizeMonth — purity & idempotency guard", () => {
 });
 
 describe("threshold constant", () => {
-  it("is $100", () => {
-    expect(CARRYOVER_THRESHOLD).toBe(100);
+  it("is $250 (raised from $100 on 11/13/26 — fewer invoices, each an AvidXchange fee)", () => {
+    expect(CARRYOVER_THRESHOLD).toBe(250);
   });
 });

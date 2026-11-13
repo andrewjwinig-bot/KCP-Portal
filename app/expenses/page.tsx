@@ -1593,7 +1593,7 @@ export default function ExpensesPage() {
                         {propId} — {propName(propId)}
                         {bill && bill.prior > 0 && (
                           <span style={{ marginLeft: 6 }}>
-                            <HoverCard title="Carried forward" rows={[{ label: "Included in this bill", value: toMoney(bill.prior) }]} footer={{ label: "", value: "Held under $100 earlier, billed now." }}>
+                            <HoverCard title="Carried forward" rows={[{ label: "Included in this bill", value: toMoney(bill.prior) }]} footer={{ label: "", value: `Held under $${CARRYOVER_THRESHOLD} earlier, billed now.` }}>
                               <Pill tone={TONE_AMBER}>+ carried</Pill>
                             </HoverCard>
                           </span>
@@ -1605,7 +1605,7 @@ export default function ExpensesPage() {
                             <span key={`b-${c}`} title="Billing this period"><Pill tone={TONE_GREEN}>{c}</Pill></span>
                           ))}
                           {heldCats.map((c) => (
-                            <span key={`h-${c}`} title="Held under $100 — carried forward"><Pill tone={TONE_RED}>{c}</Pill></span>
+                            <span key={`h-${c}`} title={`Held under $${CARRYOVER_THRESHOLD} — carried forward`}><Pill tone={TONE_RED}>{c}</Pill></span>
                           ))}
                         </div>
                       </td>

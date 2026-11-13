@@ -20,7 +20,9 @@
 // Pure types + math only (NO server-only imports) so the client page, the API
 // route, and the tests can all share one source of truth.
 
-export const CARRYOVER_THRESHOLD = 100;
+// $250 per account (owner, 11/13/26: "raise it to 250 … cut down our # of
+// invoices" — every invoice to AvidXchange carries a fee). It was $100.
+export const CARRYOVER_THRESHOLD = 250;
 
 function round2(n: number): number {
   return Math.round((Number(n) || 0) * 100) / 100;

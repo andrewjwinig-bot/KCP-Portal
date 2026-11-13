@@ -3,7 +3,7 @@
 // The hold threshold as a what-if (owner: "would $250 cut a big chunk of
 // invoices? … there is a small fee to send each invoice to avid"). This year's
 // imported 2000 G&A GL replayed from January at each threshold — the invoices
-// each month would have sent. Read-only; the live send still holds at $100.
+// each month would have sent. Read-only; the live hold is $250 (from 11/13/26).
 
 import { useEffect, useState } from "react";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
@@ -36,7 +36,7 @@ export function ThresholdWhatIfCard() {
       <button type="button" onClick={() => setOpen((o) => !o)}
         style={{ all: "unset", cursor: "pointer", display: "flex", alignItems: "baseline", gap: 10, padding: "12px 14px", width: "calc(100% - 28px)" }}>
         <span style={{ fontSize: 16, fontWeight: 800 }}>Hold Threshold · What If</span>
-        <span className="muted small">How many invoices this year at a $100, $250 or $500 hold. Nothing changes until you choose.</span>
+        <span className="muted small">How many invoices this year at a $100, $250 or $500 hold. The live hold is $250.</span>
       </button>
       {open && (
         <div style={{ padding: "0 14px 14px" }}>

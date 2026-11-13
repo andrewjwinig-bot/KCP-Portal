@@ -743,7 +743,7 @@ export default function AllocatedInvoicerPage() {
         </StatusBanner>
       )}
 
-      {/* ── Everything held under $100 this month — nothing bills yet ── */}
+      {/* ── Everything held under the threshold this month — nothing bills yet ── */}
       {allHeldThisMonth && (
         <StatusBanner tone="info" icon="clock" title={<>{glResult?.periodText || statementMonth}: nothing bills yet</>}>
           Every allocation is under the ${CARRYOVER_THRESHOLD}-per-account threshold, so the balances are held and carry forward until they cross ${CARRYOVER_THRESHOLD} (December posts everything). See the Allocation Preview below for the held detail.
@@ -974,7 +974,7 @@ export default function AllocatedInvoicerPage() {
                             <span key={`b-${name}`} title="Billing this period"><Pill tone={TONE_GREEN}>{name}</Pill></span>
                           ))}
                           {heldNames.map((name) => (
-                            <span key={`h-${name}`} title="Held under $100 — carried forward"><Pill tone={TONE_RED}>{name}</Pill></span>
+                            <span key={`h-${name}`} title={`Held under $${CARRYOVER_THRESHOLD} — carried forward`}><Pill tone={TONE_RED}>{name}</Pill></span>
                           ))}
                         </div>
                       </td>

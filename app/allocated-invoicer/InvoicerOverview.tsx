@@ -11,7 +11,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 //      much underneath; click it for that month's invoices. A month that was
 //      prepared but not sent (held, or a failed send) says so in amber.
 //   2. WHAT IS STILL OPEN — the carried-forward balances by property: G&A
-//      allocated under the $100-per-account threshold, held until it crosses
+//      allocated under the $250-per-account threshold, held until it crosses
 //      it (December bills everything).
 //   3. EVERY PRIOR MONTH — one row each; click for the by-building split and
 //      the invoice PDFs exactly as they were sent (view one, or the month as
@@ -227,7 +227,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
       <div className="card" style={{ padding: 0 }}>
         <div style={{ padding: "12px 14px", display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
           <span style={{ fontSize: 16, fontWeight: 800 }}>Open Balances by Property</span>
-          <span className="muted small">Allocated under $100 per account — held and carried forward until it crosses $100; December bills everything.</span>
+          <span className="muted small">Allocated under $250 per account — held and carried forward until it crosses $250; December bills everything.</span>
         </div>
         {balances.length === 0 ? (
           <div className="muted small" style={{ padding: "0 14px 14px" }}>Nothing carried forward — every allocation has been billed.</div>
@@ -436,7 +436,7 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                 </div>
                 <div className="small" style={{ padding: "6px 18px 0", color: "var(--muted)", lineHeight: 1.5 }}>
                   Each invoice PDF goes to <b style={{ color: "var(--text)" }}>kormancommercial@avidbill.com</b> as its own email; Marie, Drew and Harry get one summary.
-                  Amounts under $100 per account stay held and carry forward. Sending finalizes the month — it can&rsquo;t be undone.
+                  Amounts under $250 per account stay held and carry forward. Sending finalizes the month — it can&rsquo;t be undone.
                 </div>
               </>
             )}

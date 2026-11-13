@@ -679,7 +679,7 @@ export function buildReimbursementInvoicePdf(args: BuildReimbursementPdfArgs): B
     if (y + 40 > pageH - 120) { doc.addPage(); y = margin; }
     doc.setFont("helvetica", "normal"); doc.setFontSize(9); doc.setTextColor(80, 80, 80);
     doc.text(
-      `Includes ${toMoney(held)} of this statement's charges at properties held under $100. Those are billed to the property in a later batch as a prior balance and are not reimbursed again. Billed to properties this batch: ${toMoney(args.total - held)} of this statement's charges.`,
+      `Includes ${toMoney(held)} of this statement's charges at properties held under the hold threshold. Those are billed to the property in a later batch as a prior balance and are not reimbursed again. Billed to properties this batch: ${toMoney(args.total - held)} of this statement's charges.`,
       margin, y + 16, { maxWidth: contentW },
     );
     doc.setTextColor(0, 0, 0);
