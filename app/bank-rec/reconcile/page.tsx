@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { PageHeader } from "@/app/components/PageHeader";
 import { HeaderSelect } from "@/app/components/HeaderSelect";
@@ -225,13 +226,15 @@ export default function BankRecPage() {
         </div>
         </div>
         {(signed || data) && <MetaLine>
-          {signed && <><span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--c-067647)" }}>
-            <CircleCheck size={16} strokeWidth={1.75} aria-hidden />Signed off{r?.signedOff?.by ? ` by ${titleName(r.signedOff.by)}` : ""} {new Date(r!.signedOff!.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-          </span></>}
           {data && <><span>{data.files.filter((f) => f.kind === "stmt").length} statements · {data.files.filter((f) => f.kind.startsWith("rec")).length} Skyline recs on file</span>
             <span>{data.report ? <>Checking Account Report as of {data.report.asOf ? dateLabel(data.report.asOf) : "?"}</> : <b style={{ color: "var(--c-b45309)" }}>No Checking Account Report for {periodLabel(period)} yet</b>}</span>
             {r && <span>Last run {new Date(r.computedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{r.by ? ` by ${titleName(r.by)}` : ""}</span>}</>}
         </MetaLine>}
+        {signed && (
+          <StatusBanner tone="success" title={<>{periodLabel(period)} bank recs are signed off</>}>
+            Signed off{r?.signedOff?.by ? ` by ${titleName(r.signedOff.by)}` : ""} {new Date(r!.signedOff!.at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {counts.ok} of {counts.total} accounts in balance · frozen until reopened
+          </StatusBanner>
+        )}
         {r && (
           <div className="pills" style={{ flexWrap: "wrap", justifyContent: "flex-start", marginTop: 0 }}>
             <StatPill label="In balance" value={`${counts.ok} of ${counts.total}`} total />

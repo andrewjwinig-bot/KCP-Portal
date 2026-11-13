@@ -1,5 +1,6 @@
 "use client";
-import { ChevronDown, ChevronRight, ChevronUp, CircleCheck, X } from "lucide-react";
+import { StatusBanner } from "@/app/components/StatusBanner";
+import { ChevronDown, ChevronRight, ChevronUp, X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
 import JSZip from "jszip";
@@ -714,88 +715,63 @@ export default function AllocatedInvoicerPage() {
       {/* ── Allocation tie-out — the split must add back up to the source GL ── */}
       {allocTie && (
         allocTie.ties ? (
-          <div className="card small" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.4))", background: "var(--tint-green-bg, rgba(22,163,74,0.06))", color: "var(--c-15803d)", fontWeight: 600 }}>
-            Allocation ties out — {toMoney(allocTie.sourceTotal)} of G&amp;A fully allocated across properties (every suffix’s shares sum to 100%).
-          </div>
+          <StatusBanner compact tone="success" title="Allocation ties out">
+            {toMoney(allocTie.sourceTotal)} of G&amp;A fully allocated across properties (every suffix’s shares sum to 100%).
+          </StatusBanner>
         ) : (
-          <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.6))", background: "var(--tint-red-bg, rgba(220,38,38,0.07))", padding: "14px 16px" }}>
-            <div style={{ fontWeight: 800, color: "var(--c-b91c1c)" }}>Allocation does not tie to the source GL</div>
-            <div className="small" style={{ marginTop: 6, color: "var(--c-7f1d1d)" }}>
-              {toMoney(Math.abs(allocTie.unallocated))} of G&amp;A {allocTie.unallocated >= 0 ? "never lands on any building" : "is over-allocated"} — a suffix’s property shares don’t sum to 100%. Fix the allocation percentages and re-import before sending.
-            </div>
+          <StatusBanner tone="danger" title="Allocation does not tie to the source GL">
+            {toMoney(Math.abs(allocTie.unallocated))} of G&amp;A {allocTie.unallocated >= 0 ? "never lands on any building" : "is over-allocated"} — a suffix’s property shares don’t sum to 100%. Fix the allocation percentages and re-import before sending.
             <ul style={{ margin: "8px 0 0", paddingLeft: 18 }}>
               {allocTie.bySuffix.filter((s) => !s.ok).map((s) => (
-                <li key={s.suffix} className="small">
+                <li key={s.suffix}>
                   Suffix <code>{s.suffix}</code>: shares sum to {(s.pctSum * 100).toFixed(2)}% — {s.leak >= 0 ? "under" : "over"} by <b>{toMoney(Math.abs(s.leak))}</b> on {toMoney(s.sourceAmount)} of source
                 </li>
               ))}
             </ul>
-          </div>
+          </StatusBanner>
         )
       )}
 
       {/* ── Prepared & awaiting review — Review & Send to AvidXchange ── */}
       {liveReview && (
-        <div className="card" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.5))", background: "var(--tint-green-bg, rgba(22,163,74,0.07))", display: "flex", flexDirection: "column", alignItems: "center", gap: 12, textAlign: "center", padding: "18px 16px" }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 17 }}>
-              {sendLabel(liveReview)} — ready to send
-            </div>
-            <div className="muted small" style={{ marginTop: 4 }}>
-              <b style={{ color: "var(--fg)" }}>{toMoney(liveReview.total)}</b> across <b style={{ color: "var(--fg)" }}>{liveReview.byProperty.length}</b> propert{liveReview.byProperty.length === 1 ? "y" : "ies"}
-              {isRangePeriod(liveReview.period) ? ` · ${rangeMonthCount(liveReview.period)} months` : ""}
-            </div>
-          </div>
-          <button
-            className="btn"
-            style={{ background: "var(--c-16a34a)", color: "#fff", borderColor: "transparent", fontWeight: 800, fontSize: 16, whiteSpace: "nowrap", padding: "13px 32px", borderRadius: 10 }}
-            onClick={() => setReviewSend(liveReview)}
-          >
+        <StatusBanner tone="warning" title={<>{sendLabel(liveReview)} is ready to send</>}
+          actions={<button className="btn primary" onClick={() => setReviewSend(liveReview)}>
             Review &amp; Send to AvidXchange<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
-          </button>
-        </div>
+          </button>}>
+          <b>{toMoney(liveReview.total)}</b> across <b>{liveReview.byProperty.length}</b> propert{liveReview.byProperty.length === 1 ? "y" : "ies"}
+          {isRangePeriod(liveReview.period) ? ` · ${rangeMonthCount(liveReview.period)} months` : ""} · not sent yet
+        </StatusBanner>
       )}
 
       {/* ── Everything held under $100 this month — nothing bills yet ── */}
       {allHeldThisMonth && (
-        <div className="card small" style={{ borderColor: "var(--tint-amber-line, rgba(180,83,9,0.4))", background: "var(--tint-amber-bg, rgba(180,83,9,0.06))", color: "var(--c-92400e)", fontWeight: 600 }}>
-          ⏳ {glResult?.periodText || statementMonth}: every allocation is under the ${CARRYOVER_THRESHOLD}-per-account threshold, so nothing bills to AvidXchange yet — the balances are held and carry forward until they cross ${CARRYOVER_THRESHOLD} (December posts everything). See the Allocation Preview below for the held detail.
-        </div>
+        <StatusBanner tone="info" icon="clock" title={<>{glResult?.periodText || statementMonth}: nothing bills yet</>}>
+          Every allocation is under the ${CARRYOVER_THRESHOLD}-per-account threshold, so the balances are held and carry forward until they cross ${CARRYOVER_THRESHOLD} (December posts everything). See the Allocation Preview below for the held detail.
+        </StatusBanner>
       )}
 
       {/* ── Already sent this month ── */}
       {!liveReview && !allHeldThisMonth && glResult && alreadyFinalized && (
-        <div className="card small" style={{ borderColor: "var(--tint-brand-line, rgba(11,74,125,0.4))", background: "var(--tint-brand-bg, rgba(11,74,125,0.05))", color: "var(--c-0b4a7d)", fontWeight: 600 }}>
-          {glResult?.periodText || statementMonth} has already been reviewed and sent to AvidXchange. Its carryover is finalized — re-download the invoices from the Download menu if you need them.
-        </div>
+        <StatusBanner tone="success" title={<>{glResult?.periodText || statementMonth} has been sent to AvidXchange</>}>
+          Its carryover is finalized — re-download the invoices from the Download menu if you need them.
+        </StatusBanner>
       )}
 
       {/* ── Ready-to-process hand-off from Operating Statements ── */}
       {/* Superseded by the "Review & Send" banner above once the run is staged. */}
       {pendingGl && !pendingDismissed && !glResult && !pendingGl.alreadyProcessed && !liveReview && (
-        <div className="card" style={{ borderColor: "var(--tint-green-line, rgba(22,163,74,0.5))", background: "var(--tint-green-bg, rgba(22,163,74,0.07))" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <CircleCheck size={20} strokeWidth={1.75} color="var(--c-067647)" aria-hidden style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 220 }}>
-              <div style={{ fontWeight: 800, color: "var(--c-15803d)" }}>
-                {loadingPending
-                  ? `Parsing ${pendingGl.statementMonth} 2000 G&A GL…`
-                  : `${pendingGl.statementMonth} 2000 G&A GL is ready to process`}
-              </div>
-              <div className="muted small" style={{ marginTop: 2 }}>
-                Imported on Operating Statements{pendingGl.uploadedBy ? ` by ${pendingGl.uploadedBy}` : ""}
-                {pendingGl.uploadedAt ? ` · ${new Date(pendingGl.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}.
-                {loadingPending ? " Loading it now — the invoices will be ready to review and send." : " Same file — no re-upload needed. Review before sending."}
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              {!loadingPending && (
-                <button className="btn primary" style={{ fontWeight: 700, whiteSpace: "nowrap" }} onClick={loadPendingGl}>Load & generate<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
-              )}
-              <button className="btn" style={{ fontWeight: 700 }} onClick={() => setPendingDismissed(true)}>Dismiss</button>
-            </div>
-          </div>
-        </div>
+        <StatusBanner tone="warning" icon="clock"
+          title={loadingPending ? `Parsing ${pendingGl.statementMonth} 2000 G&A GL…` : `${pendingGl.statementMonth} 2000 G&A GL is ready to process`}
+          actions={<>
+            {!loadingPending && (
+              <button className="btn primary" onClick={loadPendingGl}>Load &amp; generate<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
+            )}
+            <button className="btn" onClick={() => setPendingDismissed(true)}>Dismiss</button>
+          </>}>
+          Imported on Operating Statements{pendingGl.uploadedBy ? ` by ${pendingGl.uploadedBy}` : ""}
+          {pendingGl.uploadedAt ? ` · ${new Date(pendingGl.uploadedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}` : ""}.
+          {loadingPending ? " Loading it now — the invoices will be ready to review and send." : " Same file — no re-upload needed. Review before sending."}
+        </StatusBanner>
       )}
 
       {/* ── 2000 G&A General Ledger — only while a month is loaded for review ── */}

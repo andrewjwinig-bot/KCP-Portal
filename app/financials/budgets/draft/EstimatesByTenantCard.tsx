@@ -10,6 +10,7 @@
 // so the recovery lines move with it. The Skyline import is the CAM recon's own
 // recurring-charge CSV.
 
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL, TONE_BLUE, PortionPill } from "@/app/components/Pill";
@@ -128,11 +129,11 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
       </div>
 
       {check.some((c) => c.over) && (
-        <div style={{ margin: "0 14px 10px", padding: "8px 12px", borderRadius: 8, fontSize: "var(--fs-13)", background: "var(--tint-amber-bg, rgba(217,119,6,0.10))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.35))" }}>
+        <StatusBanner compact tone="warning" style={{ margin: "0 14px 10px" }} title="Recoveries to review">
           {check.filter((c) => c.over).map((c) => (
-            <div key={c.group}><b>{c.label} to review:</b> {money0(c.recovered)} a year against a {money0(c.pool)} budget pool ({pct0(c.ratio)}) — above what admin fees explain. Check the tenants&apos; shares and any estimate set by hand before importing.</div>
+            <div key={c.group}><b>{c.label}:</b> {money0(c.recovered)} a year against a {money0(c.pool)} budget pool ({pct0(c.ratio)}) — above what admin fees explain. Check the tenants&apos; shares and any estimate set by hand before importing.</div>
           ))}
-        </div>
+        </StatusBanner>
       )}
 
       <div style={{ overflowX: "auto" }}>

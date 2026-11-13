@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { useLaserStatementImport } from "../useLaserStatementImport";
 import { pickInto } from "@/app/components/pickFiles";
 import { X, Upload, CircleCheck } from "lucide-react";
@@ -339,10 +340,7 @@ export default function TenantStatementsPage() {
       </PageHeader>
 
       {error && (
-        <div className="card" style={{ borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))", background: "var(--tint-red-bg, rgba(220,38,38,0.04))" }}>
-          <div style={{ fontWeight: 700, color: "var(--c-b91c1c)", marginBottom: 4 }}>Something went wrong</div>
-          <div className="muted small">{error}</div>
-        </div>
+        <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>
       )}
 
       {showPayment && <PaymentCard properties={detail?.properties ?? []} onClose={() => setShowPayment(false)} by={user.label} />}
@@ -383,16 +381,12 @@ export default function TenantStatementsPage() {
               </div>
 
               {row.untied > 0 && (
-                <div style={{ borderRadius: 10, padding: "10px 13px", background: "var(--tint-red-bg, rgba(220,38,38,0.06))", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.3))", fontSize: "var(--fs-13)", color: "var(--c-b91c1c)", fontWeight: 600, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <span style={{ flex: 1, minWidth: 260 }}>
-                    {row.untied} tenant{row.untied === 1 ? "'s charges don't" : "s' charges don't"} sum to the balance Skyline printed.
-                    Those statements are flagged &ldquo;under review&rdquo; on the portal — fix the export and re-import before publishing.
-                  </span>
-                  <button className="btn" onClick={() => { setOnlyReview((v) => !v); setProperty("All"); }}
-                    style={{ fontSize: "var(--fs-12-5)", padding: "5px 11px", fontWeight: 700, flexShrink: 0 }}>
+                <StatusBanner compact tone="danger" title={<>{row.untied} tenant{row.untied === 1 ? "'s charges don't" : "s' charges don't"} tie to Skyline</>}
+                  actions={<button className="btn sm" onClick={() => { setOnlyReview((v) => !v); setProperty("All"); }}>
                     {onlyReview ? "Show all tenants" : `Show the ${row.untied}`}
-                  </button>
-                </div>
+                  </button>}>
+                  They don&rsquo;t sum to the balance Skyline printed, so those statements are flagged &ldquo;under review&rdquo; on the portal — fix the export and re-import before publishing.
+                </StatusBanner>
               )}
 
               <div>

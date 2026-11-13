@@ -43,7 +43,7 @@ describe("UI drift", () => {
 // change so the gain is locked in.
 const RATCHET: { name: string; re: RegExp; max: number; fix: string }[] = [
   { name: "emoji / glyph ticks", re: /✅|⚠️|⚠|🕗|📄|✓|✔|✕|×/g, max: 112, fix: "Lucide CircleCheck / TriangleAlert / X" },
-  { name: "text arrows", re: /→|←|▾|▸|▼|▶/g, max: 209, fix: "Lucide ChevronRight / ChevronDown, or .text-link" },
+  { name: "text arrows", re: /→|←|▾|▸|▼|▶/g, max: 207, fix: "Lucide ChevronRight / ChevronDown, or .text-link" },
   { name: "inline hex colours", re: /"#[0-9a-fA-F]{6}"/g, max: 189, fix: "var(--brand) / var(--muted) / a tone in Pill.tsx" },
   // A thick coloured bar down one side or across the top (owner: "i hate that
   // thicker line … when theres one thick line on the side i do not like it").

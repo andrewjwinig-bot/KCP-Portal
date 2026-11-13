@@ -28,6 +28,7 @@ import { createPortal } from "react-dom";
 import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL, TONE_GREEN } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { HoverCard } from "@/app/components/HoverCard";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import type { PropertyCarry } from "@/lib/allocated-invoicer/carryover";
 import { periodKey } from "@/lib/invoicing/unsent";
 import { RepairCard } from "./RepairCard";
@@ -189,43 +190,35 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
       <RecoverCard onApplied={() => { loadHistory(); onSent?.(); }} />
       <SeptemberCheckCard />
       {/* 1 — WAS IT SENT */}
-      <div className="card" style={{ padding: "18px 20px", borderColor: lastSent ? "var(--tint-green-line, rgba(22,163,74,0.45))" : undefined, background: lastSent ? "var(--tint-green-bg, rgba(22,163,74,0.06))" : undefined }}>
+      <div style={{ display: "grid", gap: 10 }}>
         {periods === null ? (
-          <div className="muted small">Loading…</div>
+          <div className="card muted small" style={{ padding: "18px 20px" }}>Loading…</div>
         ) : lastSent ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" aria-hidden style={{ flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="11" fill={GREEN} />
-              <path d="M6.8 12.4l3.3 3.3 7-7.2" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 24, fontWeight: 900, color: GREEN, lineHeight: 1.2 }}>{lastSent.label} has been sent to AvidXchange</div>
-              <button type="button" onClick={() => setOpen(lastSent)}
-                style={{ marginTop: 4, padding: 0, border: "none", background: "none", cursor: "pointer", color: "var(--text)", fontSize: "var(--fs-13-5)", textAlign: "left" }}>
-                Sent {fmtDate(lastSent.sentAt)}{lastSent.sentBy ? ` by ${lastSent.sentBy}` : ""}{lastSent.batch ? ` in the ${lastSent.batch} batch` : ""}{lastSent.total != null ? <> · <b>{money(lastSent.total)}</b></> : null}
-                {lastSent.invoiceCount ? ` · ${lastSent.invoiceCount} invoice${lastSent.invoiceCount === 1 ? "" : "s"}` : ""}
-                <span style={{ color: "var(--c-0b4a7d)", fontWeight: 700, marginLeft: 8 }}>View invoices<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
-              </button>
-            </div>
-          </div>
+          <StatusBanner tone="success" title={<>{lastSent.label} has been sent to AvidXchange</>}>
+            <button type="button" className="stb-link" onClick={() => setOpen(lastSent)}>
+              Sent {fmtDate(lastSent.sentAt)}{lastSent.sentBy ? ` by ${lastSent.sentBy}` : ""}{lastSent.batch ? ` in the ${lastSent.batch} batch` : ""}{lastSent.total != null ? <> · <b>{money(lastSent.total)}</b></> : null}
+              {lastSent.invoiceCount ? ` · ${lastSent.invoiceCount} invoice${lastSent.invoiceCount === 1 ? "" : "s"}` : ""}
+              <span className="text-link" style={{ marginLeft: 8 }}>View invoices<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
+            </button>
+          </StatusBanner>
         ) : (
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800 }}>Nothing sent to AvidXchange yet</div>
-            <div className="muted small" style={{ marginTop: 4 }}>The invoices send themselves when the month&rsquo;s 2000 G&amp;A GL is imported on Operating Statements.</div>
-          </div>
+          <StatusBanner tone="info" icon="clock" title="Nothing sent to AvidXchange yet">
+            The invoices send themselves when the month&rsquo;s 2000 G&amp;A GL is imported on Operating Statements.
+          </StatusBanner>
         )}
         {staged.map((p) => (
-          <div key={p.period} style={{ marginTop: 14, padding: "10px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.08))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.30))", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <Pill tone={TONE_AMBER}>NOT SENT</Pill>
-            <span style={{ fontSize: "var(--fs-13-5)", flex: 1, minWidth: 220 }}><b>{p.label}</b> was prepared ({money(p.total)}{p.invoiceCount ? `, ${p.invoiceCount} invoice${p.invoiceCount === 1 ? "" : "s"}` : ""}) but hasn&rsquo;t gone to AvidXchange.</span>
-            {loadableMonth && periodKey(loadableMonth) === periodKey(p.period) && (
-              <button type="button" className="btn sm" onClick={onLoadGl}>Review first</button>
-            )}
-            {sendBtn(p)}
-          </div>
+          <StatusBanner key={p.period} tone="warning" title={<>{p.label} hasn&rsquo;t been sent to AvidXchange</>}
+            actions={<>
+              {loadableMonth && periodKey(loadableMonth) === periodKey(p.period) && (
+                <button type="button" className="btn sm" onClick={onLoadGl}>Review first</button>
+              )}
+              {sendBtn(p)}
+            </>}>
+            Prepared · <b>{money(p.total)}</b>{p.invoiceCount ? ` · ${p.invoiceCount} invoice${p.invoiceCount === 1 ? "" : "s"}` : ""} · not sent
+          </StatusBanner>
         ))}
         {sendMsg && (
-          <div className="small" style={{ marginTop: 10, fontWeight: 700, color: sendMsg.ok ? GREEN : "var(--c-b91c1c)" }}>{sendMsg.text}</div>
+          <StatusBanner compact tone={sendMsg.ok ? "success" : "danger"} title={sendMsg.text} />
         )}
       </div>
 
@@ -329,11 +322,9 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
                 sub={open.batch ? `in the ${open.batch} batch` : open.sentBy ?? undefined} />
             </div>
             {open.status === "not-sent" && (
-              <div style={{ margin: "12px 18px 0", padding: "10px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.08))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.30))", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <Pill tone={TONE_AMBER}>NOT SENT</Pill>
-                <span style={{ fontSize: "var(--fs-13-5)", flex: 1 }}>This month hasn&rsquo;t gone to AvidXchange.</span>
-                {sendBtn(open)}
-              </div>
+              <StatusBanner compact tone="warning" style={{ margin: "12px 18px 0" }} title="Not sent to AvidXchange" actions={sendBtn(open)}>
+                This month hasn&rsquo;t gone to AvidXchange.
+              </StatusBanner>
             )}
             {open.status === "finalized" && (
               <div className="small" style={{ margin: "12px 18px 0", color: "var(--muted)" }}>
@@ -377,11 +368,10 @@ export function InvoicerOverview({ carryover, propName, onLoadGl, loadableMonth,
               </table>
             </div>
             {open.reconstructed && (
-              <div className="small" style={{ margin: "4px 18px 16px", padding: "10px 12px", borderRadius: 8, background: "var(--tint-amber-bg, rgba(217,119,6,0.08))", border: "1px solid var(--tint-amber-line, rgba(217,119,6,0.30))", lineHeight: 1.5 }}>
-                <Pill tone={TONE_AMBER}>REBUILT FROM THE GL</Pill>{" "}
+              <StatusBanner compact tone="warning" style={{ margin: "4px 18px 16px" }} title="Rebuilt from the GL — not the original invoices">
                 The exact invoices sent to AvidXchange for this month aren&rsquo;t on file. These were rebuilt{open.reconstructedAt ? ` on ${fmtDate(open.reconstructedAt)}` : ""} by replaying the GL from January
                 and are stamped as copies. A building that doesn&rsquo;t match the original run usually took a late posting since it was sent; the original invoice numbers can&rsquo;t be recovered.
-              </div>
+              </StatusBanner>
             )}
             {!open.invoices && (
               <div className="small" style={{ padding: "4px 18px 16px", color: "var(--muted)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>

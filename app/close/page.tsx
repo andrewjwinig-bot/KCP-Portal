@@ -1,4 +1,5 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
 import { PageHeader } from "@/app/components/PageHeader";
 import { HeaderSelect } from "@/app/components/HeaderSelect";
 import { MetaLine } from "@/app/components/LastImported";
@@ -103,7 +104,12 @@ export default function MonthClosePage() {
             : left ? `${left} item${left === 1 ? "" : "s"} still open · ticks itself as the work lands` : "Everything is in"}
         </MetaLine>} />
 
-      {error && <div className="card" style={{ color: "var(--c-b42318)" }}>{error}</div>}
+      {signed && (
+        <StatusBanner tone="success" title={<>{label(month)} is closed</>}>
+          Signed off {new Date(signed.at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}{signed.by ? ` by ${signed.by}` : ""} · every import, rec and send is in
+        </StatusBanner>
+      )}
+      {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
 
       {!data && !error && (
         <div className="card" style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--muted)" }}>
