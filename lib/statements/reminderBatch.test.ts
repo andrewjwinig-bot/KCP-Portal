@@ -5,7 +5,7 @@ import { creditSummaryDay, isBusinessDay, nextMonthOf } from "./reminderSchedule
 import { signCreditApplyToken, verifyCreditApplyToken } from "./creditApplyLink";
 
 const acct = (gross: number, credit = 0): Account => ({
-  charges: gross ? [{ idx: 0, dateISO: "2026-11-01", description: "Base Rent", category: "rent" as never, appClass: "rent" as never, amount: gross }] : [],
+  charges: gross ? [{ idx: 0, dateISO: "2026-10-01", description: "Base Rent", category: "rent" as never, appClass: "rent" as never, amount: gross }] : [],
   creditLines: credit ? [{ dateISO: null, description: "Open Credits", amount: credit }] : [], gross, credit, net: gross - credit,
 });
 const a = (unitRef: string, ac: Account, recipients = ["t@x.com"]): AccountIn => ({

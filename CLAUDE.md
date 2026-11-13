@@ -1857,8 +1857,9 @@ batch), `reminderSchedule.ts` (the calendar), `reminderInternalEmails.ts`
   task `m-aging` ("Credit Balance Report") is due the 15th or the NEXT WORK DAY
   (`effDay`; the import reminder `imp-aging` matches via `nextWorkday`), and
   only an import on/after the 15th satisfies it — the import ticks it.
-- **THREE NOTICES** (`tierOf`): COURTESY (oldest open charge 0–2 calendar
-  months), PAST DUE (3+ — firm, NO late fees or default language), CREDIT (the
+- **THREE NOTICES** (`tierOf`): COURTESY (oldest open charge 1–2 calendar
+  months — NONE when everything open is this month's: the Laser Statement is
+  run ~the 5th and not re-run, so this month's rent may since be paid; owner), PAST DUE (3+ — firm, NO late fees or default language), CREDIT (the
   credit exceeds the charges). Under $5 is not sent; former occupants (`-FO`)
   never. All itemize the account; the balance notices say "Payment already on
   its way? Please disregard"; NO refund offer anywhere (owner); NO phone —
