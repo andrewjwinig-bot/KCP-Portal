@@ -186,7 +186,7 @@ function recognizedUpdatesFor(byProp: Map<string, Map<string, AllocEntry>>, stat
  * 9301/9302/9303 account across its properties (ALLOC_PCT), decorate with
  * carryover, and roll up the per-building billing totals. No side effects.
  */
-export function computeOneMonth(monthGl: GLParseResult, ledger: CarryoverLedger): ComputedAllocation | { error: string } {
+export function computeOneMonth(monthGl: GLParseResult, ledger: CarryoverLedger, threshold: number = CARRYOVER_THRESHOLD): ComputedAllocation | { error: string } {
   const statementMonth = monthGl.statementMonth;
   if (!/^\d{4}-\d{2}$/.test(statementMonth)) return { error: "no-statement-month" };
   const propIds = Object.keys(ALLOC_PCT);
@@ -230,7 +230,7 @@ export function computeOneMonth(monthGl: GLParseResult, ledger: CarryoverLedger)
         seen.add(base);
         const prior = round2(ledger.balances[id]?.accounts?.[base]?.heldTotal ?? 0);
         const accrued = round2(g.thisMonth + prior);
-        const billed = yearEnd || accrued >= CARRYOVER_THRESHOLD;
+        const billed = yearEnd || accrued >= threshold;
         decs.push({ base, name: g.name, thisMonth: g.thisMonth, prior, accrued, billed, rows: g.rows });
         if (billed) billingTotals.set(id, round2((billingTotals.get(id) ?? 0) + accrued));
         if (g.thisMonth !== 0) expenses.push({ propertyId: id, accountCode: base, accountName: g.name, amount: g.thisMonth });
@@ -916,6 +916,54 @@ export function replayThrough(parts: GLParseResult[], month: string): ComputedAl
     if (part.statementMonth === month) target = c;
   }
   return target ?? { error: `No ${month} activity to rebuild from.` };
+}
+
+/** The hold threshold as a what-if: replay a year's months from an EMPTY
+ *  carryover at each threshold and count the invoices each month would send.
+ *  Pure — nothing sent, nothing saved (owner: "would $250 cut a big chunk of
+ *  invoices?"; each invoice costs a fee at AvidXchange). */
+export type ThresholdWhatIf = {
+  thresholds: number[];
+  months: { month: string; invoices: number[]; billed: number[] }[];
+  totals: { invoices: number[]; billed: number[]; heldAtEnd: number[] };
+};
+
+export function thresholdWhatIf(parts: GLParseResult[], thresholds: number[]): ThresholdWhatIf | { error: string } {
+  const sorted = [...parts].sort((a, b) => a.statementMonth.localeCompare(b.statementMonth));
+  const months = sorted.map((p) => ({ month: p.statementMonth, invoices: [] as number[], billed: [] as number[] }));
+  const heldAtEnd: number[] = [];
+  for (const t of thresholds) {
+    let ledger = emptyLedger();
+    for (let i = 0; i < sorted.length; i++) {
+      const c = computeOneMonth(sorted[i], ledger, t);
+      if ("error" in c) return { error: c.error };
+      let n = 0, dollars = 0;
+      for (const decs of c.decByProp.values()) {
+        const amt = round2(decs.filter((a) => a.billed).reduce((s, a) => s + a.accrued, 0));
+        if (amt > 0) { n++; dollars += amt; }
+      }
+      months[i].invoices.push(n);
+      months[i].billed.push(round2(dollars));
+      ledger = finalizeMonth(ledger, sorted[i].statementMonth, c.expenses, "what-if", t).ledger;
+    }
+    heldAtEnd.push(round2(Object.values(ledger.balances).reduce((s, pc) => s + Object.values(pc.accounts).reduce((x, a) => x + (Number(a.heldTotal) || 0), 0), 0)));
+  }
+  const sum = (k: "invoices" | "billed") => thresholds.map((_, j) => round2(months.reduce((s, m) => s + m[k][j], 0)));
+  return { thresholds, months, totals: { invoices: sum("invoices"), billed: sum("billed"), heldAtEnd } };
+}
+
+/** The what-if on the imported full-year 2000 GL (the same stash a rebuild reads). */
+export async function loadThresholdWhatIf(thresholds: number[]): Promise<ThresholdWhatIf | { error: string }> {
+  const stash = await getPendingGl();
+  if (!stash?.fileBase64) return { error: "No 2000 G&A GL is imported. Import the full-year GL on Operating Statements first." };
+  const buf = Buffer.from(stash.fileBase64, "base64");
+  const gl = parseGLExcel(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+  const all = splitIntoMonths(gl);
+  if (!all.length) return { error: "The imported GL has no months." };
+  const year = all[all.length - 1].statementMonth.slice(0, 4);
+  const parts = all.filter((p) => p.statementMonth.slice(0, 4) === year);
+  if (parts[0].statementMonth !== `${year}-01`) return { error: "The imported GL doesn't start in January, so the carry-forward can't be replayed." };
+  return thresholdWhatIf(parts, thresholds);
 }
 
 export type RebuildResult = { ok: true; month: string; invoiceCount: number; checks: RebuildCheck[] } | { ok: false; error: string };
