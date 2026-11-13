@@ -3,7 +3,7 @@
 // make like an onboarding orientation thing that has different modules for
 // him to click through and learn to get acclimated"). Short modules
 // built from the New Accountant Handbook (lib/onboarding/modules.ts), each a
-// lesson, the portal pages to open, and a three-question check; the 90-day
+// lesson (most an interactive click-through, app/onboarding/lessons) and the portal pages to open; the 90-day
 // checklist he works through with Drew; the glossary; and the handbook itself.
 // Progress is kept on the server (/api/onboarding) so Drew can follow along by
 // viewing as Randy.
@@ -11,7 +11,7 @@
 import { Fragment, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen, ChevronLeft, ChevronRight, Circle, CircleCheck, Clock, Download, Search, MousePointerClick } from "lucide-react";
-import MoneyMoves from "./lessons/MoneyMoves";
+import { LESSONS } from "./lessons";
 import { PageHeader } from "../components/PageHeader";
 import { StatPill } from "../components/Pill";
 import { TabButton } from "../components/TabButton";
@@ -85,6 +85,7 @@ function Orientation() {
   const [q, setQ] = useState("");
   const activeId = params.get("m") ?? MODULES.find((m) => !progress?.modules[m.id])?.id ?? MODULES[0].id;
   const active = MODULES.find((m) => m.id === activeId) ?? MODULES[0];
+  const Lesson = active.interactive ? LESSONS[active.id] : undefined;
   const idx = MODULES.indexOf(active);
 
   useEffect(() => {
@@ -177,8 +178,8 @@ function Orientation() {
                 </div>
               </header>
 
-              {active.interactive === "money-moves"
-                ? <MoneyMoves key={active.id} done={!!progress.modules[active.id]} onFinish={async () => {
+              {Lesson
+                ? <Lesson key={active.id} done={!!progress.modules[active.id]} onFinish={async () => {
                     if (!progress.modules[active.id]) await save({ module: active.id });
                     if (idx < MODULES.length - 1) open(MODULES[idx + 1].id);
                   }} />
@@ -195,7 +196,7 @@ function Orientation() {
                 </div>
               )}
 
-              {!active.interactive && (
+              {!Lesson && (
                 <div style={{ borderTop: "1px solid var(--hairline)", paddingTop: 16, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                   {progress.modules[active.id]
                     ? <span style={{ color: "var(--c-067647)", fontWeight: 700, display: "inline-flex", gap: 6, alignItems: "center" }}><CircleCheck size={16} strokeWidth={1.75} /> Done {fmtDate(progress.modules[active.id].doneAt)}</span>

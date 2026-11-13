@@ -9,8 +9,9 @@
 // back to zero. The last scenes walk the other intercompany flows.
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Building2, CircleCheck, CreditCard, FileText, Landmark, Receipt, Scale, Users, Wallet } from "lucide-react";
+import { ArrowRight, Building2, CircleCheck, CreditCard, FileText, Landmark, Receipt, Scale, Users, Wallet } from "lucide-react";
 import { ALLOC_PCT, PROPERTY_DEFS } from "@/lib/properties/data";
+import { LessonShell, Node, Recap, SECTION, Toggle, money, soft, type LessonProps, type Scene } from "./kit";
 
 type Suffix = "9301" | "9302" | "9303";
 const SUFFIX: Record<Suffix, { label: string; who: string }> = {
@@ -19,26 +20,9 @@ const SUFFIX: Record<Suffix, { label: string; who: string }> = {
   "9303": { label: "All properties", who: "every property — about 75% centers, 25% parks" },
 };
 const HOLD = 100;
-const money = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const nameOf = (id: string) => PROPERTY_DEFS.find((p) => p.id === id)?.name ?? id;
 const PROPS = Object.keys(ALLOC_PCT).filter((id) => Object.values(ALLOC_PCT[id]).some((v) => v > 0));
 const isBP = (id: string) => ALLOC_PCT[id]["9301"] > 0;
-
-const soft = (pct: number) => `color-mix(in srgb, var(--brand) ${pct}%, transparent)`;
-const SECTION: React.CSSProperties = { fontSize: "var(--fs-13)", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--muted)" };
-
-function Node({ icon, title, sub, lit, big }: { icon: React.ReactNode; title: React.ReactNode; sub?: React.ReactNode; lit?: boolean; big?: boolean }) {
-  return (
-    <div style={{ border: `1px solid ${lit ? "var(--brand)" : "var(--border)"}`, background: lit ? soft(7) : "var(--card)", borderRadius: 12,
-      padding: big ? "16px 18px" : "10px 12px", display: "flex", gap: 10, alignItems: "center", transition: "all .35s", minWidth: 0 }}>
-      <span style={{ color: lit ? "var(--brand)" : "var(--muted)", display: "inline-flex" }}>{icon}</span>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontWeight: 800, fontSize: big ? 18 : 15, lineHeight: 1.2 }}>{title}</div>
-        {sub && <div style={{ color: "var(--muted)", fontSize: "var(--fs-13)" }}>{sub}</div>}
-      </div>
-    </div>
-  );
-}
 
 function Chip({ id, lit, amount, held }: { id: string; lit: boolean; amount?: number; held?: boolean }) {
   return (
@@ -71,20 +55,7 @@ function PropertyGrid({ suffix, amount }: { suffix: Suffix | null; amount?: numb
   );
 }
 
-function Toggle<T extends string>({ value, options, onChange }: { value: T | null; options: { id: T; label: React.ReactNode }[]; onChange: (v: T) => void }) {
-  return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      {options.map((o) => (
-        <button key={o.id} type="button" className={value === o.id ? "btn primary lesson-toggle" : "btn lesson-toggle"} onClick={() => onChange(o.id)}>{o.label}</button>
-      ))}
-    </div>
-  );
-}
-
-type Scene = { kicker: string; title: string; body: React.ReactNode; doThis?: string; stage: React.ReactNode };
-
-export default function MoneyMoves({ onFinish, done }: { onFinish: () => void; done?: boolean }) {
-  const [i, setI] = useState(0);
+export default function MoneyMoves({ onFinish, done }: LessonProps) {
   const [paid, setPaid] = useState(false);
   const [suffix, setSuffix] = useState<Suffix | null>(null);
   const [amount, setAmount] = useState(12000);
@@ -287,48 +258,13 @@ export default function MoneyMoves({ onFinish, done }: { onFinish: () => void; d
     {
       kicker: "Recap", title: "What to carry with you",
       body: <>That's the whole loop. When you reconcile <code>2000</code> or an intercompany balance, these three facts are what you're checking.</>,
-      stage: (
-        <div style={{ display: "grid", gap: 10 }}>
-          {[
-            ["Paid once, billed back", "2000 pays shared costs and payroll; every property gets an invoice and pays it through AvidXchange."],
-            ["The suffix decides who shares", "-9301 business parks, -9302 centers, -9303 everyone — split by fixed percentages, under $100 held."],
-            ["Everything should tie", "2000 nets to zero apart from held balances, and 6610 at the buildings equals 4510 at 2010 every month."],
-          ].map(([t, d], k) => (
-            <div key={t} className="task-row" style={{ display: "grid", gridTemplateColumns: "36px minmax(0,1fr)", gap: 12, padding: "12px 2px", borderBottom: "1px solid var(--hairline)" }}>
-              <span style={{ width: 32, height: 32, borderRadius: 999, border: "1px solid var(--brand)", color: "var(--brand)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>{k + 1}</span>
-              <div><div style={{ fontWeight: 800, fontSize: 16 }}>{t}</div><div style={{ color: "var(--muted)", lineHeight: 1.5 }}>{d}</div></div>
-            </div>
-          ))}
-          <button type="button" className="btn primary" style={{ justifySelf: "start", marginTop: 6 }} onClick={onFinish}>
-            {done ? <><CircleCheck size={16} strokeWidth={1.75} /> Done — next module</> : "Finish module"}
-          </button>
-        </div>
-      ),
+      stage: <Recap onFinish={onFinish} done={done} items={[
+        ["Paid once, billed back", "2000 pays shared costs and payroll; every property gets an invoice and pays it through AvidXchange."],
+        ["The suffix decides who shares", "-9301 business parks, -9302 centers, -9303 everyone — split by fixed percentages, under $100 held."],
+        ["Everything should tie", "2000 nets to zero apart from held balances, and 6610 at the buildings equals 4510 at 2010 every month."],
+      ]} />,
     },
   ];
 
-  const sc = scenes[i];
-  return (
-    <div className="lesson-host" style={{ display: "grid", gap: 18 }}>
-      <div style={{ display: "flex", gap: 6 }}>
-        {scenes.map((x, k) => (
-          <button key={k} type="button" aria-label={`Step ${k + 1}: ${x.title}`} onClick={() => setI(k)}
-            style={{ flex: 1, height: 6, borderRadius: 999, border: 0, padding: 0, cursor: "pointer", background: k <= i ? "var(--brand)" : "var(--hairline)", transition: "background .3s" }} />
-        ))}
-      </div>
-      <div className="lesson-scene">
-        <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
-          <div style={SECTION}>{sc.kicker} · {i + 1} of {scenes.length}</div>
-          <h3 style={{ margin: 0, fontSize: 26, lineHeight: 1.15 }}>{sc.title}</h3>
-          <div style={{ lineHeight: 1.65, fontSize: 16 }}>{sc.body}</div>
-          {sc.doThis && <div style={{ display: "flex", gap: 8, alignItems: "center", color: "var(--brand)", fontWeight: 700 }}><ArrowRight size={16} strokeWidth={1.75} /> {sc.doThis}</div>}
-        </div>
-        <div key={i} className="lesson-stage">{sc.stage}</div>
-      </div>
-      <div style={{ display: "flex", justifyContent: "space-between", borderTop: "1px solid var(--hairline)", paddingTop: 14 }}>
-        <button type="button" className="btn" disabled={i === 0} onClick={() => setI(i - 1)}><ArrowLeft size={16} strokeWidth={1.75} /> Back</button>
-        {i < scenes.length - 1 && <button type="button" className="btn primary" onClick={() => setI(i + 1)}>Next <ArrowRight size={16} strokeWidth={1.75} /></button>}
-      </div>
-    </div>
-  );
+  return <LessonShell scenes={scenes} />;
 }
