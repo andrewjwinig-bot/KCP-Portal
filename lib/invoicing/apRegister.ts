@@ -1,5 +1,6 @@
 // The INVOICE REGISTER to AP — one format for every flow that bills the
-// properties through AvidXchange: Allocated Expenses, Credit Card and Payroll
+// properties through AvidXchange: Allocated Expenses, Credit Card, Payroll and
+// Commissions
 // (owner, 11/2026: Tanya needs "a total report … to match every invoice in avid
 // to the report", and the CC and payroll ones "should match the same
 // formatting").
@@ -21,7 +22,7 @@ export const AP_REGISTER_TO = process.env.AP_REGISTER_TO || process.env.ALLOCATE
 const FROM = "dwinig@kormancommercial.com"; // verified sender
 
 /** Which flow, and how it is named. The dedup key is per flow + period. */
-export type RegisterFlow = { source: "allocated" | "credit-card" | "payroll"; label: string };
+export type RegisterFlow = { source: "allocated" | "credit-card" | "payroll" | "commissions"; label: string };
 
 export type RegisterRow = { invoiceNumber: string; code: string; name: string; amount: number };
 /** A property held under the hold threshold this time — no invoice in Avid for it
