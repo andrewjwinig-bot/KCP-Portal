@@ -65,6 +65,7 @@ import { billedOf, shortMonth } from "./billedLabel";
 export { billedOf };
 import { getPendingGl } from "./pendingGlStore";
 import { deliverInvoicesToAvid, type AvidInvoicePdf } from "@/lib/invoicing/avidDelivery";
+import { sendAllocatedRegister, type RegisterRow } from "./apRegister";
 import { totalsKey } from "./sharedOffice";
 import { withSharedOfficeLoaded } from "./sharedOfficeLoad";
 
@@ -420,6 +421,19 @@ export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger): Month
 // Build one month's per-property invoice PDFs as individual buffers (one per
 // billing property). `prefix` names a per-month folder for a range batch (used
 // only for the team's zip archive; each PDF is sent to Avid on its own email).
+/** One row per invoice a batch bills — the same rule `buildMonthInvoices`
+ *  uses to decide what gets a PDF, so the register lists exactly what went. */
+function registerRows(c: ComputedAllocation): RegisterRow[] {
+  const out: RegisterRow[] = [];
+  for (const [id, decs] of c.decByProp) {
+    const billed = decs.filter((a) => a.billed);
+    const amount = round2(billed.reduce((s, a) => s + a.accrued, 0));
+    if (!billed.length || amount <= 0) continue;
+    out.push({ invoiceNumber: makeAllocInvoiceId(id, c.statementMonth, !!c.supplemental), code: id, name: propName(id), amount });
+  }
+  return out;
+}
+
 async function buildMonthInvoices(c: ComputedAllocation, prefix: string, opts: { reconstructed?: boolean } = {}): Promise<(AvidInvoicePdf & { zipPath: string })[]> {
   const { gl, statementMonth, decByProp } = c;
   const invDate = gl.periodEndDate || new Date().toISOString().slice(0, 10);
@@ -727,7 +741,11 @@ export async function sendAllocation(period: string, by?: string | null): Promis
         emailed = result.emailed;
         mailConfigured = result.mailConfigured;
         delivered = result.allDelivered;
-        if (result.allDelivered) { await markReportSent("allocated", period, AVID_TO); }
+        if (result.allDelivered) {
+          await markReportSent("allocated", period, AVID_TO);
+          // AP's register — every invoice # and amount, to match against Avid.
+          await sendAllocatedRegister({ period, periodLabel: billedOf(res).billedLabel || period, rows: batches.flatMap(registerRows), by });
+        }
       }
     } catch { /* best-effort */ }
 
