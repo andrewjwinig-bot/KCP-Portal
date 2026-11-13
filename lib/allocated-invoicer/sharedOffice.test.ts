@@ -3,7 +3,7 @@ vi.mock("server-only", () => ({}));
 import { computeMonths, computeOneMonth } from "./autoProcess";
 import { emptyLedger, finalizeMonth, applyRecognized, type CarryoverLedger } from "./carryover";
 import type { GLParseResult, GLTransaction } from "./glParser";
-import { SHARED_OFFICE_NAME, SHARED_SQFT, monthsOfPeriod, sharedOfficeAmounts, withSharedOffice } from "./sharedOffice";
+import { SHARED_OFFICE_NAME, SHARED_SQFT, monthsOfPeriod, sharedOfficeAmounts, withSharedOffice, trueUpGl, trueUpInvoiceId, trueUpLabel } from "./sharedOffice";
 import { officeRentalFor } from "./sharedOfficeLoad";
 import { ALLOC_PCT } from "@/lib/properties/data";
 
@@ -89,5 +89,21 @@ describe("the shared office's share of 2010 Office Rental", () => {
     expect(officeRentalFor(gl, 11)).toBeNull();
     expect(officeRentalFor(null, 10)).toBeNull();
     expect(monthsOfPeriod("2026-11_to_2027-01")).toEqual(["2026-11", "2026-12", "2027-01"]);
+  });
+
+  it("trues up the year to date as one bill per property, every property in full", () => {
+    const months = Array.from({ length: 9 }, (_, i) => ({ month: `2026-${String(i + 1).padStart(2, "0")}`, officeRental: RENT, officeSqft: OFFICE_SF }));
+    const gl = trueUpGl(months)!;
+    expect(gl.statementMonth).toBe("2026-09");
+    expect(gl.periodEndDate).toBe("2026-09-30");
+    expect(trueUpLabel(months.map((m) => m.month))).toBe("January – September 2026");
+    const c = computeOneMonth(gl, { ...emptyLedger(), billAllOnNextSend: true });
+    if ("error" in c) throw new Error(c.error);
+    // Nine months of the shared part, every dollar billed — nothing held under $100.
+    expect(c.total).toBeCloseTo(9 * RENT * 602 / OFFICE_SF, 0);
+    for (const decs of c.decByProp.values()) expect(decs.every((d) => d.billed)).toBe(true);
+    expect(c.rows.every((r) => r.accountName === SHARED_OFFICE_NAME)).toBe(true);
+    expect(trueUpInvoiceId("4080")).toBe("TU4080YTD26");
+    expect(trueUpGl([])).toBeNull();
   });
 });

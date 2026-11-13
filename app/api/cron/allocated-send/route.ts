@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { autoSendStagedAllocations } from "@/lib/allocated-invoicer/autoProcess";
+import { trueUpSharedOffice } from "@/lib/allocated-invoicer/sharedOfficeTrueUp";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 
 export const runtime = "nodejs";
@@ -35,5 +36,7 @@ async function authorized(req: Request): Promise<boolean> {
 export async function GET(req: Request) {
   if (!(await authorized(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const results = await autoSendStagedAllocations(null);
-  return NextResponse.json({ results });
+  // The 2026 Shared Leasing & Maintenance Office true-up, once (a no-op after).
+  const sharedOfficeTrueUp = await trueUpSharedOffice(null).catch((e) => ({ status: "failed", reason: e instanceof Error ? e.message : String(e) }));
+  return NextResponse.json({ results, sharedOfficeTrueUp });
 }

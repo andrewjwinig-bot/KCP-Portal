@@ -420,7 +420,10 @@ export function computeMonths(gl: GLParseResult, ledger: CarryoverLedger): Month
 // Build one month's per-property invoice PDFs as individual buffers (one per
 // billing property). `prefix` names a per-month folder for a range batch (used
 // only for the team's zip archive; each PDF is sent to Avid on its own email).
-async function buildMonthInvoices(c: ComputedAllocation, prefix: string, opts: { reconstructed?: boolean } = {}): Promise<(AvidInvoicePdf & { zipPath: string })[]> {
+export async function buildMonthInvoices(
+  c: ComputedAllocation, prefix: string,
+  opts: { reconstructed?: boolean; invoiceId?: (propertyId: string) => string; fileTag?: string } = {},
+): Promise<(AvidInvoicePdf & { zipPath: string })[]> {
   const { gl, statementMonth, decByProp } = c;
   const invDate = gl.periodEndDate || new Date().toISOString().slice(0, 10);
   const out: (AvidInvoicePdf & { zipPath: string })[] = [];
@@ -440,10 +443,10 @@ async function buildMonthInvoices(c: ComputedAllocation, prefix: string, opts: {
       const pdf = buildAllocInvoicePdf({
         propertyId: id, propertyName: propName(id),
         periodText: gl.periodText, periodEndDate: gl.periodEndDate, statementMonth,
-        invoiceDate: invDate, invoiceId: makeAllocInvoiceId(id, statementMonth, !!c.supplemental),
+        invoiceDate: invDate, invoiceId: opts.invoiceId ? opts.invoiceId(id) : makeAllocInvoiceId(id, statementMonth, !!c.supplemental),
         lineItems, carriedForward, grandTotal, reconstructed: opts.reconstructed,
       });
-      const suppTag = c.supplemental ? " - SUPPLEMENTAL" : "";
+      const suppTag = opts.fileTag ? ` - ${opts.fileTag}` : c.supplemental ? " - SUPPLEMENTAL" : "";
       const fileName = `${statementMonth}${suppTag} - ${id} - ${propName(id)}.pdf`;
       out.push({ propertyLabel: `${id} — ${propName(id)}${c.supplemental ? " (supplemental)" : ""}`, fileName, pdf: Buffer.from(await pdf.arrayBuffer()), zipPath: `${prefix}${fileName}` });
     } catch { /* skip a bad PDF, keep the rest */ }

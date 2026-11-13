@@ -114,3 +114,61 @@ export function monthsOfPeriod(period: string): string[] {
   }
   return out;
 }
+
+// ─── 2026 YEAR-TO-DATE TRUE-UP (owner, 11/2026: "when i posted november can
+// you true up the year to date reimbursement for the office rent and
+// electric … then itll be month by month after that") ──────────────────────
+//
+// Billing month by month starts at SHARED_OFFICE_FROM. The months of 2026
+// before it — and October too when it went out before this existed — are
+// billed ONCE, as one true-up invoice per property, after November is posted
+// (`sharedOfficeTrueUp.ts`). Every property bills in full: a catch-up of a
+// year is not held under $100.
+
+export const TRUEUP_YEAR = 2026;
+/** The true-up waits for 2010's November — the owner's trigger. */
+export const TRUEUP_AFTER_MONTH = 11;
+
+/** "TU4080YTD26" — a true-up, property, the year to date. Deterministic, so
+ *  AvidXchange's duplicate check catches a resend. */
+export const trueUpInvoiceId = (propertyId: string, year = TRUEUP_YEAR) =>
+  `TU${String(propertyId).replace(/[^A-Z0-9]/gi, "").toUpperCase()}YTD${String(year).slice(2)}`;
+
+const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "January – September 2026". */
+export function trueUpLabel(months: string[]): string {
+  const s = [...months].sort();
+  if (!s.length) return "";
+  const name = (m: string) => MONTH_NAMES[Number(m.slice(5, 7)) - 1];
+  return s.length === 1 ? `${name(s[0])} ${s[0].slice(0, 4)}` : `${name(s[0])} – ${name(s[s.length - 1])} ${s[s.length - 1].slice(0, 4)}`;
+}
+
+/** The months' shared office summed into ONE GL dated the last of them, ready
+ *  for `computeOneMonth`. Each suffix's line says the months it covers. Pure. */
+export function trueUpGl(months: SharedOfficeMonth[]): GLParseResult | null {
+  const sorted = [...months].sort((a, b) => a.month.localeCompare(b.month));
+  if (!sorted.length) return null;
+  const by = new Map<"9301" | "9302" | "9303", number>();
+  for (const m of sorted) for (const a of sharedOfficeAmounts(m.officeRental, m.officeSqft)) by.set(a.suffix, r2((by.get(a.suffix) ?? 0) + a.amount));
+  if (![...by.values()].some((v) => Math.abs(v) >= 0.005)) return null;
+  const last = sorted[sorted.length - 1].month;
+  const label = trueUpLabel(sorted.map((m) => m.month));
+  const date = lastDay(last);
+  const accountTotals = new Map<string, GLAccountTotal>();
+  const transactions: GLTransaction[] = [];
+  for (const [suffix, amount] of by) {
+    const accountCode = `${SHARED_OFFICE_BASE}-${suffix}`;
+    accountTotals.set(totalsKey(accountCode, SHARED_OFFICE_NAME), { accountCode, accountName: SHARED_OFFICE_NAME, accountSuffix: suffix, netTotal: amount });
+    transactions.push({
+      accountCode, accountName: SHARED_OFFICE_NAME, accountSuffix: suffix, date, jrn: "", ref: "SHARED-OFFICE-YTD",
+      debit: amount > 0 ? amount : 0, credit: amount < 0 ? -amount : 0, net: amount, description: `${label} true-up`,
+    });
+  }
+  return {
+    statementMonth: last,
+    periodText: `${SHARED_OFFICE_NAME} — ${label} true-up`,
+    periodEndDate: `${last}-${date.slice(3, 5)}`,
+    transactions, accountTotals,
+  };
+}
