@@ -4,6 +4,7 @@ import { PassThrough } from "stream";
 import { z } from "zod";
 import { buildInvoices } from "../../../../lib/invoicing/buildInvoices";
 import { renderInvoicePdf } from "../../../../lib/pdf/renderInvoicePdf";
+import { sendApRegister } from "@/lib/invoicing/apRegister";
 import { payrollInvoiceNumber } from "../../../../lib/payroll/invoiceNumber";
 import { parseAllocationWorkbook } from "../../../../lib/allocation/parseAllocationWorkbook";
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../../../../lib/payroll/export";
@@ -122,7 +123,22 @@ export async function POST(req: Request) {
       privacyNote: true,
     });
     // Only mark done once all invoices + summary went out (retry-safe).
-    if (result.allDelivered) await markReportSent(DEDUP, payDate, AVID_TO);
+    if (result.allDelivered) {
+      await markReportSent(DEDUP, payDate, AVID_TO);
+      // AP's register — every invoice # and amount, to match against Avid.
+      await sendApRegister({
+        source: "payroll", label: "Payroll", period: payDate, periodLabel: `Pay date ${payDate}`,
+        by: sender ? USERS[sender]?.label ?? sender : null,
+        rows: invoices
+          .map((inv: any) => ({
+            invoiceNumber: String(inv.invoiceNumber || payrollInvoiceNumber(inv, payDate)),
+            code: String(inv.propertyCode || inv.propertyKey || ""),
+            name: String(inv.propertyLabel || inv.propertyKey || ""),
+            amount: Math.round((Number(inv.total) || 0) * 100) / 100,
+          }))
+          .filter((r: { amount: number }) => r.amount > 0),
+      });
+    }
 
     return NextResponse.json({ sent: result.emailed, byProperty, total, invoiceCount: (result.avidSent + result.alreadySent) || invoices.length, sentAt });
   } catch (e: any) {

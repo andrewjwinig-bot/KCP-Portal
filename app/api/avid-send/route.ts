@@ -1,3 +1,4 @@
+import { sendApRegister, monthLabel } from "@/lib/invoicing/apRegister";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isMailConfigured } from "@/lib/mail";
@@ -52,6 +53,8 @@ const BodySchema = z.object({
     .max(8)
     .optional(),
   archiveZipBase64: z.string().optional(),
+  // AP's register (Tanya): each invoice's number and amount, as printed on it.
+  register: z.array(z.object({ invoiceNumber: z.string().max(40), code: z.string().max(20), name: z.string().max(160), amount: z.number() })).max(300).optional(),
   force: z.boolean().optional(),
 });
 
@@ -116,7 +119,16 @@ export async function POST(req: Request) {
 
     // Only mark the period done once everything's out, so a retry after a
     // partial failure re-sends just the invoices that didn't go.
-    if (result.allDelivered) await markReportSent(dedupKey(body.source), body.period, "kormancommercial@avidbill.com");
+    if (result.allDelivered) {
+      await markReportSent(dedupKey(body.source), body.period, "kormancommercial@avidbill.com");
+      // AP's register — every invoice # and amount, to match against Avid.
+      if (body.register?.length) {
+        await sendApRegister({
+          source: body.source, label, period: body.period, periodLabel: monthLabel(body.period),
+          rows: body.register.map((r) => ({ invoiceNumber: String(r.invoiceNumber), code: String(r.code), name: String(r.name), amount: Number(r.amount) })), by: sender ? USERS[sender]?.label ?? sender : null,
+        });
+      }
+    }
     return NextResponse.json({ sent: result.emailed, byProperty: body.byProperty, total: body.total, invoiceCount: (result.avidSent + result.alreadySent) || invoiceCount, sentAt });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message ?? "Failed to send to AvidXchange" }, { status: 500 });

@@ -65,7 +65,7 @@ import { billedOf, shortMonth } from "./billedLabel";
 export { billedOf };
 import { getPendingGl } from "./pendingGlStore";
 import { deliverInvoicesToAvid, type AvidInvoicePdf } from "@/lib/invoicing/avidDelivery";
-import { sendAllocatedRegister, type RegisterRow } from "./apRegister";
+import { sendApRegister, type RegisterRow } from "@/lib/invoicing/apRegister";
 import { totalsKey } from "./sharedOffice";
 import { withSharedOfficeLoaded } from "./sharedOfficeLoad";
 
@@ -744,7 +744,7 @@ export async function sendAllocation(period: string, by?: string | null): Promis
         if (result.allDelivered) {
           await markReportSent("allocated", period, AVID_TO);
           // AP's register — every invoice # and amount, to match against Avid.
-          await sendAllocatedRegister({ period, periodLabel: billedOf(res).billedLabel || period, rows: batches.flatMap(registerRows), by });
+          await sendApRegister({ source: "allocated", label: "Allocated Expenses", period, periodLabel: billedOf(res).billedLabel || period, rows: batches.flatMap(registerRows), by });
         }
       }
     } catch { /* best-effort */ }
