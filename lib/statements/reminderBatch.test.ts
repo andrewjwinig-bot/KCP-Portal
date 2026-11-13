@@ -56,3 +56,13 @@ describe("the apply-my-credit link", () => {
     expect(await verifyCreditApplyToken(`${body}.AAAA`, "s3cret")).toBeNull();
   });
 });
+
+import { addBusinessDays } from "./reminderSchedule";
+describe("if Greg forgets", () => {
+  it("built Monday Nov 16: reminder Tuesday, sends itself Wednesday; a Friday build sends Tuesday", () => {
+    expect(addBusinessDays("2026-11-16", 1)).toBe("2026-11-17");
+    expect(addBusinessDays("2026-11-16", 2)).toBe("2026-11-18");
+    expect(addBusinessDays("2026-11-20", 2)).toBe("2026-11-24");
+    expect(addBusinessDays("2026-11-25", 1)).toBe("2026-11-30"); // over Thanksgiving
+  });
+});

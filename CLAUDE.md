@@ -1885,6 +1885,12 @@ batch), `reminderSchedule.ts` (the calendar), `reminderInternalEmails.ts`
   notice, Preview each, one Send (a confirm modal). Progress saves per email, so
   a second press never double-sends. Below it, the credits tenants asked for —
   Tami ticks each posted (her WRITE_SCOPE includes `/api/tenant-notices`).
+- **IF GREG FORGETS** (owner): `/api/cron/tenant-notices` (13:45 UTC daily,
+  `autoSendTick`) reminds him ONE business day after the build (`remindOn`) and
+  SENDS every ticked notice on its own after TWO (`autoSendOn`, set at the
+  first build, said in his email and on the page); unticked tenants stay held;
+  the batch reads "sent automatically". It also finishes a send that ran out
+  of time.
 - **THE BUSINESS DAY BEFORE THE 25TH** (`creditSummaryDay`; weekends,
   Thanksgiving, Dec 24–25): `/api/cron/credit-summary` (13:30 UTC daily) emails
   Drew + Tami (`CREDIT_SUMMARY_TO`) every credit asked for, unposted first.
