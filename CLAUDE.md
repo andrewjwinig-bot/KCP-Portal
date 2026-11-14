@@ -4933,7 +4933,8 @@ then the user imports Skyline reports, so keep ingestion paths import-friendly.
 - **ESCROW BILLED ← Skyline's activity report, and the statement carries the
   account** (owner, 11/2026 — decided, not built; needs one real export to
   write the parser). Run Skyline's itemized activity report once all twelve
-  months have billed (early Dec / first week of Jan); each tenant's CAM / RET /
+  months have billed — as soon as December's statements go out (owner: no
+  adjustments are keyed after; re-import before the recon if one ever is); each tenant's CAM / RET /
   INS escrow billed is the sum of its charges by type, LESS the prior year's
   year-end adjustments dated 4/30 (YEC / RER / YEI — last year's true-up, not
   this year's escrow). It also lists tenants who left mid-year. Cross-check
