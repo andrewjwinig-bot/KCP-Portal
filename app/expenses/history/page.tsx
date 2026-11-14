@@ -1,7 +1,11 @@
 "use client";
+import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
+import { useUser } from "../../components/UserProvider";
+import { Pill, TONE_NEUTRAL, TONE_TEAL } from "@/app/components/Pill";
+import { InvoicesPanel } from "./InvoicesPanel";
 
 type SavedTx = {
   date: string;
@@ -19,6 +23,7 @@ type StatementMeta = {
   savedAt: string;
   periodText: string;
   statementMonth: string;
+  source?: "manual" | "generated";
   txCount: number;
   total: number;
 };
@@ -72,6 +77,15 @@ function exportStatement(entry: StatementDetail) {
 }
 
 export default function ExpenseHistoryPage() {
+  const { user } = useUser();
+  // The maint persona only sees Greg's own rows — mirror the lock on the
+  // /expenses Code Transactions table.
+  const isMaint = user.id === "maint";
+  const visibleTx = (txs: SavedTx[]): SavedTx[] =>
+    isMaint
+      ? txs.filter((t) => String(t.cardMember || "").toLowerCase().includes("greg"))
+      : txs;
+
   const [statements, setStatements] = useState<StatementMeta[]>([]);
   const [details, setDetails] = useState<Record<string, StatementDetail>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -101,9 +115,9 @@ export default function ExpenseHistoryPage() {
   }
 
   const btnStyle = (red?: boolean): React.CSSProperties => ({
-    fontSize: 13, padding: "5px 14px", borderRadius: 7,
-    border: `1px solid ${red ? "#b42318" : "#1a1a1a"}`,
-    background: "transparent", color: red ? "#b42318" : "#1a1a1a",
+    fontSize: "var(--fs-13)", padding: "5px 14px", borderRadius: 7,
+    border: `1px solid ${red ? "var(--c-b42318)" : "var(--c-1a1a1a)"}`,
+    background: "transparent", color: red ? "var(--c-b42318)" : "var(--c-1a1a1a)",
     cursor: "pointer", fontWeight: 500,
   });
 
@@ -111,20 +125,20 @@ export default function ExpenseHistoryPage() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <h1>Expense History</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
       <div className="card">
         <b style={{ fontSize: 15 }}>Statement History</b>
         <div className="small muted" style={{ marginTop: 4, marginBottom: 16 }}>
-          Saved statements for reference. Use &ldquo;Save to History&rdquo; on the Expense Coder page to archive each statement.
+          Every statement is logged here automatically when its invoices are generated on the Expense Coder page — re-generating a month updates its entry. Open one for the invoices sent to AvidXchange (each PDF as sent) and its charges.
         </div>
 
-        {loading && <div className="small muted">Loading…</div>}
+        {loading && <LoadingState card={false} status="Loading saved statements…" rows={4} />}
 
         {!loading && statements.length === 0 && (
           <div className="small muted" style={{ padding: "20px 0" }}>
@@ -137,9 +151,12 @@ export default function ExpenseHistoryPage() {
           const detail = details[s.id];
           return (
             <div key={s.id} style={{ border: "1px solid var(--border)", borderRadius: 12, marginBottom: 12, overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: isExpanded ? "rgba(11,74,125,0.04)" : "#fff" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: isExpanded ? "var(--tint-brand-bg, rgba(11,74,125,0.04))" : "#fff" }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{s.periodText || s.statementMonth}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{ fontWeight: 700, fontSize: 15 }}>{s.periodText || s.statementMonth}</span>
+                    <Pill tone={s.source === "generated" ? TONE_TEAL : TONE_NEUTRAL}>{s.source === "generated" ? "AUTO-LOGGED" : "MANUAL"}</Pill>
+                  </div>
                   <div className="small muted" style={{ marginTop: 2 }}>
                     Saved {new Date(s.savedAt).toLocaleDateString()} &nbsp;·&nbsp; {s.txCount} transactions &nbsp;·&nbsp; {toMoney(s.total)}
                   </div>
@@ -153,12 +170,16 @@ export default function ExpenseHistoryPage() {
 
               {isExpanded && (
                 <div style={{ borderTop: "1px solid var(--border)", overflowX: "auto" }}>
+                  {!isMaint && /^\d{4}-\d{2}/.test(s.statementMonth || "") && (
+                    <div style={{ borderBottom: "1px solid var(--border)" }}><InvoicesPanel period={s.statementMonth} /></div>
+                  )}
+                  {detail && visibleTx(detail.tx).length > 0 && <div style={{ padding: "14px 16px 0" }}><b style={{ fontSize: 15 }}>Charges</b></div>}
                   {!detail ? (
                     <div className="small muted" style={{ padding: 14 }}>Loading…</div>
-                  ) : detail.tx.length === 0 ? (
+                  ) : visibleTx(detail.tx).length === 0 ? (
                     <div className="small muted" style={{ padding: 14 }}>No transactions.</div>
                   ) : (
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 900 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)", minWidth: 900 }}>
                       <thead>
                         <tr>
                           {["Date", "Card Member", "Description", "Invoice Description", "Category", "Property", "Suite", "Amount"].map((h) => (
@@ -167,7 +188,7 @@ export default function ExpenseHistoryPage() {
                         </tr>
                       </thead>
                       <tbody>
-                        {detail.tx.map((t, i) => (
+                        {visibleTx(detail.tx).map((t, i) => (
                           <tr key={i} style={{ borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
                             <td style={{ padding: "10px" }}>{t.date}</td>
                             <td style={{ padding: "10px" }}>{t.cardMember}</td>

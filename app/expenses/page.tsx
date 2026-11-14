@@ -1,30 +1,35 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
+import { pickInto } from "@/app/components/pickFiles";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
 import { PDFDocument } from "pdf-lib";
-import { buildInvoicePdf, makeInvoiceId, CategoryGroup } from "../../lib/expenses/invoice";
+import { buildInvoicePdf, buildReimbursementInvoicePdf, makeInvoiceId, recoverableSuffix, CategoryGroup } from "../../lib/expenses/invoice";
 import { buildTopSheetXlsx, TopSheetTx } from "../../lib/expenses/topSheet";
 import { groupBy, normalizeAmount, toMoney } from "../../lib/expenses/utils";
+import { CATEGORIES, PROPERTIES, isRowCoded, codingProgress, CARDHOLDER_NAME, type Tx } from "../../lib/expenses/coding";
+import { useFileDrop, byExt } from "@/app/components/useFileDrop";
+import {
+  CARRYOVER_THRESHOLD,
+  isBilled,
+  isYearEndMonth,
+  type HeldTx,
+  type PropertyCarry,
+} from "../../lib/expenses/carryover";
+import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
+import { ALLOC_PCT, FUND_SF_ALLOC } from "../../lib/properties/data";
+import { useUser } from "../components/UserProvider";
+import { LastImported } from "@/app/components/LastImported";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { Pill, TONE_AMBER, TONE_GREEN, TONE_RED } from "@/app/components/Pill";
+import { HoverCard } from "@/app/components/HoverCard";
+import { AvidReviewModal, AvidSuccessModal, sendToAvid, type AvidProperty } from "@/app/components/AvidSend";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const CATEGORIES = [
-  "MARKETING NR",
-  "BUILDING MAINT.",
-  "TI",
-  "OFFICE SUPPLIES",
-  "AUTO",
-  "TELEPHONE",
-  "COMP & IT",
-  "MEALS & ENT.",
-  "TRAINING & EDU",
-  "G&A",
-  "LANDSCAPING",
-  "EQUIPMENT (CAP)",
-  "BUILDINGS (CAP)",
-] as const;
 
 const TOP_SHEET_CATEGORIES = [
   "MARKETING NR",
@@ -38,7 +43,7 @@ const TOP_SHEET_CATEGORIES = [
 
 const CATEGORY_ACC: Record<(typeof CATEGORIES)[number], string> = {
   "MARKETING NR": "7110",
-  "BUILDING MAINT.": "8220",
+  "BUILDING MAINT.": "6220",
   TI: "1440",
   "OFFICE SUPPLIES": "8930",
   AUTO: "8980",
@@ -52,48 +57,6 @@ const CATEGORY_ACC: Record<(typeof CATEGORIES)[number], string> = {
   "BUILDINGS (CAP)": "1430",
 };
 
-const PROPERTIES = [
-  { id: "BP & SC", name: "All BP & SC" },
-  { id: "BP", name: "All BP" },
-  { id: "SC", name: "All SC" },
-  { id: "PJV3", name: "JV III" },
-  { id: "PNIPLX", name: "NI LLC" },
-  { id: "PIIICO", name: "JV III Condo" },
-  { id: "1100", name: "Parkwood Professional Building" },
-  { id: "1500", name: "Eastwick JV I" },
-  { id: "2000", name: "Clearing Account" },
-  { id: "2010", name: "LIK Management, Inc." },
-  { id: "2040", name: "KF Nockamixon LLC" },
-  { id: "2070", name: "Kosano Associates LP" },
-  { id: "2080", name: "LKF Nock LP" },
-  { id: "2300", name: "Brookwood Shopping Center" },
-  { id: "3610", name: "Building 1" },
-  { id: "3620", name: "Building 2" },
-  { id: "3640", name: "Building 4" },
-  { id: "4050", name: "Building 5" },
-  { id: "4060", name: "Building 6" },
-  { id: "4070", name: "Building 7" },
-  { id: "4080", name: "Building 8" },
-  { id: "40A0", name: "Building A" },
-  { id: "40B0", name: "Building B" },
-  { id: "40C0", name: "Building C" },
-  { id: "4500", name: "Grays Ferry Shopping Ctr" },
-  { id: "4900", name: "The Office Works" },
-  { id: "5600", name: "Hyman Korman Co" },
-  { id: "7010", name: "Parkwood Joint Venture" },
-  { id: "7200", name: "Elbridge Shopping Center" },
-  { id: "7300", name: "Revere Shopping Center" },
-  { id: "8200", name: "Trust # 4" },
-  { id: "9200", name: "Eastwick JV XII" },
-  { id: "9510", name: "Shops at Lafayette Hill" },
-  { id: "9800", name: "KH Bellaire" },
-  { id: "9820", name: "KH Spring Garden" },
-  { id: "9840", name: "KH Joshua" },
-  { id: "9860", name: "KH Fort Washington" },
-  { id: "0200", name: "TKD - Neshaminy, LLC" },
-  { id: "0300", name: "Airport Interplex Two, Inc." },
-  { id: "0800", name: "Interstate Business Park" },
-] as const;
 
 const PROPERTY_ACC2: Record<(typeof PROPERTIES)[number]["id"], string[]> = {
   "BP & SC": ["9301", "9302"],
@@ -127,6 +90,7 @@ const PROPERTY_ACC2: Record<(typeof PROPERTIES)[number]["id"], string[]> = {
   "7200": ["8501"],
   "7300": ["8501"],
   "8200": ["8501"],
+  "9000": ["8501"],
   "9200": ["8501"],
   "9510": ["8501"],
   "9800": ["8501"],
@@ -138,55 +102,18 @@ const PROPERTY_ACC2: Record<(typeof PROPERTIES)[number]["id"], string[]> = {
   "0800": ["8501"],
 };
 
-// 9301 percentages from ALLOCATION_TABLE (BP buildings only)
-const ALLOC_BP: Record<string, number> = {
-  "3610": 0.0779,
-  "3620": 0.0913,
-  "3640": 0.0909,
-  "4050": 0.1006,
-  "4060": 0.2009,
-  "4070": 0.1146,
-  "4080": 0.2380,
-  "40A0": 0.0281,
-  "40B0": 0.0242,
-  "40C0": 0.0335,
-};
-
-// 9302 percentages from ALLOCATION_TABLE (SC properties only)
-const ALLOC_SC: Record<string, number> = {
-  "1100": 0.0299,
-  "1500": 0.0082,
-  "2300": 0.2224,
-  "4500": 0.2993,
-  "5600": 0.0048,
-  "7010": 0.2645,
-  "7200": 0.0535,
-  "7300": 0.0813,
-  "8200": 0.0361,
-};
-
-const ALLOC_BP_SC: Record<string, number> = {
-  "3610": 0.0514,
-  "3620": 0.0602,
-  "3640": 0.06,
-  "4050": 0.0664,
-  "4060": 0.1326,
-  "4070": 0.0756,
-  "4080": 0.1571,
-  "40A0": 0.0185,
-  "40B0": 0.0159,
-  "40C0": 0.0221,
-  "1100": 0.0102,
-  "1500": 0.0028,
-  "2300": 0.0757,
-  "4500": 0.1018,
-  "5600": 0.0016,
-  "7010": 0.09,
-  "7200": 0.0182,
-  "7300": 0.0276,
-  "8200": 0.0123,
-  "9510": 0.0,
-};
+// Overhead-allocation shares — derived from the single source of truth
+// (ALLOC_PCT in lib/properties/data.ts). BP = 9301 (business parks), SC = 9302
+// (shopping centers), BP & SC = 9303 (all-property combined share).
+const ALLOC_BP: Record<string, number> = Object.fromEntries(
+  Object.entries(ALLOC_PCT).filter(([, v]) => v["9301"] > 0).map(([id, v]) => [id, v["9301"]]),
+);
+const ALLOC_SC: Record<string, number> = Object.fromEntries(
+  Object.entries(ALLOC_PCT).filter(([, v]) => v["9302"] > 0).map(([id, v]) => [id, v["9302"]]),
+);
+const ALLOC_BP_SC: Record<string, number> = Object.fromEntries(
+  Object.entries(ALLOC_PCT).map(([id, v]) => [id, v["9303"]]),
+);
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -234,14 +161,14 @@ function DonutChart({ data }: { data: PieSlice[] }) {
             style={{ cursor: "pointer", opacity: hovered !== null && hovered !== i ? 0.45 : 1, transition: "opacity 0.12s" }}
             onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)} />
         ))}
-        <text x={cx} y={cy - 16} textAnchor="middle" style={{ fontSize: 11, fill: "#64748b", fontFamily: "inherit" }}>
+        <text x={cx} y={cy - 16} textAnchor="middle" style={{ fontSize: "var(--fs-11)", fill: "var(--c-64748b)", fontFamily: "inherit" }}>
           {trim(hov ? hov.label : "Total")}
         </text>
-        <text x={cx} y={cy + 5} textAnchor="middle" style={{ fontSize: 14, fontWeight: 700, fill: "#0f172a", fontFamily: "inherit" }}>
+        <text x={cx} y={cy + 5} textAnchor="middle" style={{ fontSize: "var(--fs-14)", fontWeight: 700, fill: "var(--c-0f172a)", fontFamily: "inherit" }}>
           {hov ? toMoney(hov.value) : toMoney(total)}
         </text>
         {hov && (
-          <text x={cx} y={cy + 22} textAnchor="middle" style={{ fontSize: 12, fill: "#64748b", fontFamily: "inherit" }}>
+          <text x={cx} y={cy + 22} textAnchor="middle" style={{ fontSize: "var(--fs-12)", fill: "var(--c-64748b)", fontFamily: "inherit" }}>
             {((hov.value / total) * 100).toFixed(1)}%
           </text>
         )}
@@ -249,7 +176,7 @@ function DonutChart({ data }: { data: PieSlice[] }) {
       <div style={{ flex: 1, minWidth: 160, display: "flex", flexDirection: "column", gap: 5, maxHeight: 240, overflowY: "auto" }}>
         {slices.map((s, i) => (
           <div key={s.label} onMouseEnter={() => setHovered(i)} onMouseLeave={() => setHovered(null)}
-            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, cursor: "default",
+            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: "var(--fs-12)", cursor: "default",
               opacity: hovered !== null && hovered !== i ? 0.45 : 1, transition: "opacity 0.12s" }}>
             <div style={{ width: 10, height: 10, borderRadius: 2, background: s.color, flexShrink: 0 }} />
             <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.label}</span>
@@ -263,17 +190,6 @@ function DonutChart({ data }: { data: PieSlice[] }) {
   );
 }
 
-type Tx = {
-  id: string;
-  date: string;
-  cardMember: string;
-  description: string;
-  amount: number;
-  category: string;
-  propertyId: string;
-  suite: string;
-  codedDescription: string;
-};
 
 // ── Pure functions ────────────────────────────────────────────────────────────
 
@@ -291,11 +207,6 @@ function newTx(partial: Partial<Tx>): Tx {
   };
 }
 
-function isRowCoded(t: Tx) {
-  if (!t.category || !t.propertyId) return false;
-  if (t.category === "TI" && !String(t.suite || "").trim()) return false;
-  return true;
-}
 
 function toTitleCaseFirstName(name: string) {
   const first = String(name || "").trim().split(/\s+/)[0] || "";
@@ -382,6 +293,8 @@ function yyyymmddFromDate(d: Date | null) {
 function getAccountCodes(category: string, propertyId: string): string[] {
   if (category === "EQUIPMENT (CAP)") return ["1450-0000"];
   if (category === "BUILDINGS (CAP)") return ["1430-0000"];
+  if (category === "BUILDING MAINT.") return [`6220-${recoverableSuffix(propertyId)}`];
+  if (category === "OFFICE SUPPLIES") return [`8930-${recoverableSuffix(propertyId)}`];
   const catAcc = (CATEGORY_ACC as Record<string, string>)[category];
   const propAcc2 = (PROPERTY_ACC2 as Record<string, string[]>)[propertyId];
   if (!catAcc || !propAcc2 || !propAcc2.length) return [];
@@ -404,11 +317,13 @@ function allocateCentsByPercents(totalCents: number, entries: Array<{ key: strin
 }
 
 function expandForAllocation(t: Tx): Array<Tx & { originalAmount?: number }> {
+  // Synthetic overhead codes explode by ALLOC_PCT; a fund code (PJV3 / PNIPLX)
+  // explodes across that fund's own buildings pro-rata by building square footage.
   const allocTable =
     t.propertyId === "BP & SC" ? ALLOC_BP_SC :
     t.propertyId === "BP"      ? ALLOC_BP :
     t.propertyId === "SC"      ? ALLOC_SC :
-    null;
+    FUND_SF_ALLOC[t.propertyId] ?? null;
   if (!allocTable) return [t];
   const totalC = cents(t.amount);
   const entries = Object.entries(allocTable).map(([key, pct]) => ({ key, pct }));
@@ -428,11 +343,32 @@ function download(filename: string, blob: Blob) {
   URL.revokeObjectURL(url);
 }
 
+type InvoiceGroup = { propId: string; categoryGroups: CategoryGroup[]; total: number; itemCount: number };
+
+// One invoice per property: group expanded+coded charges by property then
+// category. Shared so the on-screen "this month" groups and the "effective"
+// groups (this month + carried-forward held detail) build identically.
+function buildInvoiceGroups(items: any[]): InvoiceGroup[] {
+  const byProp = groupBy(items, (t: any) => t.propertyId);
+  const groups: InvoiceGroup[] = [];
+  for (const [propId, propItems] of byProp.entries()) {
+    const byCat = groupBy(propItems as any[], (t: any) => t.category);
+    const categoryGroups: CategoryGroup[] = [];
+    for (const [cat, catItems] of byCat.entries()) {
+      categoryGroups.push({ category: cat, items: catItems as any[] });
+    }
+    const total = (propItems as any[]).reduce((a: number, t: any) => a + Number(t.amount), 0);
+    groups.push({ propId, categoryGroups, total, itemCount: (propItems as any[]).length });
+  }
+  return groups.sort((a, b) => a.propId.localeCompare(b.propId));
+}
+
 const LS_KEY = "cc-expenses:v1";
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function ExpensesPage() {
+  const { user, hydrated } = useUser();
   const categories = useMemo(() => [...CATEGORIES], []);
   const properties = useMemo(() => [...PROPERTIES], []);
 
@@ -440,7 +376,7 @@ export default function ExpensesPage() {
     if (typeof window === "undefined") return [];
     try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r).tx ?? [] : []; } catch { return []; }
   });
-  const [showOnlyUncoded, setShowOnlyUncoded] = useState(false);
+  const [showOnlyUncoded, setShowOnlyUncoded] = useState(true);
   const [search, setSearch] = useState("");
   const [statementPeriodText, setStatementPeriodText] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -448,15 +384,56 @@ export default function ExpensesPage() {
   });
   const [statementStart, setStatementStart] = useState<Date | null>(null);
   const [statementEnd, setStatementEnd] = useState<Date | null>(null);
+  // When/who last imported the AmEx statement — persisted so the import bar
+  // shows the same "Last imported … by USER" line as the other import pages.
+  const [importedAt, setImportedAt] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r).importedAt ?? null : null; } catch { return null; }
+  });
+  const [importedBy, setImportedBy] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { const r = localStorage.getItem(LS_KEY); return r ? JSON.parse(r).importedBy ?? null : null; } catch { return null; }
+  });
   const [showAfterZipModal, setShowAfterZipModal] = useState(false);
+  // Review-before-send to AvidXchange. `ccReview` holds the built artifacts (zip
+  // + TOP SHEET + GL journal) + per-building summary staged for the confirm
+  // popup; `ccSent` drives the success confirmation.
+  const [ccReview, setCcReview] = useState<{
+    period: string;
+    byProperty: AvidProperty[];
+    total: number;
+    invoices: { propertyLabel: string; fileName: string; blob: Blob }[];
+    references: { name: string; blob: Blob; contentType: string }[];
+    archiveZip: Blob | null;
+    attachmentNames: string[];
+    register: { invoiceNumber: string; code: string; name: string; amount: number }[];
+    held: { code: string; name: string; amount: number }[];
+  } | null>(null);
+  const [ccBuilding, setCcBuilding] = useState(false);
+  const [ccSending, setCcSending] = useState(false);
+  const [ccSent, setCcSent] = useState<{ period: string; byProperty: AvidProperty[]; total: number; invoiceCount: number; sentAt: string; mailSent: boolean } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [tableSortCol, setTableSortCol] = useState<string | null>(null);
   const [tableSortDir, setTableSortDir] = useState<"asc" | "desc">("asc");
   const [colFilters, setColFilters] = useState<Record<string, string>>({});
   const [showColFilters, setShowColFilters] = useState(false);
+
+  // Maint persona only codes Gregory's own transactions — the upstream
+  // `filteredTx` enforces this regardless of column filters. We still
+  // reveal the filter row so he can see the locked "Gregory" cell.
+  const maintFilterRevealed = useRef(false);
+  useEffect(() => {
+    if (!hydrated || maintFilterRevealed.current) return;
+    if (user.id === "maint") {
+      setShowColFilters(true);
+      maintFilterRevealed.current = true;
+    }
+  }, [hydrated, user.id]);
   const [allocPropModal, setAllocPropModal] = useState<{ propId: string; name: string; categoryGroups: { category: string; items: any[] }[] } | null>(null);
   const [drillModal, setDrillModal] = useState<{ propId: string; category: string; items: any[] } | null>(null);
+  type HeldCatRow = { category: string; amount: number; count: number };
+  const [heldDetailModal, setHeldDetailModal] = useState<{ propId: string; name: string; accrued: number; rows: HeldCatRow[] } | null>(null);
   const [chartsOpen, setChartsOpen] = useState(true);
   const [codeTransOpen, setCodeTransOpen] = useState(true);
   const [allocPreviewOpen, setAllocPreviewOpen] = useState(true);
@@ -465,11 +442,60 @@ export default function ExpensesPage() {
   const [attachments, setAttachments] = useState<Map<string, File>>(new Map());
   const [fileName, setFileName] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const ccDrop = useFileDrop((files) => importFile(files[0]), { accept: byExt([".xls", ".xlsx"]) });
   const attachInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   useEffect(() => {
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ tx, statementPeriodText })); } catch { /* ignore */ }
-  }, [tx, statementPeriodText]);
+    try { localStorage.setItem(LS_KEY, JSON.stringify({ tx, statementPeriodText, importedAt, importedBy })); } catch { /* ignore */ }
+  }, [tx, statementPeriodText, importedAt, importedBy]);
+
+  // THE STATEMENT LIVES IN THE PORTAL (`/api/expenses/working`), so Greg and
+  // Drew can code the charges on their own cards from their dashboards. This
+  // page reads it on load and whenever the tab comes back into focus (to pick
+  // up their coding), sends each edit as its own patch (never the whole list,
+  // which would write over their work), and moves a statement still sitting in
+  // this browser up to the portal once.
+  const pendingPatches = useRef<Map<string, Record<string, unknown>>>(new Map());
+  const patchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [serverSync, setServerSync] = useState<"loading" | "ok" | "error">("loading");
+  async function pullWorking(migrate: boolean) {
+    try {
+      const j = await fetch("/api/expenses/working", { cache: "no-store" }).then((r) => r.json());
+      if (!j.ok || !j.full) { setServerSync("error"); return; }
+      if (Array.isArray(j.tx) && j.tx.length) {
+        if (pendingPatches.current.size) return;   // our own edits are still going up
+        setTx(j.tx);
+        if (j.statementPeriodText) setStatementPeriodText(j.statementPeriodText);
+        if (j.importedAt) setImportedAt(j.importedAt);
+        if (j.importedBy) setImportedBy(j.importedBy);
+        if (j.fileName) setFileName(j.fileName);
+      } else if (migrate && tx.length) {
+        await fetch("/api/expenses/working", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "replace", tx, statementPeriodText, importedAt, importedBy }),
+        });
+      }
+      setServerSync("ok");
+    } catch { setServerSync("error"); }
+  }
+  useEffect(() => {
+    if (!hydrated) return;
+    void pullWorking(true);
+    const onFocus = () => { void pullWorking(false); };
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+  function flushPatches() {
+    const all = [...pendingPatches.current.entries()];
+    pendingPatches.current.clear();
+    for (const [id, patch] of all) {
+      void fetch("/api/expenses/working", {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, patch }), keepalive: true,
+      }).catch(() => setServerSync("error"));
+    }
+  }
 
   useEffect(() => {
     if (statementPeriodText) return;
@@ -492,8 +518,22 @@ export default function ExpensesPage() {
   const statementMonth = useMemo(() => yyyymmFromDate(effectiveEnd) || "", [effectiveEnd]);
   const invoiceDate = useMemo(() => yyyymmddFromDate(effectiveEnd) || "", [effectiveEnd]);
 
+  // The maint persona (Gregory / "Greg") can only see / code his own
+  // transactions. We match permissively against the raw cardMember
+  // string so spelling variants (Greg, Gregory, GREG WINIG, GREGORY KORMAN…)
+  // and common formats (last-first comma-separated, etc.) all resolve to
+  // the same person without us having to enumerate them.
+  const isMaint = user.id === "maint";
+  // Harry fronts the company credit-card statement, so his batch also cuts a
+  // reimbursement invoice for the full statement total payable back to him.
+  const isHarry = user.id === "harry";
+  function isGregRow(t: { cardMember: string }): boolean {
+    return String(t.cardMember || "").toLowerCase().includes("greg");
+  }
+
   const filteredTx = useMemo(() => {
     let arr = tx.filter((t) => Number(t.amount) > 0);
+    if (isMaint) arr = arr.filter(isGregRow);
     if (showOnlyUncoded) arr = arr.filter((t) => !isRowCoded(t));
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -503,7 +543,7 @@ export default function ExpensesPage() {
       });
     }
     return arr;
-  }, [tx, showOnlyUncoded, search]);
+  }, [tx, showOnlyUncoded, search, isMaint]);
 
   const totals = useMemo(() => {
     const onlyPos = tx.filter((t) => Number(t.amount) > 0);
@@ -551,20 +591,113 @@ export default function ExpensesPage() {
     return arr;
   }, [filteredTx, colFilters, tableSortCol, tableSortDir, properties]);
 
-  const invoiceGroups = useMemo(() => {
-    const byProp = groupBy(expandedCoded, (t: any) => t.propertyId);
-    const groups: { propId: string; categoryGroups: CategoryGroup[]; total: number; itemCount: number }[] = [];
-    for (const [propId, items] of byProp.entries()) {
-      const byCat = groupBy(items, (t: any) => t.category);
-      const categoryGroups: CategoryGroup[] = [];
-      for (const [cat, catItems] of byCat.entries()) {
-        categoryGroups.push({ category: cat, items: catItems as Tx[] });
-      }
-      const total = (items as any[]).reduce((a: number, t: any) => a + Number(t.amount), 0);
-      groups.push({ propId, categoryGroups, total, itemCount: (items as any[]).length });
-    }
-    return groups.sort((a, b) => a.propId.localeCompare(b.propId));
-  }, [expandedCoded]);
+  const invoiceGroups = useMemo(() => buildInvoiceGroups(expandedCoded), [expandedCoded]);
+
+  // ── Carryover ("hold under $100") ──────────────────────────────────────────
+  // Persistent per-property held balances, loaded from the server so they
+  // survive the monthly localStorage clear.
+  const [carryover, setCarryover] = useState<Record<string, PropertyCarry>>({});
+  const [committedPeriods, setCommittedPeriods] = useState<string[]>([]);
+  const [finalizing, setFinalizing] = useState(false);
+
+  function loadLedger() {
+    fetch("/api/expenses/carryover")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j?.ledger) {
+          setCarryover(j.ledger.balances ?? {});
+          setCommittedPeriods(Array.isArray(j.ledger.committedPeriods) ? j.ledger.committedPeriods : []);
+        }
+      })
+      .catch(() => {});
+  }
+  useEffect(() => { loadLedger(); }, []);
+
+  const yearEnd = isYearEndMonth(statementMonth);
+  const alreadyFinalized = !!statementMonth && committedPeriods.includes(statementMonth);
+
+  // Decorate this-month groups with their carried-forward balance + bill/hold.
+  const decoratedGroups = useMemo(() => {
+    return invoiceGroups.map((g) => {
+      const prior = carryover[g.propId]?.heldTotal ?? 0;
+      const accrued = Math.round((g.total + prior) * 100) / 100;
+      return { ...g, prior, accrued, billed: isBilled(g.propId, accrued, statementMonth) };
+    });
+  }, [invoiceGroups, carryover, statementMonth]);
+
+  // Properties carrying a balance with NO charges this month. They stay held
+  // (and out of invoicing) until year-end, when they flush as a prior-balance
+  // -only invoice.
+  const heldOnlyGroups = useMemo(() => {
+    const currentIds = new Set(invoiceGroups.map((g) => g.propId));
+    return Object.values(carryover)
+      .filter((c) => !currentIds.has(c.propertyId) && (c.heldTotal ?? 0) > 0)
+      .map((c) => ({
+        propId: c.propertyId,
+        categoryGroups: [] as CategoryGroup[],
+        total: 0,
+        itemCount: 0,
+        prior: c.heldTotal,
+        accrued: c.heldTotal,
+        billed: isBilled(c.propertyId, c.heldTotal, statementMonth),
+      }))
+      .sort((a, b) => a.propId.localeCompare(b.propId));
+  }, [carryover, invoiceGroups, statementMonth]);
+
+  const billingGroups = useMemo(
+    () => [...decoratedGroups.filter((g) => g.billed), ...heldOnlyGroups.filter((g) => g.billed)]
+      .sort((a, b) => a.propId.localeCompare(b.propId)),
+    [decoratedGroups, heldOnlyGroups],
+  );
+  const onHoldGroups = useMemo(
+    () => [...decoratedGroups.filter((g) => !g.billed), ...heldOnlyGroups.filter((g) => !g.billed)]
+      .sort((a, b) => a.propId.localeCompare(b.propId)),
+    [decoratedGroups, heldOnlyGroups],
+  );
+  // Held balance per property, so the Allocation Preview shows a Billed + Accrued
+  // column (the two tables merged, mirroring the Allocated Expense Invoicer).
+  const onHoldByProp = useMemo(() => new Map(onHoldGroups.map((g) => [g.propId, g])), [onHoldGroups]);
+  const billByProp = useMemo(() => new Map(billingGroups.map((g) => [g.propId, g])), [billingGroups]);
+  const ccPreviewRows = useMemo(
+    () => [...new Set([...billingGroups.map((g) => g.propId), ...onHoldGroups.map((g) => g.propId)])].sort((a, b) => a.localeCompare(b)),
+    [billingGroups, onHoldGroups],
+  );
+  const ccBillTotal = useMemo(() => billingGroups.reduce((s, g) => s + g.accrued, 0), [billingGroups]);
+  const ccHeldTotal = useMemo(() => onHoldGroups.reduce((s, g) => s + g.accrued, 0), [onHoldGroups]);
+
+  // Charges that actually post this month: billed properties' current charges
+  // plus any held detail rolling forward into their now-billing invoice. Drives
+  // the GL Journal Entry + TOP SHEET ("hold everything together").
+  const effectiveExpandedCoded = useMemo(() => {
+    const billedIds = new Set(billingGroups.map((g) => g.propId));
+    const thisMonth = expandedCoded.filter((t: any) => billedIds.has(t.propertyId));
+    const heldDetail = billingGroups.flatMap((g) => carryover[g.propId]?.heldTx ?? []);
+    return [...thisMonth, ...heldDetail];
+  }, [billingGroups, expandedCoded, carryover]);
+
+  const effectiveInvoiceGroups = useMemo(
+    () => buildInvoiceGroups(effectiveExpandedCoded),
+    [effectiveExpandedCoded],
+  );
+
+  // What a property's INVOICE lists: this month's charges AND the held charges
+  // rolling into it, each under its own category, so every dollar carries an
+  // account code. A bare "Prior balance carried forward" line had none, and
+  // the bookkeeper could not tell where to code it (owner: 3610's $92.74).
+  // Only a residual the held detail cannot explain (never expected) is left
+  // as a prior-balance line, so the invoice total still equals what is billed.
+  const effectiveByProp = useMemo(
+    () => new Map(effectiveInvoiceGroups.map((g) => [g.propId, g])),
+    [effectiveInvoiceGroups],
+  );
+  function invoiceLinesFor(g: InvoiceGroup & { prior?: number }) {
+    const eff = effectiveByProp.get(g.propId);
+    const prior = Number(g.prior || 0);
+    if (!eff || prior <= 0) return { categoryGroups: g.categoryGroups, priorBalance: prior };
+    const heldSum = (carryover[g.propId]?.heldTx ?? []).reduce((a, t) => a + (Number(t.amount) || 0), 0);
+    const residual = Math.round((prior - heldSum) * 100) / 100;
+    return { categoryGroups: eff.categoryGroups, priorBalance: Math.abs(residual) >= 0.01 ? residual : 0 };
+  }
 
   const chartDataByProperty = useMemo<PieSlice[]>(() => {
     const pos = tx.filter((t) => Number(t.amount) > 0);
@@ -578,7 +711,7 @@ export default function ExpensesPage() {
       value,
       color: PIE_COLORS[i % PIE_COLORS.length],
     }));
-    if (uncodedAmt > 0) result.push({ label: "Uncoded", value: uncodedAmt, color: "#fca5a5" });
+    if (uncodedAmt > 0) result.push({ label: "Uncoded", value: uncodedAmt, color: "var(--c-fca5a5)" });
     return result;
   }, [tx, properties]);
 
@@ -594,7 +727,7 @@ export default function ExpensesPage() {
       value,
       color: PIE_COLORS[i % PIE_COLORS.length],
     }));
-    if (uncodedAmt > 0) result.push({ label: "Uncoded", value: uncodedAmt, color: "#fca5a5" });
+    if (uncodedAmt > 0) result.push({ label: "Uncoded", value: uncodedAmt, color: "var(--c-fca5a5)" });
     return result;
   }, [tx]);
 
@@ -634,16 +767,34 @@ export default function ExpensesPage() {
     }).filter((t) => Number(t.amount) > 0);
     upsertTx(imported);
     setFileName(file.name);
+    const at = new Date().toISOString();
+    setImportedAt(at);
+    setImportedBy(user.label);
+    fetch("/api/expenses/working", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "import", tx: imported, statementPeriodText: parsedPeriod.text || undefined, fileName: file.name, importedAt: at, importedBy: user.label }),
+    }).then((r) => setServerSync(r.ok ? "ok" : "error")).catch(() => setServerSync("error"));
+    // Record the CC-statement import server-side so the weekly digest / dashboard
+    // can mark that reminder done (this coder is otherwise browser-local).
+    fetch("/api/tracker/import-events", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: "imp-cc", by: user.label }), keepalive: true,
+    }).catch(() => {});
   }
 
   function updateTx(id: string, patch: Partial<Tx>) {
     setTx((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)));
+    pendingPatches.current.set(id, { ...(pendingPatches.current.get(id) ?? {}), ...patch });
+    if (patchTimer.current) clearTimeout(patchTimer.current);
+    patchTimer.current = setTimeout(flushPatches, 600);
   }
 
   function clearAll() {
     if (!confirm("Clear all imported transactions?")) return;
     setTx([]); setStatementPeriodText(""); setStatementStart(null); setStatementEnd(null);
     setFileName("");
+    pendingPatches.current.clear();
+    fetch("/api/expenses/working", { method: "DELETE" }).catch(() => {});
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -658,52 +809,100 @@ export default function ExpensesPage() {
     return p ? p.name : propId;
   }
 
-  async function saveStatement() {
+  // Harry's reimbursement (full statement total, per-property lines) — reused by
+  // the reimbursement invoice PDF and the TOP SHEET note.
+  // He is repaid what HIS CARD paid on THIS statement — every charge, held
+  // properties included, once. A property held under the $100 floor is billed
+  // to the property later as a prior balance, and that prior balance is NEVER
+  // in a later reimbursement (only `invoiceGroups`, this statement's own
+  // charges, are). So nothing is repaid twice; the held part is LIK's to
+  // collect from the property, tracked by the carryover ledger. Each held line
+  // says so, and the invoice states the split.
+  function reimbursementForBatch() {
+    const heldIds = new Set(decoratedGroups.filter((g) => !g.billed).map((g) => g.propId));
+    const lines = invoiceGroups.map((ig) => ({
+      label: `${ig.propId} · ${propName(ig.propId)}${heldIds.has(ig.propId) ? " · held, bills property next batch" : ""}`,
+      amount: ig.total,
+    }));
+    const total = Math.round(invoiceGroups.reduce((a, ig) => a + ig.total, 0) * 100) / 100;
+    const held = Math.round(invoiceGroups.filter((ig) => heldIds.has(ig.propId)).reduce((a, ig) => a + ig.total, 0) * 100) / 100;
+    return { lines, total, held };
+  }
+  const periodCompactStr = (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined;
+
+  // Persist the coded statement to history. `silent` (used when invoices are
+  // generated) skips the confirm/alert and never blocks the download — it just
+  // logs the statement so it can be investigated later. Returns whether it saved.
+  async function persistStatement({ silent = false }: { silent?: boolean } = {}): Promise<boolean> {
     const coded = tx.filter((t) => Number(t.amount) > 0).filter(isRowCoded);
-    if (!coded.length) { alert("No coded transactions to save."); return; }
+    if (!coded.length) { if (!silent) alert("No coded transactions to save."); return false; }
     const label = statementPeriodText || statementMonth || "Unknown period";
-    if (!confirm(`Save "${label}" (${coded.length} transactions) to history?`)) return;
-    setSaving(true); setSaveError(null);
+    if (!silent && !confirm(`Save "${label}" (${coded.length} transactions) to history?`)) return false;
+    if (!silent) { setSaving(true); setSaveError(null); }
     try {
       const res = await fetch("/api/statements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodText: label, statementMonth: statementMonth || "", tx: coded.map((t) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, category: t.category, propertyId: t.propertyId, suite: t.suite, amount: t.amount })) }),
+        body: JSON.stringify({ periodText: label, statementMonth: statementMonth || "", source: silent ? "generated" : "manual", savedBy: user.label, tx: coded.map((t) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, category: t.category, propertyId: t.propertyId, suite: t.suite, amount: t.amount })) }),
       });
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j?.error ?? `Save failed (${res.status})`); }
-      alert("Saved to history.");
+      if (!silent) alert("Saved to history.");
+      return true;
     } catch (e: any) {
-      setSaveError(e?.message ?? "Save failed");
+      if (silent) console.warn("Auto-save to expense history failed:", e?.message ?? e);
+      else setSaveError(e?.message ?? "Save failed");
+      return false;
     } finally {
-      setSaving(false);
+      if (!silent) setSaving(false);
     }
   }
+  async function saveStatement() { await persistStatement({ silent: false }); }
 
-  async function generateAllPdfsZip() {
-    if (!invoiceGroups.length) return;
-    if (!confirm(`Generate ${invoiceGroups.length} property invoice${invoiceGroups.length !== 1 ? "s" : ""} + TOP SHEET as a ZIP?`)) return;
+  // Build the invoice batch artifacts (per-property PDFs + TOP SHEET zipped, the
+  // GL Journal Entry, and the per-building summary) WITHOUT any side effects —
+  // shared by the manual "Download ZIP" and the "Review & Send to AvidXchange"
+  // gate so the two can never drift.
+  async function buildCcArtifacts(): Promise<{
+    zipBlob: Blob;
+    invoicePdfs: { propertyLabel: string; fileName: string; blob: Blob }[];
+    summaryBlob: Blob | null;
+    gl: { blob: Blob; filename: string } | null;
+    byProperty: AvidProperty[];
+    total: number;
+    filenameMonth: string;
+    register: { invoiceNumber: string; code: string; name: string; amount: number }[];
+    held: { code: string; name: string; amount: number }[];
+  } | null> {
+    if (!billingGroups.length) return null;
     const zip = new JSZip();
+    const invoicePdfs: { propertyLabel: string; fileName: string; blob: Blob }[] = [];
     const filenameMonth = statementMonth || "Statement";
-    if (expandedCoded.length) {
-      const topBlob = buildTopSheetXlsx({
+    const reimb = reimbursementForBatch();
+    let summaryBlob: Blob | null = null;
+    if (effectiveExpandedCoded.length) {
+      summaryBlob = await buildTopSheetXlsx({
         statementPeriodText: statementPeriodText || "",
         statementMonth: statementMonth || "",
-        tx: expandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
+        periodCompact: periodCompactStr,
+        processedBy: user.label,
+        tx: effectiveExpandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
         propertyOrder: properties.map((p) => ({ id: p.id, name: p.name })),
         categoryOrder: [...TOP_SHEET_CATEGORIES],
+        reimbursement: isHarry ? { vendorCode: "HARRY", payeeName: "Harry Feldman", total: reimb.total } : undefined,
       });
-      zip.file(`${filenameMonth} - TOP SHEET.xlsx`, topBlob);
+      zip.file(`${filenameMonth} - TOP SHEET.xlsx`, summaryBlob);
     }
-    for (const g of invoiceGroups) {
+    for (const g of billingGroups) {
       const invoiceBlob = buildInvoicePdf({
         propertyName: propName(g.propId),
         propertyCode: g.propId,
-        categoryGroups: g.categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
+        categoryGroups: invoiceLinesFor(g).categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
         invoiceDate: invoiceDate || "",
         statementMonth: statementMonth || "",
         periodText: statementPeriodText || "",
         periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
-        invoiceId: makeInvoiceId(g.propId),
+        invoiceId: makeInvoiceId(g.propId, statementMonth),
+        priorBalance: invoiceLinesFor(g).priorBalance,
       });
 
       // Collect unique attachments for transactions in this property group
@@ -734,15 +933,123 @@ export default function ExpensesPage() {
         }
       }
 
-      zip.file(`${filenameMonth} - ${g.propId}.pdf`, finalBlob);
+      const invFileName = `${filenameMonth} - ${g.propId}.pdf`;
+      zip.file(invFileName, finalBlob);
+      invoicePdfs.push({ propertyLabel: `${g.propId} — ${propName(g.propId)}`, fileName: invFileName, blob: finalBlob });
     }
+
+    // Harry fronts the whole statement — cut one reimbursement invoice for the
+    // full statement total (the sum of every property's charges), payable to him.
+    if (isHarry && invoiceGroups.length) {
+      const reimbBlob = buildReimbursementInvoicePdf({
+        payeeName: "Harry Feldman",
+        payeeVendorCode: "HARRY",
+        statementMonth: statementMonth || "",
+        invoiceDate: invoiceDate || "",
+        periodText: statementPeriodText || "",
+        periodCompact: periodCompactStr,
+        invoiceId: makeInvoiceId("REIMB", statementMonth),
+        lines: reimb.lines,
+        total: reimb.total,
+        heldTotal: reimb.held,
+      });
+      const reimbFileName = `${filenameMonth} - REIMBURSEMENT - Harry Feldman.pdf`;
+      zip.file(reimbFileName, reimbBlob);
+      invoicePdfs.push({ propertyLabel: "Harry Feldman — reimbursement", fileName: reimbFileName, blob: reimbBlob });
+    }
+
     const zipBlob = await zip.generateAsync({ type: "blob" });
-    download(`${filenameMonth} - Invoices.zip`, zipBlob);
-    setShowAfterZipModal(true);
+    const gl = buildGLJournalEntry();
+    // The billed amount for a property is its accrued balance (this month + any
+    // carried-forward prior), matching each invoice's grand total.
+    const byProperty: AvidProperty[] = billingGroups
+      .map((g) => ({ code: g.propId, name: propName(g.propId), amount: Math.round(g.accrued * 100) / 100 }))
+      .filter((b) => b.amount > 0);
+    const total = Math.round(byProperty.reduce((s, b) => s + b.amount, 0) * 100) / 100;
+    // AP's register — every invoice going to Avid with its number and amount,
+    // the reimbursement included (Tanya matches each one in AvidXchange).
+    const register = [
+      ...byProperty.map((b) => ({ invoiceNumber: makeInvoiceId(b.code, statementMonth), code: b.code, name: b.name, amount: b.amount })),
+      ...(isHarry && invoiceGroups.length ? [{ invoiceNumber: makeInvoiceId("REIMB", statementMonth), code: "", name: "Harry Feldman reimbursement", amount: Math.round(reimb.total * 100) / 100 }] : []),
+    ];
+    // Held under $100 — no invoice in Avid this time; the register says so.
+    const held = onHoldGroups
+      .map((g) => ({ code: g.propId, name: propName(g.propId), amount: Math.round(g.accrued * 100) / 100 }))
+      .filter((h) => h.amount > 0);
+    return { zipBlob, invoicePdfs, summaryBlob, gl, byProperty, total, filenameMonth, register, held };
   }
 
-  function downloadGLExport() {
-    if (!invoiceGroups.length) return;
+  async function generateAllPdfsZip() {
+    if (!billingGroups.length) return;
+    if (!confirm(`Generate ${billingGroups.length} property invoice${billingGroups.length !== 1 ? "s" : ""} + TOP SHEET as a ZIP?${onHoldGroups.length ? `\n\n${onHoldGroups.length} propert${onHoldGroups.length === 1 ? "y is" : "ies are"} held under $${CARRYOVER_THRESHOLD} and excluded.` : ""}`)) return;
+    const a = await buildCcArtifacts();
+    if (!a) return;
+    download(`${a.filenameMonth} - Invoices.zip`, a.zipBlob);
+    setShowAfterZipModal(true);
+
+    // Auto-log this statement to Expense History so generated invoices are always
+    // recoverable for later investigation (no manual "Save to History" needed).
+    void persistStatement({ silent: true });
+
+    // Processing the batch → email the GL Skyline import + summary report to the
+    // controller (same as payroll). Best-effort, deduped once per statement month.
+    const reportAttachments: { name: string; blob: Blob; contentType: string }[] = [];
+    if (a.gl) reportAttachments.push({ name: a.gl.filename, blob: a.gl.blob, contentType: XLSX_CONTENT_TYPE });
+    if (a.summaryBlob) reportAttachments.push({ name: `${a.filenameMonth} - TOP SHEET.xlsx`, blob: a.summaryBlob, contentType: XLSX_CONTENT_TYPE });
+    if (statementMonth && reportAttachments.length) {
+      void emailInvoicerReport({ source: "credit-card", period: statementMonth, attachments: reportAttachments });
+    }
+  }
+
+  // Review-before-send gate: build the batch, then open the confirm popup so the
+  // reviewer okays the per-building summary before anything reaches Avid.
+  async function reviewCcAndSend() {
+    if (!billingGroups.length) return;
+    if (!statementMonth) { alert("This statement has no readable month — re-import the credit-card statement so the period can be determined."); return; }
+    setCcBuilding(true);
+    try {
+      const a = await buildCcArtifacts();
+      if (!a) return;
+      const references: { name: string; blob: Blob; contentType: string }[] = [];
+      if (a.gl) references.push({ name: a.gl.filename, blob: a.gl.blob, contentType: XLSX_CONTENT_TYPE });
+      if (a.summaryBlob) references.push({ name: `${a.filenameMonth} - TOP SHEET.xlsx`, blob: a.summaryBlob, contentType: XLSX_CONTENT_TYPE });
+      const attachmentNames = [...a.invoicePdfs.map((i) => i.fileName), ...references.map((r) => r.name)];
+      setCcReview({ period: statementMonth, byProperty: a.byProperty, total: a.total, invoices: a.invoicePdfs, references, archiveZip: a.zipBlob, attachmentNames, register: a.register, held: a.held });
+    } catch (e: any) {
+      alert("Failed to prepare the invoices: " + (e?.message ?? String(e)));
+    } finally {
+      setCcBuilding(false);
+    }
+  }
+
+  async function confirmCcSend() {
+    if (!ccReview) return;
+    setCcSending(true);
+    try {
+      const r = await sendToAvid({
+        source: "credit-card",
+        period: ccReview.period,
+        byProperty: ccReview.byProperty,
+        total: ccReview.total,
+        invoices: ccReview.invoices,
+        references: ccReview.references,
+        archiveZip: ccReview.archiveZip,
+        register: ccReview.register,
+        held: ccReview.held,
+      });
+      setCcReview(null);
+      setCcSent({ period: ccReview.period, byProperty: r.byProperty, total: r.total, invoiceCount: r.invoiceCount, sentAt: r.sentAt, mailSent: r.sent });
+      void persistStatement({ silent: true });
+    } catch (e: any) {
+      alert("Failed to send to AvidXchange: " + (e?.message ?? String(e)));
+    } finally {
+      setCcSending(false);
+    }
+  }
+
+  function buildGLJournalEntry(): { blob: Blob; filename: string } | null {
+    if (!effectiveInvoiceGroups.length) return null;
+    const invoiceGroups = effectiveInvoiceGroups; // post-carryover: only billing properties, held detail folded in
     const filenameMonth = statementMonth || "Statement";
 
     // Format date as M/D/YYYY to match GL system format
@@ -822,33 +1129,43 @@ export default function ExpensesPage() {
     XLSX.utils.book_append_sheet(wb, ws, "GL Journal Entry");
     const wbout = XLSX.write(wb, { bookType: "xlsx", type: "array" });
     const blob = new Blob([wbout], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-    download(`${filenameMonth} - GL Journal Entry.xlsx`, blob);
+    return { blob, filename: `${filenameMonth} - GL Journal Entry.xlsx` };
   }
 
-  function downloadExcelSummary() {
-    if (!expandedCoded.length) return;
+  function downloadGLExport() {
+    const r = buildGLJournalEntry();
+    if (r) download(r.filename, r.blob);
+  }
+
+  async function downloadExcelSummary() {
+    if (!effectiveExpandedCoded.length) return;
     const filenameMonth = statementMonth || "Statement";
-    const blob = buildTopSheetXlsx({
+    const reimb = reimbursementForBatch();
+    const blob = await buildTopSheetXlsx({
       statementPeriodText: statementPeriodText || "",
       statementMonth: statementMonth || "",
-      tx: expandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
+      periodCompact: periodCompactStr,
+      processedBy: user.label,
+      tx: effectiveExpandedCoded.map((t: any) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, amount: t.amount, originalAmount: t.originalAmount, category: t.category, propertyId: t.propertyId, propertyName: propName(t.propertyId), suite: t.suite } as TopSheetTx)),
       propertyOrder: properties.map((p) => ({ id: p.id, name: p.name })),
       categoryOrder: [...TOP_SHEET_CATEGORIES],
+      reimbursement: isHarry ? { vendorCode: "HARRY", payeeName: "Harry Feldman", total: reimb.total } : undefined,
     });
     download(`${filenameMonth} - TOP SHEET.xlsx`, blob);
   }
 
-  async function downloadSingleInvoicePdf(g: typeof invoiceGroups[number]) {
+  async function downloadSingleInvoicePdf(g: InvoiceGroup & { prior?: number }) {
     const filenameMonth = statementMonth || "Statement";
     const invoiceBlob = buildInvoicePdf({
       propertyName: propName(g.propId),
       propertyCode: g.propId,
-      categoryGroups: g.categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
+      categoryGroups: invoiceLinesFor(g).categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
       invoiceDate: invoiceDate || "",
       statementMonth: statementMonth || "",
       periodText: statementPeriodText || "",
       periodCompact: (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined,
-      invoiceId: makeInvoiceId(g.propId),
+      invoiceId: makeInvoiceId(g.propId, statementMonth),
+      priorBalance: invoiceLinesFor(g).priorBalance,
     });
 
     const seenTxIds = new Set<string>();
@@ -880,54 +1197,137 @@ export default function ExpensesPage() {
     download(`${filenameMonth} - ${g.propId}.pdf`, finalBlob);
   }
 
-  const CODE_TABLE_MAX_HEIGHT = "calc(100vh - 320px)";
-  const stickyThStyle: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "#fff" };
+  // Finalize the month: the single moment the carryover ledger is mutated.
+  // Billed properties reset to $0; held properties accrue. December flushes all.
+  async function finalizeMonthAction() {
+    if (!statementMonth) { alert("No statement month detected — import a statement first."); return; }
+    if (alreadyFinalized) { alert(`${statementMonth} has already been finalized.`); return; }
+    const billCount = billingGroups.length;
+    const holdCount = onHoldGroups.length;
+    const lines = [
+      `Finalize ${statementMonth} and update the carryover ledger?`,
+      "",
+      `• ${billCount} propert${billCount === 1 ? "y" : "ies"} will bill`,
+      `• ${holdCount} held under $${CARRYOVER_THRESHOLD} (carried forward)`,
+      yearEnd ? "\nYear-end (December): ALL balances are flushed so every expense books this year." : "",
+      "\nDo this AFTER you've downloaded and sent this month's invoices. It can't be repeated for this month.",
+    ].filter(Boolean);
+    if (!confirm(lines.join("\n"))) return;
+
+    setFinalizing(true);
+    try {
+      const byProp = new Map<string, HeldTx[]>();
+      for (const t of expandedCoded as any[]) {
+        const arr = byProp.get(t.propertyId) ?? [];
+        arr.push({
+          date: t.date, cardMember: t.cardMember ?? "", description: t.description ?? "",
+          codedDescription: t.codedDescription ?? "", category: t.category, propertyId: t.propertyId,
+          suite: t.suite ?? "", amount: Number(t.amount) || 0, originalAmount: t.originalAmount,
+          statementMonth,
+        });
+        byProp.set(t.propertyId, arr);
+      }
+      const propertiesPayload = [...byProp.entries()].map(([propertyId, txList]) => ({ propertyId, tx: txList }));
+      const res = await fetch("/api/expenses/carryover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ statementMonth, properties: propertiesPayload }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j?.error ?? `Finalize failed (${res.status})`);
+      setCarryover(j.ledger?.balances ?? {});
+      setCommittedPeriods(Array.isArray(j.ledger?.committedPeriods) ? j.ledger.committedPeriods : []);
+      alert(`Finalized ${statementMonth}. Carryover ledger updated.`);
+    } catch (e: any) {
+      alert(e?.message ?? "Finalize failed");
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
+  // The Code Transactions card is the only card on the maint persona's
+  // expense page, so give its inner table much more vertical room
+  // (~280 px less padding gives them most of the viewport).
+  const CODE_TABLE_MAX_HEIGHT = isMaint ? "calc(100vh - 220px)" : "calc(100vh - 320px)";
+  const stickyThStyle: React.CSSProperties = { position: "sticky", top: 0, zIndex: 15, background: "var(--card)" };
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <h1>Credit Card Expense Coder</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
-      {/* Import bar */}
-      <div className="card">
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-          <b>Import Credit Card Statement</b>
+      {/* ── Review & Send to AvidXchange — prominent, up top (mirrors Allocated) ── */}
+      {!isMaint && billingGroups.length > 0 && !alreadyFinalized && (
+        <StatusBanner tone="warning" title={<>{statementMonth || statementPeriodText || "Credit card expenses"} is ready to send</>}
+          actions={<button className="btn primary" disabled={ccBuilding} onClick={reviewCcAndSend}>
+            {ccBuilding ? "Preparing…" : "Review & Send to AvidXchange"}
+          </button>}>
+          <b>{toMoney(ccBillTotal)}</b> across <b>{billingGroups.length}</b> propert{billingGroups.length === 1 ? "y" : "ies"}
+          {onHoldGroups.length ? ` · ${onHoldGroups.length} held under $${CARRYOVER_THRESHOLD}` : ""} · not sent yet
+        </StatusBanner>
+      )}
+
+      {/* Import bar — same shape as Payroll Invoicer / Rent Roll: a
+          single button row at the top with Save / Cadence on the right,
+          and one muted descriptor line beneath. Hidden from maint (Greg
+          only codes, never imports). */}
+      {!isMaint && (
+      <div
+        className="card"
+        {...ccDrop.dropHandlers}
+        title="Choose a statement file, or drag it onto this card"
+        style={ccDrop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" } : undefined}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.xls"
+              style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
+            />
+            <button
+              className="btn"
+              onClick={() => pickInto(fileInputRef.current, "credit-card")}
+              style={{ fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
+            >
+              {ccDrop.dragging ? "Drop to import" : "Choose Statement File…"}
+            </button>
+            <button
+              className="btn"
+              style={{ borderRadius: 999, fontWeight: 700, fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
+              onClick={clearAll}
+              disabled={!tx.length}
+            >
+              Clear
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {tx.length > 0 && (
-              <button className="btn large" onClick={saveStatement} disabled={!totals.coded || saving}>
+              <button
+                className="btn"
+                onClick={saveStatement}
+                disabled={!totals.coded || saving}
+                style={{ fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
+              >
                 {saving ? "Saving…" : "Save to History"}
               </button>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Monthly</span>
+            <span className="muted" style={{ fontSize: "var(--fs-13)", fontWeight: 600, alignSelf: "center" }}>Monthly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
           Import the <b>American Express</b> Excel file (.xls or .xlsx).
+          {fileName && <span style={{ marginLeft: 8 }}>· {fileName}</span>}
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            style={{ display: "none" }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
-          />
-          <button className="btn large" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
-            Choose Statement File…
-          </button>
-          {fileName && (
-            <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-              {fileName}
-            </span>
-          )}
-          <button className="btn" style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }} onClick={clearAll} disabled={!tx.length}>Clear</button>
-        </div>
+        <LastImported at={importedAt} by={importedBy} label="Statement imported" />
         {tx.length > 0 && (
           <div className="pills">
             <div className="pill"><b>{totals.count}</b><span className="small muted">Transactions</span></div>
@@ -936,27 +1336,28 @@ export default function ExpensesPage() {
           </div>
         )}
         {statementPeriodText && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Period:</b> {statementPeriodText}</div>}
-        {saveError && <div style={{ color: "#b42318", fontSize: 13, marginTop: 6 }}>{saveError}</div>}
+        {saveError && <div style={{ color: "var(--c-b42318)", fontSize: "var(--fs-13)", marginTop: 6 }}>{saveError}</div>}
       </div>
+      )}
 
-      {/* Charts card */}
-      {tx.filter((t) => Number(t.amount) > 0).length > 0 && (
+      {/* Charts card — hidden from maint. */}
+      {!isMaint && tx.filter((t) => Number(t.amount) > 0).length > 0 && (
         <div className="card">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setChartsOpen((o) => !o)} title={chartsOpen ? "Collapse" : "Expand"}>
-              {chartsOpen ? "▲" : "▼"}
+            <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setChartsOpen((o) => !o)} title={chartsOpen ? "Collapse" : "Expand"}>
+              {chartsOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
             </button>
             <b>Charts</b>
           </div>
           {chartsOpen && (
             <div style={{ display: "flex", gap: 40, marginTop: 20, flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 340 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Property</div>
+                <div style={{ fontWeight: 700, fontSize: "var(--fs-13)", marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Property</div>
                 <DonutChart data={chartDataByProperty} />
               </div>
               <div style={{ width: 1, background: "var(--border)", flexShrink: 0, alignSelf: "stretch" }} />
               <div style={{ flex: 1, minWidth: 340 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Category</div>
+                <div style={{ fontWeight: 700, fontSize: "var(--fs-13)", marginBottom: 14, color: "var(--muted)", letterSpacing: "0.04em", textTransform: "uppercase" }}>By Category</div>
                 <DonutChart data={chartDataByCategory} />
               </div>
             </div>
@@ -964,75 +1365,101 @@ export default function ExpensesPage() {
         </div>
       )}
 
-      {/* Code Transactions card */}
+      {/* Code Transactions card — the maint persona has no other cards
+          above this one, so the table sizes naturally to the number of
+          rows. CODE_TABLE_MAX_HEIGHT caps it at the viewport for long
+          statements. */}
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setCodeTransOpen((o) => !o)} title={codeTransOpen ? "Collapse" : "Expand"}>
-              {codeTransOpen ? "▲" : "▼"}
-            </button>
+            {!isMaint && (
+              <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setCodeTransOpen((o) => !o)} title={codeTransOpen ? "Collapse" : "Expand"}>
+                {codeTransOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
+              </button>
+            )}
             <div>
-              <b>Code Transactions</b>
+              <b>{isMaint ? "Code Gregory's Transactions" : "Code Transactions"}</b>
               <div className="small muted">Category + Property required. Suite required only if Category = TI.</div>
+              {!isMaint && (() => {
+                // Greg's and Drew's charges are coded from their own dashboards.
+                const prog = codingProgress(tx);
+                const parts = (["greg", "drew"] as const).filter((h) => prog[h].total > 0)
+                  .map((h) => `${CARDHOLDER_NAME[h]}: ${prog[h].coded === prog[h].total ? "done" : `${prog[h].coded} of ${prog[h].total} coded`}`);
+                return (parts.length > 0 || serverSync === "error") ? (
+                  <div className="small" style={{ marginTop: 2, color: serverSync === "error" ? "var(--c-b42318)" : "var(--muted)" }}>
+                    {serverSync === "error" ? "Couldn't reach the portal — coding is saved in this browser only until it reconnects." : `${parts.join(" · ")} · on their dashboards`}
+                  </div>
+                ) : null;
+              })()}
             </div>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+            <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: "var(--fs-13)" }}>
               <input type="checkbox" checked={showOnlyUncoded} onChange={(e) => setShowOnlyUncoded(e.target.checked)} />
               Uncoded only
             </label>
-            <button className="btn" style={{ fontSize: 12, padding: "5px 10px", background: showColFilters ? "var(--navy)" : undefined, color: showColFilters ? "#fff" : undefined }} onClick={() => setShowColFilters((v) => !v)}>
+            <button className="btn" style={{ fontSize: "var(--fs-12)", padding: "5px 10px", background: showColFilters ? "var(--navy)" : undefined, color: showColFilters ? "#fff" : undefined }} onClick={() => setShowColFilters((v) => !v)}>
               {showColFilters ? "Hide Filters" : "Filters"}
             </button>
             {Object.values(colFilters).some((v) => v.trim()) && (
-              <button className="btn" style={{ fontSize: 12, padding: "5px 10px" }} onClick={() => setColFilters({})}>Clear Filters</button>
+              <button className="btn" style={{ fontSize: "var(--fs-12)", padding: "5px 10px" }} onClick={() => setColFilters({})}>Clear Filters</button>
             )}
-            <input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ fontSize: 13, padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)", outline: "none", width: 160 }} />
+            <input placeholder="Search…" value={search} onChange={(e) => setSearch(e.target.value)} style={{ width: 160 }} />
           </div>
         </div>
 
-        {codeTransOpen && <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: CODE_TABLE_MAX_HEIGHT, borderRadius: 12, border: "1px solid var(--border)" }}>
-          <table style={{ minWidth: 1200, width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        {(codeTransOpen || isMaint) && <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: CODE_TABLE_MAX_HEIGHT, borderRadius: 12, border: "1px solid var(--border)" }}>
+          <table style={{ minWidth: 1200, width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
             <thead>
               {(() => {
-                const sortIcon = (col: string) => tableSortCol === col ? (tableSortDir === "asc" ? " ↑" : " ↓") : <span style={{ opacity: 0.35, fontSize: 10 }}> ⇅</span>;
+                const sortIcon = (col: string) => tableSortCol === col ? (tableSortDir === "asc" ? " ↑" : " ↓") : <span style={{ opacity: 0.35, fontSize: "var(--fs-10)" }}> ⇅</span>;
                 const thBase: React.CSSProperties = { ...stickyThStyle, padding: "10px", textAlign: "left", borderBottom: "1px solid var(--border)", color: "var(--muted)", fontWeight: 800, cursor: "pointer", userSelect: "none", whiteSpace: "nowrap" };
-                const filterTh: React.CSSProperties = { ...stickyThStyle, top: 38, padding: "4px 6px", borderBottom: "1px solid var(--border)", background: "#f8fafc" };
-                const filterInput: React.CSSProperties = { width: "100%", fontSize: 12, padding: "3px 6px", borderRadius: 6, border: "1px solid var(--border)", outline: "none" };
+                const filterTh: React.CSSProperties = { ...stickyThStyle, top: 38, padding: "4px 6px", borderBottom: "1px solid var(--border)", background: "var(--c-f8fafc)" };
+                const filterInput: React.CSSProperties = { width: "100%", boxSizing: "border-box" };
                 return (
                   <>
                     <tr>
                       <th style={{ ...thBase, minWidth: 110 }} onClick={() => handleSortCol("date")}>Date{sortIcon("date")}</th>
-                      <th style={{ ...thBase, minWidth: 140 }} onClick={() => handleSortCol("user")}>User{sortIcon("user")}</th>
+                      {!isMaint && <th style={{ ...thBase, minWidth: 140 }} onClick={() => handleSortCol("user")}>User{sortIcon("user")}</th>}
                       <th style={{ ...thBase, minWidth: 110 }} onClick={() => handleSortCol("amount")}>Amount{sortIcon("amount")}</th>
                       <th style={{ ...thBase, minWidth: 260 }} onClick={() => handleSortCol("description")}>Description{sortIcon("description")}</th>
                       <th style={{ ...thBase, minWidth: 170 }} onClick={() => handleSortCol("category")}>Category{sortIcon("category")}</th>
                       <th style={{ ...thBase, minWidth: 160 }} onClick={() => handleSortCol("property")}>Property{sortIcon("property")}</th>
-                      <th style={{ ...thBase, minWidth: 180 }} onClick={() => handleSortCol("acct")}>Account Code(s){sortIcon("acct")}</th>
+                      {!isMaint && <th style={{ ...thBase, minWidth: 180 }} onClick={() => handleSortCol("acct")}>Account Code(s){sortIcon("acct")}</th>}
                       <th style={{ ...thBase, minWidth: 120 }} onClick={() => handleSortCol("suite")}>Suite (TI){sortIcon("suite")}</th>
                       <th style={{ ...thBase, minWidth: 260 }} onClick={() => handleSortCol("invDesc")}>Invoice Description{sortIcon("invDesc")}</th>
                       <th style={{ ...thBase, minWidth: 120, cursor: "default" }}>Invoice PDF</th>
                     </tr>
                     {showColFilters && (
                       <tr>
-                        {(["date","user","amount","description"] as const).map((k) => (
-                          <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
-                        ))}
+                        {(["date","user","amount","description"] as const).map((k) => {
+                          // Maint persona's "User" column is filtered upstream
+                          // and hidden entirely — skip the filter cell too.
+                          if (k === "user" && isMaint) return null;
+                          return (
+                            <th key={k} style={filterTh}>
+                              <input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} />
+                            </th>
+                          );
+                        })}
                         <th style={filterTh}>
-                          <select style={{ ...filterInput, padding: "3px 4px" }} value={colFilters["category"] ?? ""} onChange={(e) => setColFilter("category", e.target.value)}>
+                          <select className="select-sm" style={filterInput} value={colFilters["category"] ?? ""} onChange={(e) => setColFilter("category", e.target.value)}>
                             <option value="">All</option>
                             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                           </select>
                         </th>
                         <th style={filterTh}>
-                          <select style={{ ...filterInput, padding: "3px 4px" }} value={colFilters["property"] ?? ""} onChange={(e) => setColFilter("property", e.target.value)}>
+                          <select className="select-sm" style={filterInput} value={colFilters["property"] ?? ""} onChange={(e) => setColFilter("property", e.target.value)}>
                             <option value="">All</option>
                             {PROPERTIES.map((p) => <option key={p.id} value={p.id}>{p.id} — {p.name}</option>)}
                           </select>
                         </th>
-                        {(["acct","suite","invDesc"] as const).map((k) => (
-                          <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
-                        ))}
+                        {(["acct","suite","invDesc"] as const).map((k) => {
+                          if (k === "acct" && isMaint) return null;
+                          return (
+                            <th key={k} style={filterTh}><input style={filterInput} placeholder="Filter…" value={colFilters[k] ?? ""} onChange={(e) => setColFilter(k, e.target.value)} /></th>
+                          );
+                        })}
                         <th style={filterTh} />
                       </tr>
                     )}
@@ -1049,44 +1476,46 @@ export default function ExpensesPage() {
                 return (
                   <tr key={t.id} style={{ borderBottom: "1px solid rgba(15,23,42,0.08)" }}>
                     <td style={{ padding: "10px" }}>{t.date}</td>
-                    <td style={{ padding: "10px" }}>{user}</td>
+                    {!isMaint && <td style={{ padding: "10px" }}>{user}</td>}
                     <td style={{ padding: "10px" }}>{toMoney(t.amount)}</td>
                     <td style={{ padding: "10px", whiteSpace: "pre-wrap" }}>{displayDesc}</td>
                     <td style={{ padding: "8px" }}>
-                      <select value={t.category} onChange={(e) => updateTx(t.id, { category: e.target.value, suite: e.target.value === "TI" ? t.suite : "" })} style={{ fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)", width: "100%" }}>
+                      <select value={t.category} onChange={(e) => updateTx(t.id, { category: e.target.value, suite: e.target.value === "TI" ? t.suite : "" })} style={{ width: "100%", boxSizing: "border-box" }}>
                         <option value="">—</option>
                         {categories.map((c) => <option key={c} value={c}>{c}</option>)}
                       </select>
                     </td>
                     <td style={{ padding: "8px" }}>
-                      <select value={t.propertyId} onChange={(e) => updateTx(t.id, { propertyId: e.target.value })} style={{ fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)", width: "100%" }}>
+                      <select value={t.propertyId} onChange={(e) => updateTx(t.id, { propertyId: e.target.value })} style={{ width: "100%", boxSizing: "border-box" }}>
                         <option value="">—</option>
                         {properties.map((p) => <option key={p.id} value={p.id}>{p.id} — {p.name}</option>)}
                       </select>
                     </td>
-                    <td style={{ padding: "10px", fontVariantNumeric: "tabular-nums", fontSize: 12 }}>
-                      {acctText}
-                      {(!t.category || !t.propertyId) && <div className="small muted">Select category + property</div>}
+                    {!isMaint && (
+                      <td style={{ padding: "10px", fontVariantNumeric: "tabular-nums", fontSize: "var(--fs-12)" }}>
+                        {acctText}
+                        {(!t.category || !t.propertyId) && <div className="small muted">Select category + property</div>}
+                      </td>
+                    )}
+                    <td style={{ padding: "8px" }}>
+                      <input value={t.category === "TI" ? t.suite : ""} disabled={t.category !== "TI"} placeholder={t.category === "TI" ? "Suite (required)" : "—"} onChange={(e) => updateTx(t.id, { suite: e.target.value })} style={{ width: "100%", boxSizing: "border-box" }} />
                     </td>
                     <td style={{ padding: "8px" }}>
-                      <input value={t.category === "TI" ? t.suite : ""} disabled={t.category !== "TI"} placeholder={t.category === "TI" ? "Suite (required)" : "—"} onChange={(e) => updateTx(t.id, { suite: e.target.value })} style={{ fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)", width: "100%" }} />
-                    </td>
-                    <td style={{ padding: "8px" }}>
-                      <input value={t.codedDescription} placeholder="Line item description…" onChange={(e) => updateTx(t.id, { codedDescription: e.target.value })} style={{ fontSize: 13, padding: "6px 8px", borderRadius: 8, border: "1px solid var(--border)", width: "100%" }} />
+                      <input value={t.codedDescription} placeholder="Line item description…" onChange={(e) => updateTx(t.id, { codedDescription: e.target.value })} style={{ width: "100%", boxSizing: "border-box" }} />
                     </td>
                     <td style={{ padding: "8px", whiteSpace: "nowrap" }}>
                       {(() => {
                         const attached = attachments.get(t.id);
                         return attached ? (
                           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span title={attached.name} style={{ fontSize: 12, color: "var(--navy)", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
+                            <span title={attached.name} style={{ fontSize: "var(--fs-12)", color: "var(--navy)", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
                               📎 {attached.name}
                             </span>
                             <button
                               title="Remove attachment"
                               onClick={() => removeAttachment(t.id)}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 14, padding: "0 2px", lineHeight: 1 }}
-                            >✕</button>
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "var(--fs-14)", padding: "0 2px", lineHeight: 1 }}
+                            ><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
                           </div>
                         ) : (
                           <>
@@ -1099,7 +1528,7 @@ export default function ExpensesPage() {
                             />
                             <button
                               className="btn"
-                              style={{ fontSize: 11, padding: "4px 8px", whiteSpace: "nowrap" }}
+                              style={{ fontSize: "var(--fs-11)", padding: "4px 8px", whiteSpace: "nowrap" }}
                               onClick={() => attachInputRefs.current.get(t.id)?.click()}
                             >
                               + PDF
@@ -1112,23 +1541,28 @@ export default function ExpensesPage() {
                 );
               })}
               {!displayTx.length && (
-                <tr><td colSpan={10} className="small muted" style={{ padding: 14 }}>No rows to show.</td></tr>
+                <tr><td colSpan={isMaint ? 8 : 10} className="small muted" style={{ padding: 14 }}>No rows to show.</td></tr>
               )}
             </tbody>
           </table>
         </div>}
       </div>
 
-      {/* ── Allocation Preview card ── */}
+      {/* ── Allocation Preview (billed + accrued/held, merged) — hidden from maint. ── */}
+      {!isMaint && (
       <div className="card">
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="btn" style={{ padding: "2px 8px", fontSize: 13 }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
-              {allocPreviewOpen ? "▲" : "▼"}
+            <button className="btn" style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }} onClick={() => setAllocPreviewOpen((o) => !o)} title={allocPreviewOpen ? "Collapse" : "Expand"}>
+              {allocPreviewOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
             </button>
             <div>
               <b>Allocation Preview</b>
-              <div className="small muted" style={{ marginTop: 4 }}>One invoice per property — summary page + detailed charges. BP &amp; SC expenses are pre-allocated by schedule.</div>
+              <div className="small muted" style={{ marginTop: 4 }}>
+                One invoice per property. Click <b>Billed</b> for its category breakdown or <b>Accrued</b> for the held detail. Categories:{" "}
+                <span style={{ color: "var(--c-15803d)", fontWeight: 700 }}>green = billing this period</span>,{" "}
+                <span style={{ color: "var(--c-b91c1c)", fontWeight: 700 }}>red = held under ${CARRYOVER_THRESHOLD} (accrued, carried forward{yearEnd ? " — December posts everything" : ""})</span>.
+              </div>
             </div>
           </div>
           <button className="btn" onClick={() => setShowAllocModal(true)}>Allocations</button>
@@ -1140,41 +1574,76 @@ export default function ExpensesPage() {
                 <tr>
                   <th>Property</th>
                   <th>Categories</th>
-                  <th style={{ textAlign: "right" }}># Items</th>
-                  <th style={{ textAlign: "right" }}>Total</th>
+                  <th style={{ textAlign: "right" }}>Billed</th>
+                  <th style={{ textAlign: "right" }}>Accrued</th>
                 </tr>
               </thead>
               <tbody>
-                {invoiceGroups.map((g) => (
-                  <tr key={g.propId}>
-                    <td>
-                      <button className="linkBtn left" onClick={() => setAllocPropModal({ propId: g.propId, name: propName(g.propId), categoryGroups: g.categoryGroups })}>
-                        {g.propId} — {propName(g.propId)}
-                      </button>
-                    </td>
-                    <td>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                        {g.categoryGroups.map((cg) => (
-                          <span key={cg.category} style={{ fontSize: 11, background: "#e8f0fe", color: "#1e4976", borderRadius: 999, padding: "2px 8px", fontWeight: 500, whiteSpace: "nowrap" }}>
-                            {cg.category}
-                          </span>
-                        ))}
-                      </div>
-                    </td>
-                    <td style={{ textAlign: "right" }}>{g.itemCount}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(g.total)}</td>
-                  </tr>
-                ))}
-                {!invoiceGroups.length && (
-                  <tr><td colSpan={4} className="muted">Code at least one transaction to generate invoices.</td></tr>
+                {ccPreviewRows.length === 0 && (
+                  <tr><td colSpan={4} className="muted" style={{ padding: "14px 4px" }}>No coded expenses this month.</td></tr>
                 )}
+                {ccPreviewRows.map((propId) => {
+                  const bill = billByProp.get(propId);
+                  const held = onHoldByProp.get(propId);
+                  const billCats = bill ? [...new Set(bill.categoryGroups.map((cg) => cg.category))] : [];
+                  const heldCats = held ? [...new Set(held.categoryGroups.map((cg) => cg.category))].filter((c) => !billCats.includes(c)) : [];
+                  return (
+                    <tr key={propId}>
+                      <td>
+                        {propId} — {propName(propId)}
+                        {bill && bill.prior > 0 && (
+                          <span style={{ marginLeft: 6 }}>
+                            <HoverCard title="Carried forward" rows={[{ label: "Included in this bill", value: toMoney(bill.prior) }]} footer={{ label: "", value: `Held under $${CARRYOVER_THRESHOLD} earlier, billed now.` }}>
+                              <Pill tone={TONE_AMBER}>+ carried</Pill>
+                            </HoverCard>
+                          </span>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                          {billCats.map((c) => (
+                            <span key={`b-${c}`} title="Billing this period"><Pill tone={TONE_GREEN}>{c}</Pill></span>
+                          ))}
+                          {heldCats.map((c) => (
+                            <span key={`h-${c}`} title={`Held under $${CARRYOVER_THRESHOLD} — carried forward`}><Pill tone={TONE_RED}>{c}</Pill></span>
+                          ))}
+                        </div>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        {bill ? (
+                          <button className="linkBtn" style={{ fontWeight: 700 }} title="See the category breakdown" onClick={() => setAllocPropModal({ propId, name: propName(propId), categoryGroups: bill.categoryGroups })}>
+                            {toMoney(bill.accrued)}
+                          </button>
+                        ) : <span className="muted">—</span>}
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        {held ? (
+                          <button className="linkBtn" style={{ fontWeight: 700, color: "var(--c-b91c1c)" }} title="See the category breakdown of this held balance" onClick={() => {
+                            const byCat = new Map<string, HeldCatRow>();
+                            const add = (category: string, amount: number) => {
+                              const c = byCat.get(category) ?? { category: category || "—", amount: 0, count: 0 };
+                              c.amount = Math.round((c.amount + amount) * 100) / 100;
+                              c.count += 1;
+                              byCat.set(category, c);
+                            };
+                            for (const cg of held.categoryGroups) for (const t of cg.items as any[]) add(t.category, Number(t.amount));
+                            for (const h of (carryover[propId]?.heldTx ?? [])) add(h.category, Number(h.amount));
+                            setHeldDetailModal({ propId, name: propName(propId), accrued: held.accrued, rows: [...byCat.values()].sort((a, b) => b.amount - a.amount) });
+                          }}>
+                            {toMoney(held.accrued)}
+                          </button>
+                        ) : <span className="muted">—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
-              {invoiceGroups.length > 0 && (
+              {ccPreviewRows.length > 0 && (
                 <tfoot>
                   <tr>
-                    <td colSpan={2}>Totals</td>
-                    <td style={{ textAlign: "right" }}>{invoiceGroups.reduce((s, g) => s + g.itemCount, 0)}</td>
-                    <td style={{ textAlign: "right" }}>{toMoney(invoiceGroups.reduce((s, g) => s + g.total, 0))}</td>
+                    <td colSpan={2}>Total</td>
+                    <td style={{ textAlign: "right" }}>{toMoney(ccBillTotal)}</td>
+                    <td style={{ textAlign: "right", color: ccHeldTotal > 0 ? "var(--c-b91c1c)" : undefined }}>{ccHeldTotal > 0 ? toMoney(ccHeldTotal) : "—"}</td>
                   </tr>
                 </tfoot>
               )}
@@ -1182,35 +1651,56 @@ export default function ExpensesPage() {
           </div>
         )}
       </div>
+      )}
 
-      {/* ── Generate Invoices ── */}
-      {invoiceGroups.length > 0 && (
+      {/* ── Generate Invoices — hidden from maint. ── */}
+      {!isMaint && (billingGroups.length > 0 || onHoldGroups.length > 0) && (
         <div className="card">
           <b>Generate Invoices</b>
-          <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>One PDF invoice per property. Only properties with coded amounts greater than $0 are included.</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
-            <button className="btn primary large" onClick={generateAllPdfsZip}>
-              Download All Invoices
-            </button>
-            <button className="btn large" onClick={downloadExcelSummary} disabled={!expandedCoded.length}>
-              Download Excel Summary
-            </button>
-            <button className="btn large" onClick={downloadGLExport} disabled={!invoiceGroups.length}>
-              Download GL Journal Entry
-            </button>
+          <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>
+            One PDF invoice per billing property. Properties whose accrued balance is under ${CARRYOVER_THRESHOLD} are held and excluded from the invoices, GL Journal Entry, and TOP SHEET until they cross it{yearEnd ? " (December flushes everything)" : ""}.
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
+            <DownloadMenu
+              label="Download"
+              variant="primary"
+              disabled={!billingGroups.length && !effectiveExpandedCoded.length && !effectiveInvoiceGroups.length}
+              items={[
+                { label: "All Invoices (ZIP)", description: "One PDF per billing property + TOP SHEET", onClick: () => { if (billingGroups.length) generateAllPdfsZip(); } },
+                { label: "Excel Summary", description: "Coded expenses workbook", onClick: () => { if (effectiveExpandedCoded.length) downloadExcelSummary(); } },
+                { label: "GL Journal Entry", description: "Journal entry for the billing properties", onClick: () => { if (effectiveInvoiceGroups.length) downloadGLExport(); } },
+              ]}
+            />
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {invoiceGroups.map((g) => (
+            {billingGroups.map((g) => (
               <button
                 key={g.propId}
                 className="btn"
-                style={{ fontSize: 12, padding: "5px 10px" }}
+                style={{ fontSize: "var(--fs-12)", padding: "5px 10px" }}
                 onClick={() => downloadSingleInvoicePdf(g)}
               >
                 {g.propId} — {propName(g.propId)}{" "}
-                <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(g.total)})</span>
+                <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(g.accrued)})</span>
               </button>
             ))}
+          </div>
+
+          {/* Finalize — the single moment the carryover ledger is updated. */}
+          <div style={{ marginTop: 18, paddingTop: 16, borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <button
+              className="btn"
+              onClick={finalizeMonthAction}
+              disabled={finalizing || alreadyFinalized || !statementMonth}
+              style={{ fontSize: "var(--fs-13)", padding: "8px 16px", fontWeight: 700, background: alreadyFinalized ? undefined : "var(--tint-green-line, rgba(22,163,74,0.9))", color: alreadyFinalized ? undefined : "#fff", border: "1px solid transparent" }}
+            >
+              {finalizing ? "Finalizing…" : alreadyFinalized ? `${statementMonth} finalized` : "Finalize Month & Update Carryover"}
+            </button>
+            <span className="small muted" style={{ maxWidth: 560 }}>
+              {alreadyFinalized
+                ? `Carryover for ${statementMonth} is locked in. Held balances roll into next month.`
+                : `Run this once, after you've downloaded and sent this month's invoices. ${yearEnd ? "December flushes all held balances so every expense books this year." : `Held properties accrue until they cross $${CARRYOVER_THRESHOLD}.`}`}
+            </span>
           </div>
         </div>
       )}
@@ -1224,7 +1714,7 @@ export default function ExpensesPage() {
                 <b style={{ fontSize: 15 }}>{allocPropModal.propId} — {allocPropModal.name}</b>
                 <div className="small muted" style={{ marginTop: 2 }}>Click a category to see transactions</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setAllocPropModal(null)}>✕</button>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setAllocPropModal(null)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div className="tableWrap" style={{ overflowY: "auto" }}>
               <table>
@@ -1271,12 +1761,12 @@ export default function ExpensesPage() {
                 <b style={{ fontSize: 15 }}>{drillModal.propId} — {propName(drillModal.propId)}</b>
                 <div className="small muted" style={{ marginTop: 2 }}>{drillModal.category}</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setDrillModal(null)}>✕</button>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setDrillModal(null)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div style={{ overflowY: "auto", borderRadius: 8, border: "1px solid var(--border)" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
                 <thead>
-                  <tr style={{ background: "#f8fafc" }}>
+                  <tr style={{ background: "var(--c-f8fafc)" }}>
                     <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)", whiteSpace: "nowrap" }}>Date</th>
                     <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Description</th>
                     <th style={{ padding: "8px 10px", textAlign: "left", color: "var(--muted)", fontWeight: 800, borderBottom: "1px solid var(--border)" }}>Invoice Description</th>
@@ -1296,9 +1786,51 @@ export default function ExpensesPage() {
                   ))}
                 </tbody>
                 <tfoot>
-                  <tr style={{ background: "#f8fafc" }}>
-                    <td colSpan={drillModal.category === "TI" ? 4 : 3} style={{ padding: "8px 10px", fontWeight: 700, fontSize: 13 }}>Total ({drillModal.items.length} items)</td>
+                  <tr style={{ background: "var(--c-f8fafc)" }}>
+                    <td colSpan={drillModal.category === "TI" ? 4 : 3} style={{ padding: "8px 10px", fontWeight: 700, fontSize: "var(--fs-13)" }}>Total ({drillModal.items.length} items)</td>
                     <td style={{ padding: "8px 10px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{toMoney(drillModal.items.reduce((a: number, t: any) => a + Number(t.amount), 0))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Held expenses category breakdown modal */}
+      {heldDetailModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,0.55)", zIndex: 998, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setHeldDetailModal(null)}>
+          <div className="card" style={{ maxWidth: 560, width: "100%", maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+              <div>
+                <b style={{ fontSize: 15 }}>{heldDetailModal.propId} — {heldDetailModal.name}</b>
+                <div className="small muted" style={{ marginTop: 2 }}>Category breakdown of the accrued balance of {toMoney(heldDetailModal.accrued)} (this month + carried forward) — held until it crosses ${CARRYOVER_THRESHOLD}.</div>
+              </div>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setHeldDetailModal(null)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
+            </div>
+            <div className="tableWrap" style={{ overflowY: "auto" }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th style={{ whiteSpace: "nowrap" }}>Category</th>
+                    <th style={{ textAlign: "right", whiteSpace: "nowrap" }}># Charges</th>
+                    <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {heldDetailModal.rows.map((r, i) => (
+                    <tr key={i}>
+                      <td style={{ whiteSpace: "nowrap" }}>{r.category}</td>
+                      <td style={{ textAlign: "right" }} className="muted">{r.count}</td>
+                      <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(r.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td>Accrued total</td>
+                    <td style={{ textAlign: "right" }} className="muted">{heldDetailModal.rows.reduce((s, r) => s + r.count, 0)}</td>
+                    <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{toMoney(heldDetailModal.accrued)}</td>
                   </tr>
                 </tfoot>
               </table>
@@ -1316,7 +1848,7 @@ export default function ExpensesPage() {
                 <b style={{ fontSize: 15 }}>Allocation Percentages</b>
                 <div className="small muted" style={{ marginTop: 2 }}>Allocations based on property square feet.</div>
               </div>
-              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}>✕</button>
+              <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowAllocModal(false)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
             </div>
             <div className="tableWrap" style={{ overflowY: "auto" }}>
               <table>
@@ -1368,14 +1900,42 @@ export default function ExpensesPage() {
           <div className="card" style={{ maxWidth: 520, width: "100%" }}>
             <b style={{ fontSize: 16 }}>Reminder</b>
             <div style={{ fontSize: 15, lineHeight: 1.5, marginTop: 8 }}>
-              Save files to Accounting drive and send invoices to <b>kormancommercial@avidbill.com</b>.
+              Save the files to the Accounting drive. <b>Don&rsquo;t email the ZIP to AvidXchange</b> — Avid can&rsquo;t open a ZIP and the send wouldn&rsquo;t be recorded. Use <b>Review &amp; Send to AvidXchange</b>, which sends one invoice per email and logs it.
+              <div style={{ fontSize: "var(--fs-13)", color: "var(--muted)", marginTop: 8 }}>
+                The GL Journal Entry + TOP SHEET summary are emailed automatically to Marie Jaster.
+              </div>
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-              <button className="btn primary large" onClick={() => setShowAfterZipModal(false)}>Sent</button>
+              <button className="btn primary large" onClick={() => setShowAfterZipModal(false)}>Got it</button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Review-before-send + success confirmation (shared with Allocated & Payroll) */}
+      <AvidReviewModal
+        open={!!ccReview}
+        title="Credit Card Expenses"
+        period={ccReview?.period ?? ""}
+        byProperty={ccReview?.byProperty ?? []}
+        total={ccReview?.total ?? 0}
+        invoiceCount={ccReview?.byProperty.length}
+        attachments={ccReview?.attachmentNames ?? []}
+        sending={ccSending}
+        onCancel={() => { if (!ccSending) setCcReview(null); }}
+        onConfirm={confirmCcSend}
+      />
+      <AvidSuccessModal
+        open={!!ccSent}
+        title="Credit Card Expenses"
+        period={ccSent?.period ?? ""}
+        byProperty={ccSent?.byProperty ?? []}
+        total={ccSent?.total ?? 0}
+        invoiceCount={ccSent?.invoiceCount}
+        sentAt={ccSent?.sentAt ?? ""}
+        mailSent={ccSent?.mailSent}
+        onClose={() => setCcSent(null)}
+      />
     </main>
   );
 }

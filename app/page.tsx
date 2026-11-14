@@ -1,9 +1,15 @@
 "use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
+import { ChevronDown, ChevronRight, ChevronUp, X } from "lucide-react";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { money, num, pct as fmtPct } from "../lib/utils";
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../lib/payroll/export";
+import type { PayrollTieOut } from "../lib/payroll/tieOut";
 import { buildAllocationTemplateXlsx } from "../lib/allocation/export";
+import { useUser } from "./components/UserProvider";
+import { LastImported } from "./components/LastImported";
+import { AvidReviewModal, AvidSuccessModal, type AvidProperty } from "./components/AvidSend";
 
 function toTitleCase(s: string): string {
   if (!s) return s;
@@ -132,21 +138,32 @@ const GROUP_ORDER = ["JV III", "NI LLC", "SC"];
 export default function Page() {
   const [payroll, setPayroll] = useState<any>(null);
   const [invoices, setInvoices] = useState<any[]>([]);
+  const [tieOut, setTieOut] = useState<PayrollTieOut | null>(null);
   const [employees, setEmployees] = useState<EmployeeSummary[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Review-before-send to AvidXchange (property-level only — no employee detail).
+  const [prReview, setPrReview] = useState<{ period: string; byProperty: AvidProperty[]; total: number } | null>(null);
+  const [prSending, setPrSending] = useState(false);
+  const [prSent, setPrSent] = useState<{ period: string; byProperty: AvidProperty[]; total: number; invoiceCount: number; sentAt: string; mailSent: boolean } | null>(null);
   const [drill, setDrill] = useState<DrillState | null>(null);
   const [empModal, setEmpModal] = useState<EmpModal | null>(null);
   const [propAllocModal, setPropAllocModal] = useState<PropAllocModal | null>(null);
   const [invoicesOpen, setInvoicesOpen] = useState(true);
   const [showEmpAllocModal, setShowEmpAllocModal] = useState(false);
-  const [employeesOpen, setEmployeesOpen] = useState(true);
+  const [employeesOpen, setEmployeesOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fileName, setFileName] = useState<string>("");
+  const [importedAt, setImportedAt] = useState<string | null>(null);
+  const [importedBy, setImportedBy] = useState<string | null>(null);
   const [empTab, setEmpTab] = useState<"breakdown" | "history">("breakdown");
   const [empHistory, setEmpHistory] = useState<EmpHistoryRow[] | null>(null);
   const [empHistoryLoading, setEmpHistoryLoading] = useState(false);
+  const [allocEmployees, setAllocEmployees] = useState<import("../lib/allocation/export").AllocExportEmployee[]>([]);
+  const { user } = useUser();
+  const canSeeEmployeeDetail = user.id === "admin";
+  const [hydrated, setHydrated] = useState(false);
 
   const totals = useMemo(() => {
     const t = { salaryREC: 0, salaryNR: 0, overtime: 0, holREC: 0, holNR: 0, er401k: 0, other: 0, taxesEr: 0, total: 0 };
@@ -237,14 +254,49 @@ export default function Page() {
 
   // Auto-load a period from ?load=id URL param (set by the History page)
   useEffect(() => {
+    fetch("/api/allocation").then((r) => r.json()).then((d) => {
+      if (d.employees) setAllocEmployees(d.employees);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const id = params.get("load");
     if (id) {
       window.history.replaceState({}, "", "/");
       loadPeriod(id);
+      setHydrated(true);
+      return;
     }
+    try {
+      const raw = localStorage.getItem("kcp:lastPayroll");
+      if (raw) {
+        const d = JSON.parse(raw);
+        if (d?.payroll) {
+          setPayroll(d.payroll);
+          setInvoices(d.invoices ?? []);
+          setTieOut(d.tieOut ?? null);
+          setEmployees(d.employees ?? []);
+          setFileName(d.fileName ?? "");
+          setImportedAt(d.importedAt ?? null);
+          setImportedBy(d.importedBy ?? null);
+        }
+      }
+    } catch { /* ignore corrupt cache */ }
+    setHydrated(true);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!hydrated || typeof window === "undefined") return;
+    try {
+      if (payroll) {
+        localStorage.setItem("kcp:lastPayroll", JSON.stringify({ payroll, invoices, tieOut, employees, fileName, importedAt, importedBy }));
+      } else {
+        localStorage.removeItem("kcp:lastPayroll");
+      }
+    } catch { /* quota or disabled storage — no-op */ }
+  }, [hydrated, payroll, invoices, tieOut, employees, fileName, importedAt, importedBy]);
 
   async function savePeriod() {
     const name = payroll?.payDate ?? new Date().toLocaleDateString();
@@ -255,7 +307,9 @@ export default function Page() {
       const res = await fetch("/api/periods", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, payroll, invoices: invoicesSlim, employees }),
+        // Who saved it, so the dashboard can say "Processed Sep 7 by HARRY"
+        // rather than assuming from who usually does it.
+        body: JSON.stringify({ name, payroll, invoices: invoicesSlim, employees, savedBy: user.label }),
       });
       if (!res.ok) {
         const text = await res.text().catch(() => "");
@@ -276,6 +330,7 @@ export default function Page() {
       const j = await res.json();
       setPayroll(j.payroll);
       setInvoices(j.invoices ?? []);
+      setTieOut(j.tieOut ?? null);
       setEmployees((j.employees ?? []).slice().sort(
         (a: EmployeeSummary, b: EmployeeSummary) => (a.payrollIndex ?? 9999) - (b.payrollIndex ?? 9999)
       ));
@@ -328,7 +383,10 @@ export default function Page() {
       if (!res.ok) throw new Error(j?.error ?? "Failed to parse payroll");
       setPayroll(j.payroll);
       setInvoices(j.invoices ?? []);
+      setTieOut(j.tieOut ?? null);
       setFileName(file.name);
+      setImportedAt(new Date().toISOString());
+      setImportedBy(user.label);
       // Sort by position in payroll register so the table matches the report order
       setEmployees((j.employees ?? []).slice().sort(
         (a: EmployeeSummary, b: EmployeeSummary) => (a.payrollIndex ?? 9999) - (b.payrollIndex ?? 9999)
@@ -336,6 +394,7 @@ export default function Page() {
     } catch (e: any) {
       setPayroll(null);
       setInvoices([]);
+      setTieOut(null);
       setEmployees([]);
       setFileName("");
       setError(e?.message ?? "Failed to parse payroll");
@@ -374,6 +433,47 @@ export default function Page() {
     }
   }
 
+  // Review-before-send gate. Compute the property-level summary and open the
+  // confirm popup; nothing goes to Avid until the reviewer clicks send.
+  function reviewPayrollAndSend() {
+    if (!payroll || !invoices.length) return;
+    const payDate = payroll?.payDate ?? "";
+    if (!payDate) { setError("Payroll has no pay date — re-import the register."); return; }
+    const byProperty: AvidProperty[] = invoices
+      .map((inv: any) => ({ code: String(inv.propertyCode || inv.propertyKey || ""), name: String(inv.propertyLabel || inv.propertyKey || ""), amount: Math.round((Number(inv.total) || 0) * 100) / 100 }))
+      .filter((b: AvidProperty) => b.code && b.amount > 0)
+      .sort((a: AvidProperty, b: AvidProperty) => b.amount - a.amount);
+    const total = Math.round(byProperty.reduce((s, b) => s + b.amount, 0) * 100) / 100;
+    setPrReview({ period: payDate, byProperty, total });
+  }
+
+  async function confirmPayrollSend() {
+    if (!prReview || !payroll) return;
+    setPrSending(true);
+    try {
+      const res = await fetch("/api/payroll/avid-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ payroll, invoices, employees }),
+      });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j?.error ?? "Failed to send to AvidXchange");
+      setPrReview(null);
+      setPrSent({
+        period: prReview.period,
+        byProperty: j.byProperty ?? prReview.byProperty,
+        total: j.total ?? prReview.total,
+        invoiceCount: j.invoiceCount ?? prReview.byProperty.length,
+        sentAt: j.sentAt ?? new Date().toISOString(),
+        mailSent: j.sent !== false,
+      });
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to send to AvidXchange");
+    } finally {
+      setPrSending(false);
+    }
+  }
+
   async function downloadSinglePdf(inv: any) {
     if (!payroll) return;
     try {
@@ -395,9 +495,9 @@ export default function Page() {
     }
   }
 
-  function downloadExcel() {
+  async function downloadExcel() {
     if (!invoices.length) return;
-    const blob = buildPayrollExportXlsx({ payDate: payroll?.payDate, invoices });
+    const blob = await buildPayrollExportXlsx({ payDate: payroll?.payDate, invoices });
     const name = payroll?.payDate ? `${formatDateForZip(payroll.payDate)}payroll-summary.xlsx` : "payroll-summary.xlsx";
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -406,13 +506,11 @@ export default function Page() {
     URL.revokeObjectURL(url);
   }
 
-  function downloadAllocTemplate() {
-    const blob = buildAllocationTemplateXlsx(employees.map((e) => ({
-      name: e.name,
-      employeeNumber: e.employeeNumber,
-      recoverable: e.recoverable,
-      allocations: e.allocations,
-    })));
+  async function downloadAllocTemplate() {
+    const source = employees.length
+      ? employees.map((e) => ({ name: e.name, employeeNumber: e.employeeNumber, recoverable: e.recoverable, allocations: e.allocations }))
+      : allocEmployees;
+    const blob = await buildAllocationTemplateXlsx(source);
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url; a.download = "allocation-template.xlsx";
@@ -615,58 +713,114 @@ export default function Page() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <h1>Payroll Invoicer</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
+        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: 11, letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
+          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>
 
+      {/* ── Payroll tie-out — does the allocation add back up to the register? ── */}
+      {tieOut && invoices.length > 0 && (
+        <StatusBanner tone={tieOut.ties ? "success" : "danger"} title={tieOut.ties ? "Allocation ties to the register" : "Allocation does not tie to the register"}>
+          Register <b>{money(tieOut.sourceTotal)}</b> · Allocated <b>{money(tieOut.allocatedTotal)}</b>
+          {tieOut.excludedTotal ? <> · Excluded <b>{money(tieOut.excludedTotal)}</b></> : null}
+          {!tieOut.ties && (
+            <div style={{ marginTop: 6, color: "var(--c-b91c1c)", fontWeight: 700 }}>
+              {money(Math.abs(tieOut.unexplained))} of payroll isn’t allocated to any building and isn’t explained — fix the allocation before sending to Avid.
+            </div>
+          )}
+          {tieOut.unmatched.length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              <b style={{ color: "var(--c-b91c1c)" }}>Not matched to an allocation row ({tieOut.unmatched.length}) — their pay lands nowhere:</b>
+              <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                {tieOut.unmatched.map((u) => <li key={u.name + (u.employeeId ?? "")}>{u.name}{u.employeeId ? ` (#${u.employeeId})` : ""} — <b>{money(u.amount)}</b> unallocated</li>)}
+              </ul>
+            </div>
+          )}
+          {tieOut.offAllocation.filter((o) => !o.accepted).length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              <b style={{ color: "var(--c-b45309)" }}>Allocation doesn’t sum to 100%:</b>
+              <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+                {tieOut.offAllocation.filter((o) => !o.accepted).map((o) => (
+                  <li key={o.name}>{o.name} allocates {(o.pctSum * 100).toFixed(1)}% — {o.shortfall >= 0 ? "under" : "over"} by <b>{money(Math.abs(o.shortfall))}</b></li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {tieOut.offAllocation.some((o) => o.accepted) && (
+            <div className="muted" style={{ marginTop: 4 }}>
+              Accepted variance: {tieOut.offAllocation.filter((o) => o.accepted).map((o) => `${o.name} (${(o.pctSum * 100).toFixed(1)}%)`).join(", ")} — known Middletown gap, not tracked.
+            </div>
+          )}
+        </StatusBanner>
+      )}
+
+      {/* ── Review & Send to AvidXchange — prominent, up top (mirrors Allocated & CC) ── */}
+      {invoices.length > 0 && (() => {
+        const billing = invoices.filter((i: any) => (Number(i.total) || 0) > 0);
+        const billTotal = billing.reduce((s: number, i: any) => s + (Number(i.total) || 0), 0);
+        return (
+          <StatusBanner tone="warning" title={<>{payroll?.payDate ? `Payroll ${payroll.payDate}` : "Payroll"} is ready to send</>}
+            actions={<button className="btn primary" disabled={!payroll || !!busy} onClick={reviewPayrollAndSend}>
+              Review &amp; Send to AvidXchange<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
+            </button>}>
+            <b>{money(billTotal)}</b> across <b>{billing.length}</b> propert{billing.length === 1 ? "y" : "ies"} · property-level figures only · not sent yet
+          </StatusBanner>
+        );
+      })()}
+
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <b>Import Payroll Register</b>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              style={{ display: "none" }}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) importPayroll(f); }}
+            />
+            <button
+              className="btn"
+              onClick={() => fileInputRef.current?.click()}
+              style={{ fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
+            >
+              Choose Payroll File…
+            </button>
+            <button
+              className="btn"
+              style={{ borderRadius: 999, fontWeight: 700, fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
+              onClick={() => {
+                if (fileInputRef.current) fileInputRef.current.value = "";
+                setPayroll(null);
+                setInvoices([]);
+                setTieOut(null);
+                setEmployees([]);
+                setFileName("");
+              }}
+            >
+              Clear
+            </button>
+          </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {invoices.length > 0 && (
-              <button className="btn large" disabled={saving} onClick={savePeriod}>
+              <button
+                className="btn"
+                disabled={saving}
+                onClick={savePeriod}
+                style={{ fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
+              >
                 {saving ? "Saving…" : "Save Pay Period"}
               </button>
             )}
-            <span style={{ background: "rgba(22, 163, 74, 0.85)", color: "#fff", borderRadius: 999, padding: "12px 18px", fontSize: 15, fontWeight: 700, border: "1px solid transparent", display: "inline-flex", alignItems: "center" }}>Bi-Weekly</span>
+            <span className="muted" style={{ fontSize: "var(--fs-13)", fontWeight: 600, alignSelf: "center" }}>Bi-Weekly</span>
           </div>
         </div>
         <p className="muted small" style={{ marginTop: 8 }}>
           Import the <b>Payroll Register</b> Excel file (.xls or .xlsx). Allocation is fixed on the backend.
+          {fileName && <span style={{ marginLeft: 8 }}>· {fileName}</span>}
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            style={{ display: "none" }}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) importPayroll(f); }}
-          />
-          <button className="btn large" onClick={() => fileInputRef.current?.click()} style={{ whiteSpace: "nowrap" }}>
-            Choose Payroll File…
-          </button>
-          {fileName && (
-            <span style={{ fontSize: 13, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
-              {fileName}
-            </span>
-          )}
-          <button
-            className="btn"
-            style={{ borderRadius: 999, fontWeight: 700, whiteSpace: "nowrap" }}
-            onClick={() => {
-              if (fileInputRef.current) fileInputRef.current.value = "";
-              setPayroll(null);
-              setInvoices([]);
-              setEmployees([]);
-              setFileName("");
-            }}
-          >
-            Clear
-          </button>
-        </div>
+        <LastImported at={importedAt} by={importedBy} label="Register imported" />
         {employees.length > 0 && (
           <div className="pills">
             {employeeTotals.salary   > 0 && <span className="pill" style={{ cursor: "pointer" }} title="Click to see employee breakdown" onClick={() => openPillDrill("Salary",      employeeTotals.salary,   "salaryAmt"  )}><b>{money(employeeTotals.salary)}</b><span className="muted small">Salary</span></span>}
@@ -681,17 +835,18 @@ export default function Page() {
         {payroll?.payDate && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Pay Date:</b> {payroll.payDate}</div>}
       </div>
 
-      {/* ── Employees card ── */}
+      {/* ── Employees card (admin only — sensitive per-employee detail) ── */}
+      {canSeeEmployeeDetail && (
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               className="btn"
-              style={{ padding: "2px 8px", fontSize: 13 }}
+              style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }}
               onClick={() => setEmployeesOpen((o) => !o)}
               title={employeesOpen ? "Collapse" : "Expand"}
             >
-              {employeesOpen ? "▲" : "▼"}
+              {employeesOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
             </button>
             <div>
               <b>Employees</b>
@@ -771,6 +926,7 @@ export default function Page() {
           </div>
         )}
       </div>
+      )}
 
       {/* ── Allocation Preview card ── */}
       <div className="card">
@@ -778,11 +934,11 @@ export default function Page() {
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <button
               className="btn"
-              style={{ padding: "2px 8px", fontSize: 13 }}
+              style={{ padding: "2px 8px", fontSize: "var(--fs-13)" }}
               onClick={() => setInvoicesOpen((o) => !o)}
               title={invoicesOpen ? "Collapse" : "Expand"}
             >
-              {invoicesOpen ? "▲" : "▼"}
+              {invoicesOpen ? <ChevronUp size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /> : <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />}
             </button>
             <div>
               <b>Allocation Preview</b>
@@ -794,8 +950,8 @@ export default function Page() {
           <button className="btn" onClick={() => setShowEmpAllocModal(true)}>Allocations</button>
         </div>
 
-        {error && <div style={{ marginTop: 10, color: "#b42318", fontWeight: 800 }}>{error}</div>}
-        {busy && <div style={{ marginTop: 10, color: "#a15c00", fontWeight: 800 }}>{busy}</div>}
+        {error && <div style={{ marginTop: 10, color: "var(--c-b42318)", fontWeight: 800 }}>{error}</div>}
+        {busy && <div style={{ marginTop: 10, color: "var(--c-a15c00)", fontWeight: 800 }}>{busy}</div>}
 
         {invoicesOpen && (
           <>
@@ -868,7 +1024,7 @@ export default function Page() {
                     {showInvTaxesEr   && <td style={{ textAlign: "right" }}>{money(totals.taxesEr + mktTotals.taxesEr)}</td>}
                     <td style={{ textAlign: "right" }}>{money(totals.total + mktTotals.total)}</td>
                   </tr>
-                  {allocationGaps.length > 0 && (
+                  {canSeeEmployeeDetail && allocationGaps.length > 0 && (
                     <tr>
                       <td colSpan={invColCount} className="muted" style={{ fontSize: "0.78em", paddingTop: "6px", fontWeight: 400 }}>
                         ** Employees total ({money(employeeTotals.total)}) exceeds this total by {money(employeeTotals.total - totals.total)} because the following employees are not 100% allocated:{" "}
@@ -896,7 +1052,7 @@ export default function Page() {
           </>
         )}
         <div style={{ marginTop: 10 }}>
-          <button className="btn" onClick={downloadAllocTemplate} disabled={!employees.length}>Export Allocations</button>
+          <button className="btn" onClick={downloadAllocTemplate} disabled={!allocEmployees.length}>Export Allocations</button>
         </div>
       </div>
 
@@ -921,11 +1077,13 @@ export default function Page() {
               <button
                 key={r.propertyKey}
                 className="btn"
-                style={{ fontSize: 12, padding: "5px 10px" }}
+                style={{ fontSize: "var(--fs-12)", padding: "5px 10px" }}
                 onClick={() => downloadSinglePdf(r)}
+                title={r.invoiceNumber ? `Invoice ${r.invoiceNumber}` : undefined}
               >
                 {r.propertyCode || r.propertyKey} — {r.propertyLabel || r.propertyKey}{" "}
                 <span style={{ color: "var(--muted)", marginLeft: 4 }}>({money(r.total)})</span>
+                {r.invoiceNumber && <span style={{ color: "var(--muted)", marginLeft: 4, fontVariantNumeric: "tabular-nums" }}>· {r.invoiceNumber}</span>}
               </button>
             ))}
           </div>
@@ -954,7 +1112,7 @@ export default function Page() {
                   <b style={{ fontSize: 15 }}>Employee Allocations</b>
                   <div className="small muted" style={{ marginTop: 2 }}>Allocations based on payroll allocation workbook.</div>
                 </div>
-                <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowEmpAllocModal(false)}>✕</button>
+                <button className="btn" style={{ padding: "4px 10px" }} onClick={() => setShowEmpAllocModal(false)}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
               </div>
               <div className="tableWrap" style={{ overflowY: "auto" }}>
                 <table>
@@ -971,7 +1129,7 @@ export default function Page() {
                     {matched.map(({ entry, emp }) => (
                       <tr key={entry.displayName}>
                         <td style={{ whiteSpace: "nowrap" }}>{entry.displayName}</td>
-                        <td className="muted" style={{ fontSize: 12 }}>{entry.note}</td>
+                        <td className="muted" style={{ fontSize: "var(--fs-12)" }}>{entry.note}</td>
                         {hasData && allKeys.map((k) => {
                           const v = emp?.allocations[k];
                           const pct = v == null ? null : v <= 1 ? v * 100 : v;
@@ -1135,7 +1293,7 @@ export default function Page() {
                 <div className="modalTitle">
                   {toTitleCase(empModal.employee.name)}
                   {empModal.employee.employeeNumber && (
-                    <span className="muted" style={{ fontSize: 13, fontWeight: 400, marginLeft: 8 }}>
+                    <span className="muted" style={{ fontSize: "var(--fs-13)", fontWeight: 400, marginLeft: 8 }}>
                       Employee #{empModal.employee.employeeNumber}
                     </span>
                   )}
@@ -1156,9 +1314,9 @@ export default function Page() {
                   key={tab}
                   className="btn"
                   style={{
-                    borderRadius: 0, padding: "5px 16px", fontSize: 13, fontWeight: empTab === tab ? 700 : 400,
+                    borderRadius: 0, padding: "5px 16px", fontSize: "var(--fs-13)", fontWeight: empTab === tab ? 700 : 400,
                     borderBottom: empTab === tab ? "2px solid #0b4a7d" : "2px solid transparent",
-                    marginBottom: -2, color: empTab === tab ? "#0b4a7d" : undefined,
+                    marginBottom: -2, color: empTab === tab ? "var(--c-0b4a7d)" : undefined,
                   }}
                   onClick={() => {
                     setEmpTab(tab);
@@ -1175,7 +1333,7 @@ export default function Page() {
             {empTab === "breakdown" ? (
               <>
                 {empModal.employee.exclusions?.length ? (
-                  <div style={{ margin: "10px 0 6px", fontSize: 12, color: "#555" }}>
+                  <div style={{ margin: "10px 0 6px", fontSize: "var(--fs-12)", color: "#555" }}>
                     {empModal.employee.exclusions.map((exc, i) => (
                       <div key={i}>* Salary does not include <b>{money(exc.amount)}</b> in {exc.label} paid during this period.</div>
                     ))}
@@ -1202,8 +1360,8 @@ export default function Page() {
                     <tbody>
                       {empModal.rows.map((r, i) => (
                         <tr key={i} style={r.isSubtotal ? { fontWeight: 700, borderTop: "1px solid #ccc" } : {}}>
-                          <td style={r.isSubtotal ? { color: "#0b4a7d" } : {}}>{r.isSubtotal ? "" : r.propertyKey}</td>
-                          <td style={r.isSubtotal ? { color: "#0b4a7d" } : { color: "#666" }}>{r.isSubtotal ? r.propertyName : toTitleCase(r.propertyName)}</td>
+                          <td style={r.isSubtotal ? { color: "var(--c-0b4a7d)" } : {}}>{r.isSubtotal ? "" : r.propertyKey}</td>
+                          <td style={r.isSubtotal ? { color: "var(--c-0b4a7d)" } : { color: "#666" }}>{r.isSubtotal ? r.propertyName : toTitleCase(r.propertyName)}</td>
                           <td style={{ textAlign: "right" }}>{r.allocPct ? fmtPct(r.allocPct) : ""}</td>
                           <td style={{ textAlign: "right" }}>{money(r.salary)}</td>
                           <td style={{ textAlign: "right" }}>{money(r.overtime)}</td>
@@ -1314,6 +1472,37 @@ export default function Page() {
           </div>
         </div>
       )}
+
+      {/* Review-before-send + success confirmation (shared with Allocated & CC).
+          Payroll figures are property-level only — no employee detail. */}
+      <AvidReviewModal
+        open={!!prReview}
+        title="Payroll"
+        period={prReview?.period ?? ""}
+        byProperty={prReview?.byProperty ?? []}
+        total={prReview?.total ?? 0}
+        invoiceCount={prReview?.byProperty.length}
+        note="Property-level figures only — no employee payroll detail is sent."
+        attachments={prReview ? [
+          "Payroll Invoices.zip",
+          "Payroll Property Allocation.xlsx",
+          "GL Journal Entry.xlsx",
+        ] : []}
+        sending={prSending}
+        onCancel={() => { if (!prSending) setPrReview(null); }}
+        onConfirm={confirmPayrollSend}
+      />
+      <AvidSuccessModal
+        open={!!prSent}
+        title="Payroll"
+        period={prSent?.period ?? ""}
+        byProperty={prSent?.byProperty ?? []}
+        total={prSent?.total ?? 0}
+        invoiceCount={prSent?.invoiceCount}
+        sentAt={prSent?.sentAt ?? ""}
+        mailSent={prSent?.mailSent}
+        onClose={() => setPrSent(null)}
+      />
     </main>
   );
 }

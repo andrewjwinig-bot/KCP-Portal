@@ -1,0 +1,527 @@
+export const ALL_USERS = ["admin", "drew", "marie", "nancy", "harry", "maint", "greg", "charles", "jay", "alison", "randy", "tami"] as const;
+export type UserId = typeof ALL_USERS[number];
+
+export type RentRollCategory = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
+export type PropertyType = "all" | "Office" | "Retail" | "Residential" | "Land" | "Misc";
+
+export type UserDef = {
+  id: UserId;
+  label: string;
+  /** Sidebar nav keys this user can see. "all" wins. */
+  navKeys: Set<string>;
+  /** Path prefixes this user can directly navigate to. "*" allows everything. */
+  allowedPathPrefixes: string[];
+  /** Default category filter on /rentroll. Other categories are still selectable. */
+  defaultRentRollCategory: RentRollCategory;
+  /** Default type filter on /properties. */
+  defaultPropertyType: PropertyType;
+  /**
+   * How the dashboard portfolio occupancy renders the breakdown:
+   *  - "groups"      → the 5 group bars (JV III, NI LLC, Shopping Centers, Korman Homes, The Office Works)
+   *  - codes set     → one bar per individual property whose code is in the set; total reflects that subset
+   */
+  dashboardScope: "groups" | { codes: Set<string> };
+  /**
+   * When set, the Maintenance page is limited to a read-only view of
+   * requests for the given property codes. Absent → full maintenance access.
+   */
+  maintenanceView?: { readOnly: boolean; codes: Set<string> };
+  /**
+   * When set, the Security Deposits page (and unit-page deposit card) is
+   * limited to these property codes. Absent → all deposits.
+   */
+  depositsScope?: { codes: Set<string> };
+  /**
+   * When set, the Operating Budgets page is limited to workbooks that contain
+   * at least one of these property codes (view-only — uploading stays gated by
+   * CAN_UPLOAD). Absent → all budgets.
+   */
+  budgetScope?: { codes: Set<string> };
+};
+
+const SC_INDIVIDUAL = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200", "9000"]);
+const OFFICE_AND_OW_INDIVIDUAL = new Set([
+  "3610", "3620", "3640",
+  "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0",
+  "4900",
+]);
+const RESIDENTIAL_INDIVIDUAL = new Set(["9800", "9820", "9840", "9860"]);
+// Harry's deposit scope — shopping centers + residential (Korman Homes).
+const SC_AND_RESIDENTIAL = new Set([...SC_INDIVIDUAL, ...RESIDENTIAL_INDIVIDUAL]);
+
+
+/** The Open Credits page — granted on its own to people who VIEW it (Harry,
+ *  Alison, Nancy) without the rest of Monthly Statements. */
+export const OPEN_CREDITS_PAGE = "/tenant-statements/credits";
+
+/** The monthly tenant notices — Greg approves and sends them (owner, 11/2026:
+ *  "greg should approve … give him access to that page"). Granted on its own,
+ *  without Monthly Statements; its API answers to it (`/api/tenant-notices`). */
+export const TENANT_NOTICES_PAGE = "/tenant-statements/notices";
+
+/** Works Open Credits (import, email, notes) — the Monthly Statements grant;
+ *  anyone else with the page only reads it. */
+export const canWorkCredits = (userId: UserId) => isPathAllowed(userId, "/tenant-statements");
+const universalNav = new Set(["dashboard", "properties", "rentroll"]);
+
+// SERVICE-tier access — maintenance, expenses, reservations. Shared by the
+// field/service staff. Each person gets their OWN user id (so they each enroll
+// 2FA on their own phone and are individually accountable in the audit log)
+// while keeping identical access + visibility. Cloned via `serviceUser` so the
+// profiles never drift — change the access once, here.
+// No CC Expense Coder for the service logins (owner: Greg "doesnt need a full
+// credit card expense coder page"): his charges come to the Charges to Code
+// card on his dashboard. The page also meant FULL statement access on
+// /api/expenses/working, which hid that card from him.
+const SERVICE_NAV = new Set([...universalNav, "maintenance", "reservations"]);
+const SERVICE_PATHS = ["/dashboard", "/properties", "/rentroll", "/units", "/maintenance", "/reservations"];
+const serviceUser = (id: UserId, label: string): UserDef => ({
+  id,
+  label,
+  navKeys: new Set(SERVICE_NAV),
+  allowedPathPrefixes: [...SERVICE_PATHS],
+  defaultRentRollCategory: "All",
+  defaultPropertyType: "all",
+  dashboardScope: "groups",
+});
+
+export const USERS: Record<UserId, UserDef> = {
+  admin: {
+    id: "admin",
+    label: "ADMIN",
+    navKeys: new Set(["all"]),
+    allowedPathPrefixes: ["*"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  // Drew — the admin in person, as a named user so his tasks (master Task
+  // Tracker + Filing Tracker) aren't lost in a shared persona. His profile
+  // is curated: no maintenance, reservations, payroll, CC expense coding or
+  // bank rec. He can switch to the generic admin role for those.
+  drew: {
+    id: "drew",
+    label: "DREW",
+    navKeys: new Set([
+      ...universalNav,
+      "investors",
+      "debt",
+      "base-years",
+      "leasing-activity",
+      "task-tracker",
+      "tracker",
+      "allocated",
+      "deposits",
+      "bank-transfers",
+      "bank-rec-tracker",
+      "financials-budgets",
+      // No "budget-inputs" in Drew's sidebar: he keys taxes and insurance on
+      // the master budget page (Step 3). The page stays reachable; it is
+      // Greg's view.
+      "financials-statements",
+      "bank-balances",
+      "cash-analysis-draft",
+      "tenant-statements",
+      "investor-k1",
+    ]),
+    allowedPathPrefixes: [
+      "/dashboard",
+      "/budget-inputs",
+      "/tracker",
+      "/properties",
+      "/investors",
+      "/debt",
+      "/rentroll",
+      "/units",
+      "/allocated-invoicer",
+      "/tenant-statements",
+      // Capability key, not a page: the K-1 tooling renders inside /investors.
+      "/investor-k1",
+      "/deposits",
+      "/bank-transfers",
+      "/bank-rec",
+      "/financials",
+      "/cam-recon",
+      "/reports",
+      "/insurance",
+      // Month-end close checklist (owner, 11/2026) — Drew only while he reviews it.
+      "/close",
+      "/audit",
+      "/security",
+    ],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  marie: {
+    id: "marie",
+    label: "MARIE",
+    // Marie sees the operational/reporting pages but not the financial
+    // coding tools (Payroll Invoicer, CC Expense Coder, Allocated Invoicer)
+    // or per-employee payroll detail.
+    navKeys: new Set([
+      ...universalNav,
+      "task-tracker",
+      "tracker",
+      "bank-rec-tracker",
+      "bank-transfers",
+      "tenant-statements",
+    ]),
+    allowedPathPrefixes: [
+      "/dashboard",
+      "/properties",
+      "/rentroll",
+      "/units",
+      "/tracker",
+      "/bank-rec",
+      "/bank-transfers",
+      "/tenant-statements",
+      "/reports",
+    ],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  nancy: {
+    id: "nancy",
+    label: "NANCY",
+    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets", "open-credits"]),
+    // Financials is limited to Budgets only — no Operating Statements,
+    // Reprojections, or Cash Sheet.
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials/budgets", "/cam-recon", OPEN_CREDITS_PAGE],
+    defaultRentRollCategory: "Office",
+    defaultPropertyType: "Office",
+    dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
+    // Read-only window into office-tenant maintenance requests.
+    maintenanceView: { readOnly: true, codes: OFFICE_AND_OW_INDIVIDUAL },
+    // Security deposits scoped to office tenants.
+    depositsScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
+    // View-only budgets for the business-park (office) workbooks + The Office
+    // Works (4900). Uploading stays gated by CAN_UPLOAD (she's not in it).
+    budgetScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
+  },
+  harry: {
+    id: "harry",
+    label: "HARRY",
+    // Harry gets Drew's Task Tracker (dashboard card + sidebar item) but not
+    // the Filing Tracker (which is the separate "tracker" key). "base-years"
+    // surfaces the CAM Reconciliation area (incl. the Lafayette Hill 9510 Wawa
+    // quarterly billing) plus the Expense History/Trends + Estimates views.
+    // "financials-budgets": Harry owns the shopping centres' leasing
+    // assumptions, which live on the master budget page — without the grant
+    // he could not open the page, or save a decision, on work assigned to him.
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets", "bank-balances", "open-credits"]),
+    // "/financials/cash-analysis" is Bank Balances — VIEW ONLY for Harry
+    // (owner): `canEditCashSheet` keeps the import and reserves to Drew/admin.
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/financials/budgets", "/financials/cash-analysis", OPEN_CREDITS_PAGE, "/"],
+    defaultRentRollCategory: "Retail",
+    defaultPropertyType: "Retail",
+    dashboardScope: { codes: SC_INDIVIDUAL },
+    // Security deposits scoped to shopping centers + residential.
+    depositsScope: { codes: SC_AND_RESIDENTIAL },
+    // Budgets scoped to the shopping centres and Korman Homes — he makes the
+    // leasing calls for both (Nancy's are scoped to the parks).
+    budgetScope: { codes: SC_AND_RESIDENTIAL },
+  },
+  // Shared SERVICE persona, kept as a fallback during rollout. Greg/Charles/Jay
+  // are the individual clones (below) — once they've each enrolled 2FA, this
+  // shared login can be retired so no one bypasses the second factor.
+  maint: serviceUser("maint", "SERVICE"),
+  // Individual service-staff users — identical access to SERVICE, but each
+  // enrolls their own 2FA on their own phone.
+  // Greg works the budget's EXPENSES with Drew on the master budget page
+  // itself (the owner's call — "we make all the expense assumptions in this
+  // page together"), so he alone of the service logins gets the Budgets
+  // pages. His separate /budget-inputs link was retired. The server lets him
+  // type expense lines only (`lineEditScope` in contributors.ts) — never
+  // revenue, and never taxes or insurance, which stay Drew's.
+  greg: {
+    ...serviceUser("greg", "GREG"),
+    // "communications": the Interplex tenant emails (Tenant Emails, /communications).
+    // "tenant-notices" + Open Credits (view): he approves the month's tenant
+    // account notices (owner, 11/2026: "greg should approve … greg should see
+    // open credits page").
+    navKeys: new Set([...SERVICE_NAV, "financials-budgets", "communications", "tenant-notices", "open-credits"]),
+    allowedPathPrefixes: [...SERVICE_PATHS, "/financials/budgets", "/communications", TENANT_NOTICES_PAGE, OPEN_CREDITS_PAGE],
+  },
+  charles: serviceUser("charles", "CHARLES"),
+  jay: serviceUser("jay", "JAY"),
+  alison: {
+    id: "alison",
+    label: "ALISON",
+    // President — a high-level view: dashboard, properties, investors,
+    // rent roll, debt. No operational tools or action items.
+    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "bank-balances", "investor-k1", "open-credits"]),
+    allowedPathPrefixes: [
+      "/dashboard", "/properties", "/rentroll", "/units", "/investors", "/debt", OPEN_CREDITS_PAGE,
+      "/bank-transfers", "/financials", "/cam-recon", "/reports", "/insurance",
+      // Capability key, not a page — the K-1 tooling renders inside /investors.
+      // Granted by the owner in full knowledge that Alison is herself a
+      // Parkwood owner, so this shows her every co-owner's K-1. See the note
+      // on `canManageK1`.
+      "/investor-k1",
+    ],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  // Randy (Randolph Lee) — the staff accountant, onboarding. He READS the
+  // books: operating statements, reprojections, T-12, balance sheet, the 1099
+  // register, Bank Balances, budgets, monthly statements (A/R) and the report
+  // center — and changes nothing (owner: "without giving him full access
+  // yet"). READ-ONLY IS ENFORCED ON THE SERVER (`READ_ONLY_USERS` →
+  // `authorizeRequest`): any write to an API is refused, because several
+  // /api/financials routes trust the page grant alone — a GL upload there
+  // would also fire the Allocated Expenses send to AvidXchange. No Debt
+  // Tracker (its PUT is open to anyone with the page; loans are on Bank
+  // Balances' debt service column), no bank recs, investors, payroll or
+  // invoicers. Widen him here, and take him out of READ_ONLY_USERS, when he
+  // starts doing the work.
+  randy: {
+    id: "randy",
+    label: "RANDY",
+    navKeys: new Set([...universalNav, "onboarding", "financials-statements", "financials-budgets", "bank-balances", "tenant-statements"]),
+    // /onboarding: his orientation (modules built from the New Accountant
+    // Handbook, the 90-day checklist, the handbook itself).
+    allowedPathPrefixes: ["/dashboard", "/onboarding", "/properties", "/rentroll", "/units", "/financials", "/tenant-statements", "/reports"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+  // Tami — processes the tenant receipts (owner, 11/2026). Monthly Statements
+  // and Receipt Reconciliation are her working pages — recording payments,
+  // applying credits, importing the laser statement, tenant links — so she
+  // WRITES there. Unit pages and Operating Statements she READS: her writes are
+  // confined to `WRITE_SCOPE` below, which keeps a GL upload (it fires the
+  // Allocated Expenses send to AvidXchange) or a rent-roll import out of her
+  // reach. Operating Statements only — not the rest of /financials.
+  tami: {
+    id: "tami",
+    label: "TAMI",
+    // No Rent Roll or Property Info (owner, 11/2026: "hide rent roll property
+    // info for tami too") — not the universal nav. Unit pages stay reachable
+    // (read-only) for a tenant's contacts, linked from Receipt Reconciliation.
+    // A NARROW view (owner, 11/2026: "she really just needs a constrained
+    // narrow view into this process" — "do not give her access to operating
+    // statements or reports either"): her dashboard (open credits + open
+    // A/R), Monthly Statements and Receipt Reconciliation. Unit pages stay
+    // readable for a tenant's contacts, linked from the receipt email card.
+    navKeys: new Set(["dashboard", "tenant-statements"]),
+    allowedPathPrefixes: ["/dashboard", "/units", "/tenant-statements"],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
+};
+
+/** Users kept out of the Report Center landing page, which is otherwise open
+ *  to everyone signed in (it lists only what each person can open). */
+export const NO_REPORT_CENTER: ReadonlySet<UserId> = new Set<UserId>(["tami"]);
+
+/** Users whose API WRITES are confined to these prefixes (plus sign-in / 2FA /
+ *  the assistant). They read whatever their pages reach; a write anywhere else
+ *  is refused in `authorizeRequest`, whatever the page grant. */
+export const WRITE_SCOPE: Partial<Record<UserId, string[]>> = {
+  // + the tenant notices: she marks the credits tenants asked to apply posted.
+  tami: ["/api/tenant-statements", "/api/cam-recon/tenant-link", "/api/tenant-notices"],
+};
+
+/** Users who may READ everything their profile reaches but WRITE nothing —
+ *  every non-GET API call is refused in `authorizeRequest`, whatever the page
+ *  grant. Signing in / out, 2FA and asking the assistant still work. */
+export const READ_ONLY_USERS: ReadonlySet<UserId> = new Set<UserId>(["randy"]);
+// /api/onboarding: a read-only learner still records his own orientation progress.
+const READ_ONLY_WRITES_ALLOWED = ["/api/site", "/api/2fa", "/api/search/agent", "/api/search/ask", "/api/onboarding"];
+
+// Access groups — users who share a role / access tier belong to one group, so
+// related logins can be shown "grouped" (e.g. one avatar color per group). The
+// SERVICE clones (maint/greg/charles/jay) are one group; admin + drew are the
+// elevated admin tier; the rest are their own role. The switch is exhaustive
+// over UserId, so adding a user forces assigning it a group here.
+export type AccessGroup = "admin" | "service" | "office" | "retail" | "operations" | "executive" | "accounting";
+
+export function accessGroup(userId: UserId): AccessGroup {
+  switch (userId) {
+    case "admin":
+    case "drew":
+      return "admin";
+    case "maint":
+    case "greg":
+    case "charles":
+    case "jay":
+      return "service";
+    case "nancy":
+      return "office";
+    case "harry":
+      return "retail";
+    case "marie":
+      return "operations";
+    case "alison":
+      return "executive";
+    case "randy":
+    case "tami":
+      return "accounting";
+  }
+}
+
+/** Only admin and Drew may switch between user profiles after signing in.
+ *  Keyed off the authenticated (cookie) user, so no one else can toggle. */
+export function canSwitchUsers(userId: UserId): boolean {
+  return userId === "admin" || userId === "drew";
+}
+
+/** Who may EDIT the Cash Sheet. Others with access (e.g. Alison) are view-only.
+ *  Enforced both in the page (inputs disabled) and the save API. */
+export function canEditCashSheet(userId: UserId): boolean {
+  return userId === "admin" || userId === "drew";
+}
+
+/** Who may EDIT ownership contact + trustee info (Investor Info / Statement of
+ *  Values). Harry, Alison, and Drew maintain the directory; everyone else who
+ *  can see Investor Info is view-only. Enforced in the page and the save API. */
+export function canEditOwnership(userId: UserId): boolean {
+  return userId === "admin" || userId === "drew" || userId === "harry" || userId === "alison";
+}
+
+/**
+ * May this user import, view, send and revoke Schedule K-1s?
+ *
+ * Drew, Harry, Alison and admin. It was deliberately narrower for a while:
+ * Alison can edit the ownership table and is herself a Parkwood owner, so
+ * granting it shows her co-owners' tax documents — taxpayer IDs, income
+ * allocations, capital accounts. The owner granted it anyway, knowing that;
+ * she is an executive of the business, not an outside investor. Recorded here
+ * because it is a real widening and not an oversight.
+ *
+ * There is no finer grain. The capability is one thing — upload, delete, send,
+ * revoke, preview — so "view and send" necessarily carries the rest. Splitting
+ * it would mean a second key and a second server check on every K-1 route, and
+ * a half-applied split is worse than none.
+ *
+ * Still NOT the /investors prefix: Marie, Nancy and the rest reach Investor
+ * Info without reaching K-1s, and that separation is what keeps this a
+ * deliberate grant rather than a side effect of seeing the ownership page.
+ *
+ * "/investor-k1" is a capability key rather than a page: the UI lives inside
+ * /investors, but the key keeps the client gate and the API's own
+ * isPathAllowed check reading from one place.
+ */
+export function canManageK1(userId: UserId): boolean {
+  return isPathAllowed(userId, "/investor-k1");
+}
+
+export function isPathAllowed(userId: UserId, pathname: string): boolean {
+  const u = USERS[userId];
+  if (u.allowedPathPrefixes.includes("*")) return true;
+  // Always allow the login page so users can re-auth
+  if (pathname === "/history/login") return true;
+  // The report center's landing page is open to everyone: it only LISTS
+  // reports, filtered to the ones this person can reach. Exact path only —
+  // /reports/monthly and anything else under it keeps its own gate.
+  if (pathname === "/reports") return !NO_REPORT_CENTER.has(userId);
+  return u.allowedPathPrefixes.some((p) => {
+    if (p === "/") return pathname === "/";
+    return pathname === p || pathname.startsWith(p + "/");
+  });
+}
+
+// Sensitive API groups → the page prefix that governs them. An API request is
+// authorized iff the user may visit the governing page. Listed most-specific
+// first (first match wins). APIs NOT listed here are cross-cutting (rent roll,
+// properties, dashboard, search, maintenance, reservations, tracker, …) and
+// stay available to any signed-in user — gating them would break shared flows.
+const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]][] = [
+  // Tenant Communications — sends to every Interplex tenant; Greg (and admin / Drew).
+  ["/api/communications", "/communications"],
+  ["/api/commissions/retail", "/commissions/retail"],
+  // The quarter's sent-log (dates only) — Harry's retail reminder reads it too.
+  ["/api/commissions/avidbill-sent", ["/commissions", "/commissions/retail"]],
+  ["/api/commissions", "/commissions"],
+  // The Allocated Invoicer's history + archived invoices (property-level
+  // billing). Only these two — /api/allocation itself also serves the
+  // Payroll Invoicer.
+  ["/api/allocation/history", "/allocated-invoicer"],
+  ["/api/allocation/invoices", "/allocated-invoicer"],
+  ["/api/allocation/repair", "/allocated-invoicer"],
+  ["/api/allocation/september-check", "/allocated-invoicer"],
+  ["/api/allocation/recover-held", "/allocated-invoicer"],
+  // Budgets API maps to the Budgets page specifically (Nancy is limited to it);
+  // listed before the broad /api/financials → /financials mapping.
+  ["/api/financials/budgets", "/financials/budgets"],
+  // The Expenses-step inputs: Greg's page, AND the master budget page (Step 3),
+  // where Harry, Nancy and Drew collaborate. Reading them is harmless there —
+  // the page already shows the whole budget — and every SAVE is still checked
+  // against the line's owner (`canEdit`) in the route.
+  ["/api/budget-inputs", ["/budget-inputs", "/financials/budgets"]],
+  // Bank Balances' own API answers to its page, so a view-only grant of
+  // /financials/cash-analysis (Harry) reads it without the rest of /financials.
+  ["/api/financials/bank-balances", "/financials/cash-analysis"],
+  // Operating Statements' own API answers to its page, so a grant of just that
+  // page (Tami) reads statements without the rest of /financials.
+  ["/api/financials/operating-statements", "/financials/operating-statements"],
+  ["/api/financials", "/financials"],
+  // Tenant portal links are minted from Monthly Statements as well as the recon.
+  ["/api/cam-recon/tenant-link", ["/cam-recon", "/tenant-statements"]],
+  // Open Credits reads these two (the list + the last email sent); a VIEW-only
+  // grant of the page (Harry, Alison, Nancy) reads them — writes are refused by
+  // VIEW_ONLY_API below. Everything else under /api/tenant-statements is the
+  // Monthly Statements' (it was open to any signed-in login).
+  ["/api/tenant-statements/aging", ["/tenant-statements", OPEN_CREDITS_PAGE]],
+  // The monthly tenant notices: Greg's page, and anyone with Monthly Statements.
+  ["/api/tenant-notices", ["/tenant-statements", TENANT_NOTICES_PAGE]],
+  ["/api/tenant-statements/correspondence", ["/tenant-statements", OPEN_CREDITS_PAGE]],
+  ["/api/tenant-statements", "/tenant-statements"],
+  ["/api/cam-recon", "/cam-recon"],
+  ["/api/cam-config", "/cam-recon"],
+  ["/api/reports", "/reports"],
+  ["/api/deposits", "/deposits"],
+  ["/api/bank-rec", "/bank-rec"],
+  ["/api/bank-transfers", "/bank-transfers"],
+  ["/api/debt", "/debt"],
+  ["/api/insurance", "/insurance"],
+  ["/api/close", "/close"],
+  // The orientation and the handbook (EINs, bank details) answer to its page.
+  ["/api/onboarding", "/onboarding"],
+];
+// Cross-cutting endpoints under a sensitive prefix that must stay open (used by
+// global search / dashboard for everyone). Aggregate, low-detail.
+const API_AUTHZ_EXEMPT = ["/api/financials/budgets/kpis"];
+
+const underPrefix = (pathname: string, p: string) => pathname === p || pathname.startsWith(p + "/");
+
+/** A WRITE under these APIs needs the full page, not a view grant: Open
+ *  Credits is VIEW-ONLY for anyone without Monthly Statements (owner: "give
+ *  harry, alison, and nancy viewing access") — no import, email or note. */
+const VIEW_ONLY_API: [apiPrefix: string, writePage: string][] = [["/api/tenant-statements", "/tenant-statements"]];
+
+/** Server-side authorization for a request path. Pages use isPathAllowed;
+ *  sensitive API groups map to their governing page; everything else stays
+ *  open to any signed-in user. */
+export function authorizeRequest(userId: UserId, pathname: string, method = "GET"): boolean {
+  // Profile-switchers (admin / Drew) may view ANY user's profile, so the server
+  // grants them full access. The signed cookie carries the switcher — not the
+  // profile they're currently viewing — so without this, a switcher viewing
+  // another profile gets bounced to /dashboard the moment they open a page their
+  // OWN curated profile lacks (e.g. Drew viewing Alison's Debt Tracker). The
+  // client already gates faithfully to the viewed profile; elevated paths
+  // (/history, /audit) stay behind the separate admin-auth layer in middleware.
+  if (canSwitchUsers(userId)) return true;
+  if (READ_ONLY_USERS.has(userId) && pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase())
+      && !READ_ONLY_WRITES_ALLOWED.some((p) => underPrefix(pathname, p))) return false;
+  const scope = WRITE_SCOPE[userId];
+  if (scope && pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase())
+      && ![...scope, ...READ_ONLY_WRITES_ALLOWED].some((p) => underPrefix(pathname, p))) return false;
+  // Self-service 2FA — every signed-in user manages their own (the
+  // admin-only required-list endpoint is gated separately in middleware).
+  if (pathname === "/security" || pathname.startsWith("/security/") || pathname.startsWith("/api/2fa")) return true;
+  if (pathname.startsWith("/api/")) {
+    if (API_AUTHZ_EXEMPT.some((p) => underPrefix(pathname, p))) return true;
+    const viewOnly = VIEW_ONLY_API.find(([api]) => underPrefix(pathname, api));
+    if (viewOnly && !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase()) && !isPathAllowed(userId, viewOnly[1])) return false;
+    const match = SENSITIVE_API_PREFIXES.find(([api]) => underPrefix(pathname, api));
+    if (!match) return true;
+    const pages = Array.isArray(match[1]) ? match[1] : [match[1]];
+    return pages.some((pg) => isPathAllowed(userId, pg));
+  }
+  return isPathAllowed(userId, pathname);
+}

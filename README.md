@@ -1,6 +1,8 @@
-[README.md](https://github.com/user-attachments/files/25587819/README.md)
-# Payroll Invoicer (Excel Import)
+# KCP Portal
 
-Upload Payroll Register XLS/XLSX and generate property invoices as PDFs.
+Internal portal for Korman Commercial Properties. Houses the maintenance
+workflow (tenant submission form, request queue, reports), property and
+investor info, the rent roll, bank reconciliation tracking, the Payroll
+Invoicer tool, and other operational tools.
 
-Allocation workbook is fixed at `data/allocation.xlsx`.
+Deployed on Vercel.
