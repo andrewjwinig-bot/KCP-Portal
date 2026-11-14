@@ -4941,10 +4941,12 @@ then the user imports Skyline reports, so keep ingestion paths import-friendly.
   each tenant against the summed rent rolls (`sumRentRollEscrow`) and flag
   disagreements. The recon still credits escrow AS BILLED; the statement
   continues the waterfall: reconciliation balance → **plus billed estimates
-  still unpaid** (CAM / RET / INS open charges, from the newest laser
-  statement / Credit Balance report, as of a stated date) → **less open credits,
+  still unpaid** (CAM / RET / INS open charges DATED IN THE RECON YEAR only —
+  owner: a January 2027 estimate never shows on the 2026 rec — from the newest
+  laser statement / Credit Balance report, as of a stated date) → **less open credits,
   APPLES TO APPLES only** (owner): a CAM credit (YEC) against CAM, RET (RER)
-  against RET, INS (YEI) against INS — never across categories; a leftover
+  against RET, INS (YEI) against INS — never across categories, and only credits
+  dated on or before the recon year's Dec 31; a leftover
   stays on account. A credit whose category is unknown (the laser
   statement's undated "Open Credits" total) is shown, not applied — run the
   Credit Balance report first. Only the reconciliation balance posts to
