@@ -212,7 +212,10 @@ export default function OfficeCamReconPage() {
       const match = wantProp ? list.find((a) => a.propertyCode === wantProp) : undefined;
       if (match) {
         setProperty(match.propertyCode);
-        setYear(match.years.includes(wantYear) ? wantYear : match.years[0]);
+        // A quarterly billing (Wawa) opens on its NEWEST year, never on the
+        // recon year remembered from another property — Q3 2025 was re-sent
+        // to Wawa on 11/2/26 from a page left on 2025.
+        setYear(match.quarterly ? Math.max(...match.years) : match.years.includes(wantYear) ? wantYear : match.years[0]);
         // Returning from a unit page: restore the previously-open tenant.
         const wantUnit = sp.get("unit");
         if (wantUnit && wantUnit !== "ALL") pendingUnitRef.current = wantUnit;
@@ -433,7 +436,8 @@ export default function OfficeCamReconPage() {
   const selectProperty = (code: string) => {
     const entry = available.find((a) => a.propertyCode === code);
     setProperty(code);
-    if (entry && entry.years.length && !entry.years.includes(year)) setYear(entry.years[0]);
+    if (entry?.quarterly && entry.years.length) setYear(Math.max(...entry.years));
+    else if (entry && entry.years.length && !entry.years.includes(year)) setYear(entry.years[0]);
   };
   const goTenant = (dir: 1 | -1) => {
     if (tenantIdx < 0) return;

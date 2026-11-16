@@ -48,6 +48,11 @@ export type QuarterlyBillingDef = {
    *  quarter's last month is imported. Earlier quarters were emailed by hand
    *  before the portal sent them; they can still be sent from the page. */
   autoFrom: { year: number; quarter: Quarter };
+  /** The first quarter the portal bills AT ALL. Every quarter before it was
+   *  emailed by hand and reads as sent — never offered for a send, so an old
+   *  year left open on the page cannot bill Wawa twice (11/2/26: Q3 2025 went
+   *  out again from the portal; it had been sent by hand 10/29/25). */
+  portalFrom: { year: number; quarter: Quarter };
 };
 
 /** Every year from the first through this one — the list never runs out. */
@@ -101,6 +106,7 @@ export const QUARTERLY_BILLINGS: Record<string, QuarterlyBillingDef> = {
     // Q1 and Q2 2026 went out by hand; Q3 2026 is sent from the page once its
     // figures are checked (the July parking-lot charge); Q4 on is automatic.
     autoFrom: { year: 2026, quarter: "Q4" },
+    portalFrom: { year: 2026, quarter: "Q3" },
   },
 };
 
@@ -264,6 +270,12 @@ export function quarterlyEmail(def: QuarterlyBillingDef, q: Quarter, year: numbe
     htmlBody: `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#111827">${paras.map((p) => `<p style="margin:0 0 14px">${esc(p)}</p>`).join("")}${signatureHtml(sig)}</div>`,
     attachmentName: `${def.storeName.replace(/[^A-Za-z0-9]+/g, "_")}_${q}_${year}_CAM_and_Tax.pdf`,
   };
+}
+
+/** The quarter was billed by hand, before the portal sent any. */
+export function isBeforePortal(def: QuarterlyBillingDef, year: number, q: Quarter): boolean {
+  if (year !== def.portalFrom.year) return year < def.portalFrom.year;
+  return QUARTERS.indexOf(q) < QUARTERS.indexOf(def.portalFrom.quarter);
 }
 
 /** The quarter is on or after the first one sent automatically. */

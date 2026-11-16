@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  QUARTERLY_BILLINGS, computeQuarterly, emptyQuarterlyData, isAutoQuarter, quarterPosted, quarterSpikes, quarterlyEmail,
+  QUARTERLY_BILLINGS, computeQuarterly, emptyQuarterlyData, isAutoQuarter, isBeforePortal, quarterPosted, quarterSpikes, quarterlyEmail,
   type QuarterlyData,
 } from "./quarterly";
 import { buildQuarterlyPdf, quarterFigures } from "./quarterlyPdf";
@@ -30,6 +30,13 @@ describe("Wawa quarterly CAM send", () => {
     expect(isAutoQuarter(wawa, 2026, "Q4")).toBe(true);
     expect(isAutoQuarter(wawa, 2027, "Q1")).toBe(true);
     expect(isAutoQuarter(wawa, 2025, "Q4")).toBe(false);
+    // Every quarter before Q3 2026 was billed by hand and is never sent from
+    // the portal (Q3 2025 was re-sent by mistake on 11/2/26).
+    expect(isBeforePortal(wawa, 2025, "Q3")).toBe(true);
+    expect(isBeforePortal(wawa, 2025, "Q4")).toBe(true);
+    expect(isBeforePortal(wawa, 2026, "Q2")).toBe(true);
+    expect(isBeforePortal(wawa, 2026, "Q3")).toBe(false);
+    expect(isBeforePortal(wawa, 2027, "Q1")).toBe(false);
   });
 
   it("is ready once the quarter's LAST month is posted", () => {
