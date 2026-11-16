@@ -69,6 +69,13 @@ Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the bill
   read LIKM1, which Credit Card invoices still use.
 - **CREDIT CARD (and Payroll) INVOICES ARE ARCHIVED AS SENT** (owner: "i see the charges history but i need to see the actual invoices history as well"; `lib/invoicing/sentInvoiceArchive.ts`, written by `/api/avid-send`). Expense History's statement opens with an **Invoices** list — invoice # (`makeInvoiceId`), property, billed, sent, View PDF / download, all as a ZIP (`GET /api/statements/invoices?period=[&file=|&zip=1]`, never for Greg). A month sent before the archive lists the file names the send ledger kept and says the PDFs are not here. No rebuild: saved history keeps the un-split charges, so a rebuilt CC invoice would be wrong.
 - **HARRY'S REIMBURSEMENT IS THIS STATEMENT'S CHARGES, ONCE** (`reimbursementForBatch`): every charge on his card, properties held under $100 included — he paid them. A held property's balance bills to the PROPERTY in a later batch as a prior balance and is never in a later reimbursement (`invoiceGroups` only, never priors), so nothing is repaid twice; the held part is LIK's to collect, tracked by the carryover ledger. Held lines read "held, bills property next batch" and the invoice prints the held total under the table (`heldTotal`).
+- **A CREDIT-CARD CHARGE IS NEVER RECOVERABLE** (owner, 11/2026: "i dont
+  think credit card charges should be going to CAM as recoverable"). Building
+  Maint. codes to **6220-8501** (Non-Reimbursable Building Maintenance) at
+  every property — `CC_BUILDING_MAINT_ACCOUNT` in `lib/expenses/invoice.ts`.
+  It used to code to 6220-8502, the Reimbursable line, so card charges went
+  into the CAM pool and were billed to tenants. Office Supplies' 8930-8502 is
+  G&A (non-reimbursable) and stays.
 - **CREDIT-CARD CHARGES ARE ROUTED TO THEIR CARDHOLDER** (owner: "greg
   should see his charges and drew should see the charges from Andrew … assigns
   the right work to the right user"). The statement Harry imports lives on the

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { recoverableSuffix } from "./invoice";
+import { CC_BUILDING_MAINT_ACCOUNT, recoverableSuffix } from "./invoice";
 
 // 2010 LIK Management has no tenants, so no recoverable -8502 accounts: its
 // Office Supplies / Building Maint. card charges code to -8501 (owner, 11/2026).
@@ -9,4 +9,10 @@ describe("recoverableSuffix", () => {
     expect(recoverableSuffix("2300")).toBe("8502");
     expect(recoverableSuffix("4050")).toBe("8502");
   });
+});
+
+// A card charge is never recoverable: Building Maint. codes to the
+// Non-Reimbursable line at every property, never the CAM pool's 6220-8502.
+describe("CC Building Maint. account", () => {
+  it("is 6220-8501", () => expect(CC_BUILDING_MAINT_ACCOUNT).toBe("6220-8501"));
 });

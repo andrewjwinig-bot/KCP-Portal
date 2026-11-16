@@ -105,12 +105,19 @@ const PROPERTY_ACC2: Record<string, string[]> = {
   "0800": ["8501"],
 };
 
-// Building Maint. and Office Supplies code to the RECOVERABLE suffix (-8502),
+// Office Supplies codes to the -8502 suffix (G&A, not in CAM),
 // which exists only at a property with tenants. 2010 LIK Management has none
 // (owner: "there is not 8502 suffix for 2010 since its not a property with
 // tenants"), so its charges code to -8501. Shared with the Expenses page.
 export const NO_RECOVERABLE_SUFFIX = new Set(["2010"]);
 export const recoverableSuffix = (propertyCode: string) => (NO_RECOVERABLE_SUFFIX.has(propertyCode) ? "8501" : "8502");
+
+// A credit-card Building Maint. charge is NEVER recoverable (owner, 11/2026:
+// "i dont think credit card charges should be going to CAM as recoverable").
+// 6220-8502 is the Reimbursable Expenses line — the CAM pool tenants are billed
+// from — so a card charge there was passed to tenants. Every property codes
+// it to 6220-8501, the Non-Reimbursable Building Maintenance line.
+export const CC_BUILDING_MAINT_ACCOUNT = "6220-8501";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -173,7 +180,7 @@ function buildLinesForCategory(
     }
     if (category === "BUILDING MAINT.") {
       const amt = Number(t.amount || 0);
-      return [{ date: t.date, accountCode: `6220-${recoverableSuffix(propertyCode)}`, description: useDesc, amount: amt, originalAmount: orig }];
+      return [{ date: t.date, accountCode: CC_BUILDING_MAINT_ACCOUNT, description: useDesc, amount: amt, originalAmount: orig }];
     }
     if (category === "OFFICE SUPPLIES") {
       const amt = Number(t.amount || 0);
