@@ -25,6 +25,7 @@ import MoveOutsCard from "./MoveOutsCard";
 import NewTenantsCard from "./NewTenantsCard";
 import DrewTasksThisWeek from "./DrewTasksThisWeek";
 import TenantEmailsDueCard from "./TenantEmailsDueCard";
+import TenantNoticesReminder from "./TenantNoticesReminder";
 import CommissionsReminder from "./CommissionsReminder";
 import AnnualStatementReminder from "./AnnualStatementReminder";
 import DailyDigestModal from "./DailyDigestModal";
@@ -879,6 +880,9 @@ function DashboardInner() {
               {(isHarryUser || isAlison || isAdmin || user.id === "drew") && (
                 <AnnualStatementReminder />
               )}
+
+              {/* The month's tenant notices, waiting for Greg's approval. */}
+              {user.navKeys.has("tenant-notices") && <TenantNoticesReminder />}
 
               {showBankRec && (() => {
                 const id = `bank-stmt-${bankStmt.period}`;

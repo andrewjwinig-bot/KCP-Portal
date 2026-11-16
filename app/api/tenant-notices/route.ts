@@ -7,6 +7,7 @@
 //   GET ?month=&preview=<unit>   → that tenant's notice as it would send (HTML)
 //   POST { action: "build" }                     → build / rebuild this month's batch now
 //   POST { action: "toggle", month, unitRefs, send }  → tick / untick
+//   POST { action: "recipients", month, unitRef, emails } = who this tenant's notice goes to (saved on the suite's contacts)
 //   POST { action: "send", month }               → send every ticked notice
 //   POST { action: "posted", month, unitRef, posted } → Tami marks a credit posted
 //   POST { action: "summary" }                   → send the credit summary now
@@ -14,7 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { batchCounts, willSend } from "@/lib/statements/reminderBatch";
 import {
-  buildBatch, creditRequestsFor, getBatch, listBatches, markPosted, previewNotice, sendBatch, sendCreditSummary, setSend,
+  buildBatch, creditRequestsFor, getBatch, listBatches, markPosted, previewNotice, sendBatch, sendCreditSummary, setRecipients, setSend,
 } from "@/lib/statements/reminderBatchStore";
 import { creditSummaryDay, etToday, applyDeadline } from "@/lib/statements/reminderSchedule";
 import { isMailConfigured } from "@/lib/mail";
@@ -67,6 +68,13 @@ export async function POST(req: NextRequest) {
       if (!batch) return NextResponse.json({ error: "No notices for that month." }, { status: 404 });
       if (batch.approvedAt) return NextResponse.json({ error: "These notices have already been sent." }, { status: 409 });
       return NextResponse.json({ ok: true, batch, counts: batchCounts(batch.items) });
+    }
+    case "recipients": {
+      const emails = Array.isArray(b?.emails) ? b.emails.map((e: unknown) => String(e)).slice(0, 20) : [];
+      const r = await setRecipients(month, String(b?.unitRef ?? ""), emails);
+      if (!r.batch) return NextResponse.json({ error: r.error ?? "Could not save." }, { status: 400 });
+      await logAudit({ event: "tenant-notices.recipients", user: by, ip: auditIp(req), detail: `${b?.unitRef} · ${emails.join(", ")}` });
+      return NextResponse.json({ ok: true, batch: r.batch, counts: batchCounts(r.batch.items) });
     }
     case "send": {
       if (!isMailConfigured()) return NextResponse.json({ error: "Email is not configured." }, { status: 503 });

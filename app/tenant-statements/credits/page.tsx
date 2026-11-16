@@ -37,7 +37,16 @@ type Row = {
   /** Read off the laser statement — the report doesn't cover this property; its credits are one undated total. */
   fromLaser?: boolean;
 };
-type Data = { asOf: string | null; runAt: string | null; properties: number; tenants: Row[]; small?: number; minCredit?: number; laser: { period: string; asOf: string } | null };
+type TrendMonth = { month: string; asOf: string; tenants: number; credit: number; net: number };
+type Moved = { unitRef: string; credit: number; tenantName: string };
+type Data = {
+  asOf: string | null; runAt: string | null; properties: number; tenants: Row[]; small?: number; minCredit?: number; laser: { period: string; asOf: string } | null;
+  /** Month over month, oldest first, ending on this list. */
+  trend?: TrendMonth[];
+  change?: { prior: { month: string; asOf: string }; priorByUnit: Record<string, number>; resolved: Moved[]; added: Moved[] } | null;
+};
+const monShort = (ym: string) => new Date(`${ym}-15T12:00:00Z`).toLocaleDateString("en-US", { month: "short", timeZone: "UTC" });
+const monLong = (ym: string) => new Date(`${ym}-15T12:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 
 const SECTION: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true, style: { verticalAlign: "-3px", flexShrink: 0 } } as const;
@@ -96,6 +105,12 @@ export default function OpenCreditsPage() {
   const totalCharges = all.reduce((a, t) => a + t.charges, 0);
   const totalNet = all.reduce((a, t) => a + t.net, 0);
   const usd0 = (n: number) => (n < -0.5 ? `($${Math.round(-n).toLocaleString("en-US")})` : `$${Math.round(n).toLocaleString("en-US")}`);
+  const trend = data?.trend ?? [];
+  const chg = data?.change ?? null;
+  const prior = trend.length > 1 ? trend[trend.length - 2] : null;
+  const tenantsSub = prior
+    ? (all.length === prior.tenants ? `same as ${monShort(prior.month)}` : `${Math.abs(all.length - prior.tenants)} ${all.length < prior.tenants ? "fewer" : "more"} than ${monShort(prior.month)}`)
+    : undefined;
   const notAsked = all.filter((t) => !t.lastNotice || daysSince(t.lastNotice.sentAt) >= ASK_AGAIN_DAYS).length;
   const old = all.filter((t) => (t.oldestDays ?? 0) >= OLD_DAYS);
   const oldTotal = old.reduce((a, t) => a + t.credit, 0);
@@ -125,13 +140,18 @@ export default function OpenCreditsPage() {
 
       {data && all.length > 0 && (
         <div className="pills">
-          <StatPill label="Tenants with credits" value={all.length} />
+          <StatPill label="Tenants with credits" value={all.length} sub={tenantsSub} />
           {/* Net, not the credits alone: open charges eat into a credit (owner: "TOTAL CREDITS is misleading"). In parens = held for tenants. */}
           <StatPill label="Net" value={usd0(totalNet)} sub={`Credits ${usd0(-totalCredit)} · Charges ${usd0(totalCharges)}`} accent={totalNet < -0.5 ? "var(--c-15803d)" : undefined} />
           <StatPill label={`Open ${OLD_DAYS}+ days`} value={`$${Math.round(oldTotal).toLocaleString("en-US")}`} sub={`${old.length} tenant${old.length === 1 ? "" : "s"}`} accent={old.length ? "var(--c-b45309)" : undefined} />
           <StatPill label="Not asked yet" value={notAsked} sub={`or ${ASK_AGAIN_DAYS}+ days ago`} accent={notAsked ? "var(--c-b45309)" : undefined} />
+          {chg && <StatPill label={`Resolved since ${monShort(chg.prior.month)}`} value={chg.resolved.length}
+            sub={`${usd0(chg.resolved.reduce((a, x) => a + x.credit, 0))} cleared · ${chg.added.length} new`}
+            accent={chg.resolved.length ? "var(--c-15803d)" : undefined} />}
         </div>
       )}
+
+      {data && trend.length > 0 && <CreditTrendCard trend={trend} change={chg} />}
 
       {data && all.length > 0 && (
         <section className="card" style={{ display: "grid", gap: 10 }}>
@@ -148,6 +168,7 @@ export default function OpenCreditsPage() {
                   <th style={th}>Credits</th>
                   <th style={th}>Charges</th>
                   <th style={th}>Net</th>
+                  {chg && <th style={th}>vs {monShort(chg.prior.month)}</th>}
                   <th style={thL}>Oldest credit</th>
                   <th style={thL}>Last asked</th>
                   <th style={th}>Attempts</th>
@@ -162,7 +183,7 @@ export default function OpenCreditsPage() {
                       <td style={{ ...td, fontWeight: 700, color: "var(--c-15803d)" }}>({num(ts.reduce((a, t) => a + t.credit, 0))})</td>
                       <td style={{ ...td, fontWeight: 700 }}>{signed(ts.reduce((a, t) => a + t.charges, 0))}</td>
                       <td style={{ ...td, fontWeight: 700 }}>{signed(ts.reduce((a, t) => a + t.net, 0))}</td>
-                      <td style={td} colSpan={4} />
+                      <td style={td} colSpan={chg ? 5 : 4} />
                     </tr>
                     {ts.map((t) => {
                       const isOpen = open.has(t.unitRef);
@@ -186,6 +207,7 @@ export default function OpenCreditsPage() {
                             <td style={{ ...td, color: "var(--c-15803d)", fontWeight: 600 }}>({num(t.credit)})</td>
                             <td style={td}>{signed(t.charges)}</td>
                             <td style={{ ...td, fontWeight: 700 }}>{signed(t.net)}</td>
+                            {chg && <td style={td}><VsPrior now={t.credit} before={chg.priorByUnit[t.unitRef.toUpperCase()]} /></td>}
                             <td style={tdL}>
                               {t.fromLaser && !t.oldestCredit ? <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>Not dated · Laser Statement</span> : shortDate(t.oldestCredit)}
                               {t.oldestDays !== null && <span style={{ marginLeft: 6, fontSize: "var(--fs-12-5)", color: t.oldestDays >= OLD_DAYS ? "var(--c-b45309)" : "var(--muted)", fontWeight: t.oldestDays >= OLD_DAYS ? 700 : 400 }}>{t.oldestDays} days</span>}
@@ -202,7 +224,7 @@ export default function OpenCreditsPage() {
                           </tr>
                           {isOpen && (
                             <tr>
-                              <td colSpan={8} style={{ padding: "6px 12px 16px 34px", maxWidth: 0, borderBottom: "1px solid var(--hairline)" }}>
+                              <td colSpan={chg ? 9 : 8} style={{ padding: "6px 12px 16px 34px", maxWidth: 0, borderBottom: "1px solid var(--hairline)" }}>
                                 <Detail t={t} onView={setViewing} onNote={load} canWork={canWork} />
                               </td>
                             </tr>
@@ -212,7 +234,7 @@ export default function OpenCreditsPage() {
                     })}
                   </Fragment>
                 ))}
-                {!rows.length && <tr><td colSpan={8} style={{ ...tdL, color: "var(--muted)" }}>Nothing in this view.</td></tr>}
+                {!rows.length && <tr><td colSpan={chg ? 9 : 8} style={{ ...tdL, color: "var(--muted)" }}>Nothing in this view.</td></tr>}
                 {rows.length > 0 && (() => {
                   const cr = rows.reduce((a, t) => a + t.credit, 0), ch = rows.reduce((a, t) => a + t.charges, 0), nt = rows.reduce((a, t) => a + t.net, 0);
                   return (
@@ -221,7 +243,7 @@ export default function OpenCreditsPage() {
                       <td style={{ ...td, fontWeight: 800, color: "var(--c-15803d)" }}>(${num(cr)})</td>
                       <td style={{ ...td, fontWeight: 800 }}>${num(ch)}</td>
                       <td style={{ ...td, fontWeight: 800 }}>{nt < -0.005 ? `($${num(nt)})` : `$${num(nt)}`}</td>
-                      <td style={td} colSpan={4} />
+                      <td style={td} colSpan={chg ? 5 : 4} />
                     </tr>
                   );
                 })()}
@@ -361,5 +383,74 @@ function CreditNoticeModal({ row, onClose, onSent }: { row: Row; onClose: () => 
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** One tenant's credit against last month's: down is the goal (green). */
+function VsPrior({ now, before }: { now: number; before: number | undefined }) {
+  if (before === undefined) return <span style={{ color: "var(--c-b45309)", fontWeight: 600, fontSize: "var(--fs-12-5)" }}>New</span>;
+  const d = Math.round((now - before) * 100) / 100;
+  if (Math.abs(d) < 0.5) return <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}>No change</span>;
+  return d < 0
+    ? <span style={{ color: "var(--c-15803d)", fontWeight: 600, fontSize: "var(--fs-12-5)" }}>Down {num(d)}</span>
+    : <span style={{ color: "var(--c-b91c1c)", fontWeight: 600, fontSize: "var(--fs-12-5)" }}>Up {num(d)}</span>;
+}
+
+/** Open credits month over month (owner: "see the +/- over previous months to
+ *  see if we are getting things resolved or not"). Each month is read the way
+ *  the list above is, as of that month's end. */
+function CreditTrendCard({ trend, change }: { trend: TrendMonth[]; change: NonNullable<Data["change"]> | null }) {
+  const [show, setShow] = useState<"resolved" | "added" | null>(null);
+  const rows = [...trend].reverse();
+  const whole = (n: number) => Math.round(Math.abs(n)).toLocaleString("en-US");
+  const list = show === "resolved" ? change?.resolved ?? [] : show === "added" ? change?.added ?? [] : [];
+  return (
+    <section className="card" style={{ display: "grid", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 17, fontWeight: 800 }}>Month over Month</div>
+        {change && (
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className={`btn sm${show === "resolved" ? " primary" : ""}`} onClick={() => setShow((v) => (v === "resolved" ? null : "resolved"))}>Resolved since {monShort(change.prior.month)} · {change.resolved.length}</button>
+            <button className={`btn sm${show === "added" ? " primary" : ""}`} onClick={() => setShow((v) => (v === "added" ? null : "added"))}>New since {monShort(change.prior.month)} · {change.added.length}</button>
+          </div>
+        )}
+      </div>
+      {trend.length < 2 ? (
+        <div className="muted small">This is the first month on record — the change shows once next month&apos;s Credit Balance Report or Laser Statement is imported.</div>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><th style={thL}>Month</th><th style={th}>Tenants</th><th style={th}>Credits</th><th style={th}>Change</th><th style={th}>Net</th></tr></thead>
+          <tbody>
+            {rows.map((m, idx) => {
+              const before = rows[idx + 1];
+              const d = before ? m.credit - before.credit : null;
+              const dt = before ? m.tenants - before.tenants : null;
+              return (
+                <tr key={m.month} className="task-row" style={{ borderBottom: "1px solid var(--hairline)" }}>
+                  <td style={{ ...tdL, fontWeight: idx === 0 ? 700 : 600 }}>{monLong(m.month)} <span className="muted" style={{ fontWeight: 400, fontSize: "var(--fs-12-5)" }}>as of {shortDate(m.asOf)}</span></td>
+                  <td style={td}>{m.tenants}{dt ? <span className="muted" style={{ fontSize: "var(--fs-12-5)" }}> ({dt > 0 ? "+" : ""}{dt})</span> : null}</td>
+                  <td style={{ ...td, fontWeight: 600 }}>({whole(m.credit)})</td>
+                  <td style={{ ...td, fontWeight: 600, color: d === null || Math.abs(d) < 0.5 ? "var(--muted)" : d < 0 ? "var(--c-15803d)" : "var(--c-b91c1c)" }}>
+                    {d === null ? "—" : Math.abs(d) < 0.5 ? "No change" : `${d < 0 ? "Down" : "Up"} ${whole(d)}`}
+                  </td>
+                  <td style={td}>{m.net < -0.5 ? `(${whole(m.net)})` : whole(m.net)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {show && (
+        <div style={{ display: "grid" }}>
+          {list.length === 0 ? <div className="muted small">None.</div> : list.map((x) => (
+            <div key={x.unitRef} className="task-row" style={{ display: "flex", gap: 10, padding: "9px 2px", borderBottom: "1px solid var(--hairline)", alignItems: "baseline" }}>
+              <span style={{ fontWeight: 600 }}>{x.tenantName}</span>
+              <code style={{ fontSize: "var(--fs-12)" }}>{x.unitRef}</code>
+              <span style={{ marginLeft: "auto", fontWeight: 600, color: show === "resolved" ? "var(--c-15803d)" : "var(--c-b45309)" }}>{show === "resolved" ? "Cleared" : "New"} ${num(x.credit)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
