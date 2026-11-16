@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { autoSendQuarterly } from "@/lib/cam/retail/quarterlySend";
+import { autoSendQuarterly, remindOverdueQuarters } from "@/lib/cam/retail/quarterlySend";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 
 export const runtime = "nodejs";
@@ -35,5 +35,8 @@ async function authorized(req: Request): Promise<boolean> {
 export async function GET(req: Request) {
   if (!(await authorized(req))) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const results = await autoSendQuarterly(null, null);
-  return NextResponse.json({ results });
+  // Anything past its due date and still unsent: Drew is emailed, weekly,
+  // until it goes (11/16/26 — Q3 2026 sat unsent with nothing saying so).
+  const reminded = await remindOverdueQuarters().catch(() => []);
+  return NextResponse.json({ results, reminded });
 }

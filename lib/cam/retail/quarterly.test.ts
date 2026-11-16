@@ -67,3 +67,19 @@ describe("quarterly billing (Wawa @ 9510)", () => {
     expect(Math.abs(c.balanceYtd - (c.dueYtd - 8703.48))).toBeLessThan(0.01);
   });
 });
+
+import { quarterClosed, quarterDueISO } from "./quarterly";
+
+describe("quarter due dates (nothing forgotten, 11/16/26)", () => {
+  it("is due the last day of the month after the quarter", () => {
+    expect(quarterDueISO(2026, "Q3")).toBe("2026-10-31");
+    expect(quarterDueISO(2026, "Q1")).toBe("2026-04-30");
+    expect(quarterDueISO(2026, "Q4")).toBe("2027-01-31");
+  });
+  it("is closed from the first of the month after its last month", () => {
+    expect(quarterClosed(2026, "Q3", "2026-09-30")).toBe(false);
+    expect(quarterClosed(2026, "Q3", "2026-10-01")).toBe(true);
+    expect(quarterClosed(2026, "Q4", "2026-12-31")).toBe(false);
+    expect(quarterClosed(2026, "Q4", "2027-01-01")).toBe(true);
+  });
+});

@@ -26,6 +26,15 @@ import { openBucketOf, parseDueDate, priorityOf, type Priority, type Repeat, typ
 import type { MonthClose, CloseItem } from "@/lib/close/monthClose";
 import type { CloseDetail } from "@/lib/close/monthCloseMath";
 
+/** How far back an unticked monthly / quarterly / annual task stays on the
+ *  queue as Overdue. */
+const CARRY_BACK_DAYS = 75;
+
+type QuarterDue = {
+  key: string; name: string; year: number; quarter: string; due: string; overdue: boolean;
+  state: "ready" | "held" | "manual" | "waiting-gl"; reason: string; href: string;
+};
+
 /** A tracker task that IS an import (the Bank Balances Monday task). */
 const TASK_IMPORT: Record<string, string> = { "w-bank": "imp-bank" };
 
@@ -103,12 +112,22 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
   const [sel, setSel] = useState<string | null>(null);
 
   // ── Tasks: this week + next week's (Later), ticked as the tracker ticks them ──
-  const occ = useMemo(() => {
+  // PLUS anything earlier still not ticked, as Overdue (owner, 11/16/26: "we
+  // cannot have things forgotten like this" — Wawa's Q3 CAM, due Oct 31, fell
+  // off the list the week after it was due and never showed again). Monthly,
+  // quarterly and annual tasks carry back CARRY_BACK_DAYS; a daily or weekly
+  // one only its last week, since next week brings another.
+  const monday = useMemo(() => {
     const sinceMon = (now.getDay() + 6) % 7;
-    const mon = new Date(now.getFullYear(), now.getMonth(), now.getDate() - sinceMon);
-    const end = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + 13, 23, 59, 59);
-    return taskOccurrencesBetween(mon, end, now);
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate() - sinceMon);
   }, [now]);
+  const occ = useMemo(() => {
+    const from = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - CARRY_BACK_DAYS);
+    const lastWeek = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7);
+    const end = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 13, 23, 59, 59);
+    return taskOccurrencesBetween(from, end, now)
+      .filter((o) => o.date >= monday || !(o.category === "daily" || o.category === "weekly") || o.date >= lastWeek);
+  }, [now, monday]);
   const [checked, setChecked] = useState<Record<string, Record<string, boolean>>>({});
   useEffect(() => {
     const maps: Record<string, Record<string, boolean>> = {};
@@ -170,6 +189,8 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
   const [close, setClose] = useState<MonthClose | null>(null);
   const [unsent, setUnsent] = useState<{ source: string; label: string; period: string; at: string; days: number }[]>([]);
   const [flags, setFlags] = useState<{ n: number; props: { code: string; name: string; n: number }[] } | null>(null);
+  /** Quarterly CAM statements owed and not sent (Wawa @ 9510); null = not read. */
+  const [quarterly, setQuarterly] = useState<QuarterDue[] | null>(null);
   useEffect(() => {
     fetch("/api/tracker/import-events", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))
       .then((j) => { setEvents(j?.events ?? {}); setCoverage(j?.coverage ?? {}); }).catch(() => {});
@@ -186,6 +207,8 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
         setFlags({ n: props.reduce((s, p) => s + p.n, 0), props });
       }).catch(() => {});
     }).catch(() => {});
+    fetch("/api/cam-recon/quarterly/due", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null))
+      .then((j) => setQuarterly(Array.isArray(j?.due) ? j.due : null)).catch(() => {});
     fetch("/api/avid-sends?limit=1", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((j) => setUnsent(j?.unsent ?? [])).catch(() => {});
   }, []);
 
@@ -196,6 +219,11 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
 
     for (const o of occ) {
       const done = !!checked[monthKey(o.date)]?.[o.id];
+      // An earlier week's task is listed only while it is still undone.
+      if (done && o.date < monday) continue;
+      // The quarterly CAM task is the obligation below, which knows whether
+      // it went — listed once.
+      if (o.id === "q-lhscwawa" && quarterly && owner === "drew") continue;
       const mine = o.owner === owner;
       out.push({
         id: `occ-${o.id}-${o.date.toISOString().slice(0, 10)}`, kind: "Task", icon: CircleCheck, tone: "neutral",
@@ -229,6 +257,17 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
         source: "Auto · import schedule", bucket: st === "overdue" ? "overdue" : st === "due" ? "today" : "later",
         dueText: st === "overdue" ? "Overdue" : st === "due" ? "Due now" : r.when, href: r.link, action: "Import",
         who: "me", done: st === "done", steps: r.id,
+      });
+    }
+    if (owner === "drew") for (const d of quarterly ?? []) {
+      const dueDate = new Date(`${d.due}T00:00:00`);
+      out.push({
+        id: `qcam-${d.key}-${d.year}-${d.quarter}`, kind: "Not sent", icon: Send, tone: d.overdue ? "red" : d.state === "waiting-gl" ? "neutral" : "amber",
+        title: `${d.name} ${d.quarter} ${d.year} CAM & tax ${d.overdue ? "was due " + MON[dueDate.getMonth()] + " " + dueDate.getDate() + " and has not been sent" : "not sent yet"}`,
+        meta: d.reason, source: "Auto · quarterly CAM",
+        bucket: d.overdue ? "overdue" : d.state === "waiting-gl" ? "later" : "week",
+        dueText: d.overdue ? `Overdue · ${MON[dueDate.getMonth()]} ${dueDate.getDate()}` : `Due ${shortDate(dueDate)}`,
+        href: d.href, action: d.state === "waiting-gl" ? "Open" : "Send", who: d.state === "waiting-gl" ? "GL" : "me",
       });
     }
     for (const u of unsent) {
@@ -276,7 +315,7 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
       });
     }
     return out;
-  }, [occ, checked, todos, events, coverage, unsent, flags, close, now, owner]);
+  }, [occ, checked, todos, events, coverage, unsent, flags, close, now, owner, monday, quarterly]);
 
   const isMine = (q: Q) => q.who === "me";
   const isWaiting = (q: Q) => !isMine(q) && !q.id.startsWith("occ-");
