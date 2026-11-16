@@ -5,7 +5,9 @@
 import { NextResponse } from "next/server";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { isPathAllowed, type UserId } from "@/lib/users";
-import { cardholderOf, type Tx } from "@/lib/expenses/coding";
+import { cardholderOf, type Cardholder, type Tx } from "@/lib/expenses/coding";
+import { chargesFor, codingNoticeEmail, NOTIFY_CARDHOLDERS } from "@/lib/expenses/codingNotice";
+import { sendMail } from "@/lib/mail";
 import { getWorking, saveWorking, patchCharge, clearWorking } from "@/lib/expenses/workingStore";
 
 export const runtime = "nodejs";
@@ -59,7 +61,21 @@ export async function POST(req: Request) {
     importedAt: body.importedAt ?? doc.importedAt ?? new Date().toISOString(),
     importedBy: body.importedBy ?? doc.importedBy ?? null,
   });
-  return NextResponse.json({ ok: true, ...saved });
+
+  // A fresh import: tell each cardholder who codes their own (Greg) which of
+  // the NEW charges are theirs, itemized, with a link to code them.
+  const notified: string[] = [];
+  if (body.action === "import") {
+    const fresh = incoming.filter((t) => !known.has(t.id));
+    for (const [who, n] of Object.entries(NOTIFY_CARDHOLDERS) as [Cardholder, { to: string; name: string }][]) {
+      const mine = chargesFor(who, fresh);
+      if (!mine.length || !n?.to) continue;
+      const e = codingNoticeEmail(who, mine, saved.statementPeriodText, saved.importedBy);
+      const ok = await sendMail({ to: n.to, subject: e.subject, textBody: e.text, htmlBody: e.html }).catch(() => false);
+      if (ok) notified.push(n.name);
+    }
+  }
+  return NextResponse.json({ ok: true, ...saved, notified });
 }
 
 export async function DELETE() {

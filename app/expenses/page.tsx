@@ -6,11 +6,12 @@ import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import JSZip from "jszip";
-import { PDFDocument } from "pdf-lib";
-import { buildInvoicePdf, buildReimbursementInvoicePdf, makeInvoiceId, recoverableSuffix, CC_BUILDING_MAINT_ACCOUNT, CategoryGroup } from "../../lib/expenses/invoice";
+import { buildInvoicePdf, buildReimbursementInvoicePdf, makeInvoiceId, ccAccountsFor, CategoryGroup } from "../../lib/expenses/invoice";
 import { buildTopSheetXlsx, TopSheetTx } from "../../lib/expenses/topSheet";
 import { groupBy, normalizeAmount, toMoney } from "../../lib/expenses/utils";
-import { CATEGORIES, PROPERTIES, isRowCoded, codingProgress, CARDHOLDER_NAME, type Tx } from "../../lib/expenses/coding";
+import { CATEGORIES, PROPERTIES, isRowCoded, isCamCharge, codingProgress, CARDHOLDER_NAME, type Tx } from "../../lib/expenses/coding";
+import { appendReceipts } from "../../lib/expenses/receiptMerge";
+import { CamToggle, ReceiptButton } from "./ChargeCam";
 import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import {
   CARRYOVER_THRESHOLD,
@@ -58,49 +59,6 @@ const CATEGORY_ACC: Record<(typeof CATEGORIES)[number], string> = {
 };
 
 
-const PROPERTY_ACC2: Record<(typeof PROPERTIES)[number]["id"], string[]> = {
-  "BP & SC": ["9301", "9302"],
-  BP: ["9301"],
-  SC: ["9302"],
-  PJV3: ["8501"],
-  PNIPLX: ["8501"],
-  PIIICO: ["8501"],
-  "1100": ["8501"],
-  "1500": ["8501"],
-  "2000": ["9301", "9302"],
-  "2010": ["8501"],
-  "2040": ["8501"],
-  "2070": ["8501"],
-  "2080": ["8501"],
-  "2300": ["8501"],
-  "3610": ["8501"],
-  "3620": ["8501"],
-  "3640": ["8501"],
-  "4050": ["8501"],
-  "4060": ["8501"],
-  "4070": ["8501"],
-  "4080": ["8501"],
-  "40A0": ["8501"],
-  "40B0": ["8501"],
-  "40C0": ["8501"],
-  "4500": ["8501"],
-  "4900": ["8501"],
-  "5600": ["8501"],
-  "7010": ["8501"],
-  "7200": ["8501"],
-  "7300": ["8501"],
-  "8200": ["8501"],
-  "9000": ["8501"],
-  "9200": ["8501"],
-  "9510": ["8501"],
-  "9800": ["8501"],
-  "9820": ["8501"],
-  "9840": ["8501"],
-  "9860": ["8501"],
-  "0200": ["8501"],
-  "0300": ["8501"],
-  "0800": ["8501"],
-};
 
 // Overhead-allocation shares (BP 9301, SC 9302, BP & SC 9303) and the split
 // itself live in lib/expenses/split.ts, shared with Expense History.
@@ -280,15 +238,8 @@ function yyyymmddFromDate(d: Date | null) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function getAccountCodes(category: string, propertyId: string): string[] {
-  if (category === "EQUIPMENT (CAP)") return ["1450-0000"];
-  if (category === "BUILDINGS (CAP)") return ["1430-0000"];
-  if (category === "BUILDING MAINT.") return [CC_BUILDING_MAINT_ACCOUNT];
-  if (category === "OFFICE SUPPLIES") return [`8930-${recoverableSuffix(propertyId)}`];
-  const catAcc = (CATEGORY_ACC as Record<string, string>)[category];
-  const propAcc2 = (PROPERTY_ACC2 as Record<string, string[]>)[propertyId];
-  if (!catAcc || !propAcc2 || !propAcc2.length) return [];
-  return propAcc2.map((suffix) => `${catAcc}-${suffix}`);
+function getAccountCodes(category: string, propertyId: string, cam?: boolean): string[] {
+  return ccAccountsFor(category, propertyId, cam);
 }
 
 function cents(n: number) { return Math.round((Number(n) || 0) * 100); }
@@ -398,12 +349,9 @@ export default function ExpensesPage() {
   const [codeTransOpen, setCodeTransOpen] = useState(true);
   const [allocPreviewOpen, setAllocPreviewOpen] = useState(true);
   const [showAllocModal, setShowAllocModal] = useState(false);
-  // Invoice PDF attachments — keyed by tx id, lives in memory only (not persisted)
-  const [attachments, setAttachments] = useState<Map<string, File>>(new Map());
   const [fileName, setFileName] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ccDrop = useFileDrop((files) => importFile(files[0]), { accept: byExt([".xls", ".xlsx"]) });
-  const attachInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   useEffect(() => {
     try { localStorage.setItem(LS_KEY, JSON.stringify({ tx, statementPeriodText, importedAt, importedBy })); } catch { /* ignore */ }
@@ -498,7 +446,7 @@ export default function ExpensesPage() {
     if (search.trim()) {
       const q = search.toLowerCase();
       arr = arr.filter((t) => {
-        const acct = getAccountCodes(t.category, t.propertyId).join(", ");
+        const acct = getAccountCodes(t.category, t.propertyId, t.cam).join(", ");
         return [t.date, t.cardMember, t.description, t.codedDescription, t.category, t.propertyId, t.suite, acct].join(" ").toLowerCase().includes(q);
       });
     }
@@ -510,9 +458,15 @@ export default function ExpensesPage() {
     return { total: onlyPos.reduce((a, t) => a + Number(t.amount), 0), coded: onlyPos.filter(isRowCoded).length, count: onlyPos.length };
   }, [tx]);
 
-  const expandedCoded = useMemo(() => {
+  // Every coded charge, split to its properties. CAM charges (ticked, -8502)
+  // are kept OUT of the held / billed flow: they go on each property's own CAM
+  // invoice every month, never held under the threshold — the tenants' backup
+  // has to show them as billed (owner, 11/2026).
+  const allExpandedCoded = useMemo(() => {
     return tx.filter((t) => Number(t.amount) > 0).filter(isRowCoded).flatMap((t) => expandForAllocation(t));
   }, [tx]);
+  const expandedCoded = useMemo(() => allExpandedCoded.filter((t) => !isCamCharge(t)), [allExpandedCoded]);
+  const camExpanded = useMemo(() => allExpandedCoded.filter((t) => isCamCharge(t)), [allExpandedCoded]);
 
   const displayTx = useMemo(() => {
     let arr = filteredTx;
@@ -526,7 +480,7 @@ export default function ExpensesPage() {
         if (k === "description") return trimLastTwoChars(t.description).toLowerCase().includes(q);
         if (k === "category") return t.category.toLowerCase().includes(q);
         if (k === "property") return (t.propertyId + " " + (properties.find((p) => p.id === t.propertyId)?.name ?? "")).toLowerCase().includes(q);
-        if (k === "acct") return getAccountCodes(t.category, t.propertyId).join(", ").toLowerCase().includes(q);
+        if (k === "acct") return getAccountCodes(t.category, t.propertyId, t.cam).join(", ").toLowerCase().includes(q);
         if (k === "suite") return t.suite.toLowerCase().includes(q);
         if (k === "invDesc") return t.codedDescription.toLowerCase().includes(q);
         return true;
@@ -542,7 +496,7 @@ export default function ExpensesPage() {
         else if (tableSortCol === "description") { av = trimLastTwoChars(a.description); bv = trimLastTwoChars(b.description); }
         else if (tableSortCol === "category") { av = a.category; bv = b.category; }
         else if (tableSortCol === "property") { av = a.propertyId; bv = b.propertyId; }
-        else if (tableSortCol === "acct") { av = getAccountCodes(a.category, a.propertyId).join(", "); bv = getAccountCodes(b.category, b.propertyId).join(", "); }
+        else if (tableSortCol === "acct") { av = getAccountCodes(a.category, a.propertyId, a.cam).join(", "); bv = getAccountCodes(b.category, b.propertyId, b.cam).join(", "); }
         else if (tableSortCol === "suite") { av = a.suite; bv = b.suite; }
         else if (tableSortCol === "invDesc") { av = a.codedDescription; bv = b.codedDescription; }
         return av.localeCompare(bv) * dir;
@@ -552,6 +506,15 @@ export default function ExpensesPage() {
   }, [filteredTx, colFilters, tableSortCol, tableSortDir, properties]);
 
   const invoiceGroups = useMemo(() => buildInvoiceGroups(expandedCoded), [expandedCoded]);
+  const camGroups = useMemo(() => buildInvoiceGroups(camExpanded), [camExpanded]);
+  const camTotal = useMemo(() => camGroups.reduce((a, g) => a + g.total, 0), [camGroups]);
+  // Who still has charges to code (a CAM charge without its receipt counts).
+  const codingLeft = useMemo(() => codingProgress(tx), [tx]);
+  const uncodedLeft = (Object.values(codingLeft) as { coded: number; total: number }[]).reduce((a, p) => a + (p.total - p.coded), 0);
+  const uncodedWho = (Object.entries(codingLeft) as [keyof typeof CARDHOLDER_NAME, { coded: number; total: number }][])
+    .filter(([, p]) => p.total > p.coded)
+    .map(([h, p]) => `${CARDHOLDER_NAME[h]}: ${p.total - p.coded} of ${p.total} left`)
+    .join(" · ");
 
   // ── Carryover ("hold under $100") ──────────────────────────────────────────
   // Persistent per-property held balances, loaded from the server so they
@@ -632,11 +595,17 @@ export default function ExpensesPage() {
     const billedIds = new Set(billingGroups.map((g) => g.propId));
     const thisMonth = expandedCoded.filter((t: any) => billedIds.has(t.propertyId));
     const heldDetail = billingGroups.flatMap((g) => carryover[g.propId]?.heldTx ?? []);
-    return [...thisMonth, ...heldDetail];
-  }, [billingGroups, expandedCoded, carryover]);
+    return [...thisMonth, ...heldDetail, ...camExpanded];
+  }, [billingGroups, expandedCoded, carryover, camExpanded]);
 
+  // The GL Journal Entry's per-property totals (CAM included).
   const effectiveInvoiceGroups = useMemo(
     () => buildInvoiceGroups(effectiveExpandedCoded),
+    [effectiveExpandedCoded],
+  );
+  // What the regular (non-CAM) invoices list.
+  const regularEffectiveGroups = useMemo(
+    () => buildInvoiceGroups(effectiveExpandedCoded.filter((t: any) => !isCamCharge(t))),
     [effectiveExpandedCoded],
   );
 
@@ -647,8 +616,8 @@ export default function ExpensesPage() {
   // Only a residual the held detail cannot explain (never expected) is left
   // as a prior-balance line, so the invoice total still equals what is billed.
   const effectiveByProp = useMemo(
-    () => new Map(effectiveInvoiceGroups.map((g) => [g.propId, g])),
-    [effectiveInvoiceGroups],
+    () => new Map(regularEffectiveGroups.map((g) => [g.propId, g])),
+    [regularEffectiveGroups],
   );
   function invoiceLinesFor(g: InvoiceGroup & { prior?: number }) {
     const eff = effectiveByProp.get(g.propId);
@@ -693,13 +662,9 @@ export default function ExpensesPage() {
 
   function upsertTx(list: Tx[]) { setTx((prev) => [...list, ...prev]); }
 
-  function attachInvoicePdf(txId: string, file: File) {
-    setAttachments((prev) => { const n = new Map(prev); n.set(txId, file); return n; });
-  }
-  function removeAttachment(txId: string) {
-    setAttachments((prev) => { const n = new Map(prev); n.delete(txId); return n; });
-    const input = attachInputRefs.current.get(txId);
-    if (input) input.value = "";
+  // A receipt saved by ReceiptButton — keep the server's copy on the row.
+  function receiptSaved(saved: Tx) {
+    setTx((prev) => prev.map((t) => (t.id === saved.id ? { ...t, receipt: saved.receipt ?? null } : t)));
   }
 
   async function importFile(file: File) {
@@ -780,14 +745,17 @@ export default function ExpensesPage() {
   // says so, and the invoice states the split.
   function reimbursementForBatch() {
     const heldIds = new Set(decoratedGroups.filter((g) => !g.billed).map((g) => g.propId));
-    const lines = invoiceGroups.map((ig) => ({
+    const allGroups = buildInvoiceGroups(allExpandedCoded);
+    const lines = allGroups.map((ig) => ({
       label: `${ig.propId} · ${propName(ig.propId)}${heldIds.has(ig.propId) ? " · held, bills property next batch" : ""}`,
       amount: ig.total,
     }));
-    const total = Math.round(invoiceGroups.reduce((a, ig) => a + ig.total, 0) * 100) / 100;
+    const total = Math.round(allGroups.reduce((a, ig) => a + ig.total, 0) * 100) / 100;
     const held = Math.round(invoiceGroups.filter((ig) => heldIds.has(ig.propId)).reduce((a, ig) => a + ig.total, 0) * 100) / 100;
     return { lines, total, held };
   }
+  // A property's CAM invoice # — CC + property + CAM + MMYY (CC2300CAM0826).
+  const camInvoiceId = (propId: string) => makeInvoiceId(`${propId}CAM`, statementMonth);
   const periodCompactStr = (statementStart && effectiveEnd) ? `${formatDateCompact(statementStart)}-${formatDateCompact(effectiveEnd)}` : undefined;
 
   // Persist the coded statement to history. `silent` (used when invoices are
@@ -803,7 +771,7 @@ export default function ExpensesPage() {
       const res = await fetch("/api/statements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ periodText: label, statementMonth: statementMonth || "", source: silent ? "generated" : "manual", savedBy: user.label, tx: coded.map((t) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, category: t.category, propertyId: t.propertyId, suite: t.suite, amount: t.amount })) }),
+        body: JSON.stringify({ periodText: label, statementMonth: statementMonth || "", source: silent ? "generated" : "manual", savedBy: user.label, tx: coded.map((t) => ({ date: t.date, cardMember: t.cardMember, description: t.description, codedDescription: t.codedDescription, category: t.category, propertyId: t.propertyId, suite: t.suite, amount: t.amount, cam: isCamCharge(t) })) }),
       });
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j?.error ?? `Save failed (${res.status})`); }
       if (!silent) alert("Saved to history.");
@@ -833,7 +801,7 @@ export default function ExpensesPage() {
     register: { invoiceNumber: string; code: string; name: string; amount: number }[];
     held: { code: string; name: string; amount: number }[];
   } | null> {
-    if (!billingGroups.length) return null;
+    if (!billingGroups.length && !camGroups.length) return null;
     const zip = new JSZip();
     const invoicePdfs: { propertyLabel: string; fileName: string; blob: Blob }[] = [];
     const filenameMonth = statementMonth || "Statement";
@@ -856,7 +824,7 @@ export default function ExpensesPage() {
       const invoiceBlob = buildInvoicePdf({
         propertyName: propName(g.propId),
         propertyCode: g.propId,
-        categoryGroups: invoiceLinesFor(g).categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
+        categoryGroups: invoiceLinesFor(g).categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount, cam: isCamCharge(t) })) })),
         invoiceDate: invoiceDate || "",
         statementMonth: statementMonth || "",
         periodText: statementPeriodText || "",
@@ -865,42 +833,35 @@ export default function ExpensesPage() {
         priorBalance: invoiceLinesFor(g).priorBalance,
       });
 
-      // Collect unique attachments for transactions in this property group
-      const seenTxIds = new Set<string>();
-      const propAttachmentFiles: File[] = [];
-      for (const cg of g.categoryGroups) {
-        for (const t of cg.items as any[]) {
-          if (t.id && !seenTxIds.has(t.id) && attachments.has(t.id)) {
-            seenTxIds.add(t.id);
-            propAttachmentFiles.push(attachments.get(t.id)!);
-          }
-        }
-      }
-
-      let finalBlob = invoiceBlob;
-      if (propAttachmentFiles.length > 0) {
-        try {
-          const merged = await PDFDocument.create();
-          const mainPdf = await PDFDocument.load(await invoiceBlob.arrayBuffer());
-          for (const page of await merged.copyPages(mainPdf, mainPdf.getPageIndices())) merged.addPage(page);
-          for (const attachFile of propAttachmentFiles) {
-            const attachPdf = await PDFDocument.load(await attachFile.arrayBuffer());
-            for (const page of await merged.copyPages(attachPdf, attachPdf.getPageIndices())) merged.addPage(page);
-          }
-          finalBlob = new Blob([await merged.save()], { type: "application/pdf" });
-        } catch (err) {
-          console.error(`Failed to merge attachments for ${g.propId}:`, err);
-        }
-      }
-
+      // Every charge's stored receipt rides behind its invoice.
+      const finalBlob = await appendReceipts(invoiceBlob, g.categoryGroups.flatMap((cg) => cg.items as any[]));
       const invFileName = `${filenameMonth} - ${g.propId}.pdf`;
       zip.file(invFileName, finalBlob);
       invoicePdfs.push({ propertyLabel: `${g.propId} — ${propName(g.propId)}`, fileName: invFileName, blob: finalBlob });
     }
 
+    // CAM — a SEPARATE invoice per property for the recoverable (-8502)
+    // charges, receipts attached: the tenants' CAM backup. Never held.
+    for (const g of camGroups) {
+      const camBlob = buildInvoicePdf({
+        propertyName: `${propName(g.propId)} — CAM (Recoverable)`,
+        propertyCode: g.propId,
+        categoryGroups: g.categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount, cam: true })) })),
+        invoiceDate: invoiceDate || "",
+        statementMonth: statementMonth || "",
+        periodText: statementPeriodText || "",
+        periodCompact: periodCompactStr,
+        invoiceId: camInvoiceId(g.propId),
+      });
+      const withReceipts = await appendReceipts(camBlob, g.categoryGroups.flatMap((cg) => cg.items as any[]));
+      const camFileName = `${filenameMonth} - ${g.propId} CAM.pdf`;
+      zip.file(camFileName, withReceipts);
+      invoicePdfs.push({ propertyLabel: `${g.propId} — ${propName(g.propId)} (CAM)`, fileName: camFileName, blob: withReceipts });
+    }
+
     // Harry fronts the whole statement — cut one reimbursement invoice for the
     // full statement total (the sum of every property's charges), payable to him.
-    if (isHarry && invoiceGroups.length) {
+    if (isHarry && (invoiceGroups.length || camGroups.length)) {
       const reimbBlob = buildReimbursementInvoicePdf({
         payeeName: "Harry Feldman",
         payeeVendorCode: "HARRY",
@@ -922,15 +883,19 @@ export default function ExpensesPage() {
     const gl = buildGLJournalEntry();
     // The billed amount for a property is its accrued balance (this month + any
     // carried-forward prior), matching each invoice's grand total.
-    const byProperty: AvidProperty[] = billingGroups
-      .map((g) => ({ code: g.propId, name: propName(g.propId), amount: Math.round(g.accrued * 100) / 100 }))
+    // CAM invoices add to the building's billed amount (one summary row per building).
+    const camByProp = new Map(camGroups.map((g) => [g.propId, g.total]));
+    const codes = [...new Set([...billingGroups.map((g) => g.propId), ...camGroups.map((g) => g.propId)])].sort();
+    const byProperty: AvidProperty[] = codes
+      .map((code) => ({ code, name: propName(code), amount: Math.round(((billByProp.get(code)?.accrued ?? 0) + (camByProp.get(code) ?? 0)) * 100) / 100 }))
       .filter((b) => b.amount > 0);
     const total = Math.round(byProperty.reduce((s, b) => s + b.amount, 0) * 100) / 100;
     // AP's register — every invoice going to Avid with its number and amount,
     // the reimbursement included (Tanya matches each one in AvidXchange).
     const register = [
-      ...byProperty.map((b) => ({ invoiceNumber: makeInvoiceId(b.code, statementMonth), code: b.code, name: b.name, amount: b.amount })),
-      ...(isHarry && invoiceGroups.length ? [{ invoiceNumber: makeInvoiceId("REIMB", statementMonth), code: "", name: "Harry Feldman reimbursement", amount: Math.round(reimb.total * 100) / 100 }] : []),
+      ...billingGroups.map((g) => ({ invoiceNumber: makeInvoiceId(g.propId, statementMonth), code: g.propId, name: propName(g.propId), amount: Math.round(g.accrued * 100) / 100 })).filter((r) => r.amount > 0),
+      ...camGroups.map((g) => ({ invoiceNumber: camInvoiceId(g.propId), code: g.propId, name: `${propName(g.propId)} (CAM)`, amount: Math.round(g.total * 100) / 100 })),
+      ...(isHarry && (invoiceGroups.length || camGroups.length) ? [{ invoiceNumber: makeInvoiceId("REIMB", statementMonth), code: "", name: "Harry Feldman reimbursement", amount: Math.round(reimb.total * 100) / 100 }] : []),
     ];
     // Held under $100 — no invoice in Avid this time; the register says so.
     const held = onHoldGroups
@@ -940,7 +905,7 @@ export default function ExpensesPage() {
   }
 
   async function generateAllPdfsZip() {
-    if (!billingGroups.length) return;
+    if (!billingGroups.length && !camGroups.length) return;
     if (!confirm(`Generate ${billingGroups.length} property invoice${billingGroups.length !== 1 ? "s" : ""} + TOP SHEET as a ZIP?${onHoldGroups.length ? `\n\n${onHoldGroups.length} propert${onHoldGroups.length === 1 ? "y is" : "ies are"} held under $${CARRYOVER_THRESHOLD} and excluded.` : ""}`)) return;
     const a = await buildCcArtifacts();
     if (!a) return;
@@ -964,7 +929,8 @@ export default function ExpensesPage() {
   // Review-before-send gate: build the batch, then open the confirm popup so the
   // reviewer okays the per-building summary before anything reaches Avid.
   async function reviewCcAndSend() {
-    if (!billingGroups.length) return;
+    if (!billingGroups.length && !camGroups.length) return;
+    if (uncodedLeft > 0) { alert(`${uncodedLeft} charge${uncodedLeft === 1 ? " is" : "s are"} not coded yet — ${uncodedWho}`); return; }
     if (!statementMonth) { alert("This statement has no readable month — re-import the credit-card statement so the period can be determined."); return; }
     setCcBuilding(true);
     try {
@@ -1119,7 +1085,7 @@ export default function ExpensesPage() {
     const invoiceBlob = buildInvoicePdf({
       propertyName: propName(g.propId),
       propertyCode: g.propId,
-      categoryGroups: invoiceLinesFor(g).categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount })) })),
+      categoryGroups: invoiceLinesFor(g).categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount, cam: isCamCharge(t) })) })),
       invoiceDate: invoiceDate || "",
       statementMonth: statementMonth || "",
       periodText: statementPeriodText || "",
@@ -1128,33 +1094,22 @@ export default function ExpensesPage() {
       priorBalance: invoiceLinesFor(g).priorBalance,
     });
 
-    const seenTxIds = new Set<string>();
-    const propAttachmentFiles: File[] = [];
-    for (const cg of g.categoryGroups) {
-      for (const t of cg.items as any[]) {
-        if (t.id && !seenTxIds.has(t.id) && attachments.has(t.id)) {
-          seenTxIds.add(t.id);
-          propAttachmentFiles.push(attachments.get(t.id)!);
-        }
-      }
-    }
-
-    let finalBlob: Blob = invoiceBlob;
-    if (propAttachmentFiles.length > 0) {
-      try {
-        const merged = await PDFDocument.create();
-        const mainPdf = await PDFDocument.load(await invoiceBlob.arrayBuffer());
-        for (const page of await merged.copyPages(mainPdf, mainPdf.getPageIndices())) merged.addPage(page);
-        for (const attachFile of propAttachmentFiles) {
-          const attachPdf = await PDFDocument.load(await attachFile.arrayBuffer());
-          for (const page of await merged.copyPages(attachPdf, attachPdf.getPageIndices())) merged.addPage(page);
-        }
-        finalBlob = new Blob([await merged.save()], { type: "application/pdf" });
-      } catch (err) {
-        console.error(`Failed to merge attachments for ${g.propId}:`, err);
-      }
-    }
+    const finalBlob = await appendReceipts(invoiceBlob, g.categoryGroups.flatMap((cg) => cg.items as any[]));
     download(`${filenameMonth} - ${g.propId}.pdf`, finalBlob);
+  }
+
+  async function downloadCamInvoicePdf(g: InvoiceGroup) {
+    const blob = buildInvoicePdf({
+      propertyName: `${propName(g.propId)} — CAM (Recoverable)`,
+      propertyCode: g.propId,
+      categoryGroups: g.categoryGroups.map((cg) => ({ category: cg.category, items: cg.items.map((t: any) => ({ date: t.date, description: t.description, amount: t.amount, category: t.category, suite: t.suite, codedDescription: t.codedDescription, originalAmount: t.originalAmount, cam: true })) })),
+      invoiceDate: invoiceDate || "",
+      statementMonth: statementMonth || "",
+      periodText: statementPeriodText || "",
+      periodCompact: periodCompactStr,
+      invoiceId: camInvoiceId(g.propId),
+    });
+    download(`${statementMonth || "Statement"} - ${g.propId} CAM.pdf`, await appendReceipts(blob, g.categoryGroups.flatMap((cg) => cg.items as any[])));
   }
 
   // Finalize the month: the single moment the carryover ledger is mutated.
@@ -1222,13 +1177,22 @@ export default function ExpensesPage() {
         </div>
       </header>
 
+      {/* ── Nothing sends until every charge is coded (owner: "once all charges
+           are coded then they can be sent") — who still owes what. ── */}
+      {!isMaint && uncodedLeft > 0 && (billingGroups.length > 0 || camGroups.length > 0) && !alreadyFinalized && (
+        <StatusBanner tone="warning" icon="clock" title={<>{uncodedLeft} charge{uncodedLeft === 1 ? "" : "s"} still to code before this batch can be sent</>}>
+          {uncodedWho}
+        </StatusBanner>
+      )}
+
       {/* ── Review & Send to AvidXchange — prominent, up top (mirrors Allocated) ── */}
-      {!isMaint && billingGroups.length > 0 && !alreadyFinalized && (
+      {!isMaint && uncodedLeft === 0 && (billingGroups.length > 0 || camGroups.length > 0) && !alreadyFinalized && (
         <StatusBanner tone="warning" title={<>{statementMonth || statementPeriodText || "Credit card expenses"} is ready to send</>}
           actions={<button className="btn primary" disabled={ccBuilding} onClick={reviewCcAndSend}>
             {ccBuilding ? "Preparing…" : "Review & Send to AvidXchange"}
           </button>}>
-          <b>{toMoney(ccBillTotal)}</b> across <b>{billingGroups.length}</b> propert{billingGroups.length === 1 ? "y" : "ies"}
+          <b>{toMoney(ccBillTotal + camTotal)}</b> across <b>{billingGroups.length}</b> propert{billingGroups.length === 1 ? "y" : "ies"}
+          {camGroups.length ? ` + ${camGroups.length} CAM invoice${camGroups.length === 1 ? "" : "s"}` : ""}
           {onHoldGroups.length ? ` · ${onHoldGroups.length} held under $${CARRYOVER_THRESHOLD}` : ""} · not sent yet
         </StatusBanner>
       )}
@@ -1388,7 +1352,7 @@ export default function ExpensesPage() {
                       {!isMaint && <th style={{ ...thBase, minWidth: 180 }} onClick={() => handleSortCol("acct")}>Account Code(s){sortIcon("acct")}</th>}
                       <th style={{ ...thBase, minWidth: 120 }} onClick={() => handleSortCol("suite")}>Suite (TI){sortIcon("suite")}</th>
                       <th style={{ ...thBase, minWidth: 260 }} onClick={() => handleSortCol("invDesc")}>Invoice Description{sortIcon("invDesc")}</th>
-                      <th style={{ ...thBase, minWidth: 120, cursor: "default" }}>Invoice PDF</th>
+                      <th style={{ ...thBase, minWidth: 200, cursor: "default" }}>CAM · Receipt</th>
                     </tr>
                     {showColFilters && (
                       <tr>
@@ -1429,7 +1393,7 @@ export default function ExpensesPage() {
             </thead>
             <tbody>
               {displayTx.map((t) => {
-                const acctCodes = getAccountCodes(t.category, t.propertyId);
+                const acctCodes = getAccountCodes(t.category, t.propertyId, t.cam);
                 const acctText = acctCodes.length ? acctCodes.join(", ") : "—";
                 const user = toTitleCaseFirstName(t.cardMember);
                 const displayDesc = trimLastTwoChars(String(t.description || ""));
@@ -1464,38 +1428,10 @@ export default function ExpensesPage() {
                       <input value={t.codedDescription} placeholder="Line item description…" onChange={(e) => updateTx(t.id, { codedDescription: e.target.value })} style={{ width: "100%", boxSizing: "border-box" }} />
                     </td>
                     <td style={{ padding: "8px", whiteSpace: "nowrap" }}>
-                      {(() => {
-                        const attached = attachments.get(t.id);
-                        return attached ? (
-                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span title={attached.name} style={{ fontSize: "var(--fs-12)", color: "var(--navy)", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "inline-block" }}>
-                              📎 {attached.name}
-                            </span>
-                            <button
-                              title="Remove attachment"
-                              onClick={() => removeAttachment(t.id)}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "var(--fs-14)", padding: "0 2px", lineHeight: 1 }}
-                            ><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
-                          </div>
-                        ) : (
-                          <>
-                            <input
-                              type="file"
-                              accept="application/pdf"
-                              style={{ display: "none" }}
-                              ref={(el) => { if (el) attachInputRefs.current.set(t.id, el); else attachInputRefs.current.delete(t.id); }}
-                              onChange={(e) => { const f = e.target.files?.[0]; if (f) attachInvoicePdf(t.id, f); }}
-                            />
-                            <button
-                              className="btn"
-                              style={{ fontSize: "var(--fs-11)", padding: "4px 8px", whiteSpace: "nowrap" }}
-                              onClick={() => attachInputRefs.current.get(t.id)?.click()}
-                            >
-                              + PDF
-                            </button>
-                          </>
-                        );
-                      })()}
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <CamToggle t={t} onChange={(cam) => updateTx(t.id, { cam })} />
+                        <ReceiptButton t={t} onSaved={receiptSaved} />
+                      </div>
                     </td>
                   </tr>
                 );
@@ -1614,11 +1550,11 @@ export default function ExpensesPage() {
       )}
 
       {/* ── Generate Invoices — hidden from maint. ── */}
-      {!isMaint && (billingGroups.length > 0 || onHoldGroups.length > 0) && (
+      {!isMaint && (billingGroups.length > 0 || onHoldGroups.length > 0 || camGroups.length > 0) && (
         <div className="card">
           <b>Generate Invoices</b>
           <div className="small muted" style={{ marginTop: 4, marginBottom: 14 }}>
-            One PDF invoice per billing property. Properties whose accrued balance is under ${CARRYOVER_THRESHOLD} are held and excluded from the invoices, GL Journal Entry, and TOP SHEET until they cross it{yearEnd ? " (December flushes everything)" : ""}.
+            One PDF invoice per billing property, plus a separate CAM invoice (receipts attached) for each property with charges ticked CAM — those are never held. Properties whose accrued balance is under ${CARRYOVER_THRESHOLD} are held and excluded from the invoices, GL Journal Entry, and TOP SHEET until they cross it{yearEnd ? " (December flushes everything)" : ""}.
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16, alignItems: "center" }}>
             <DownloadMenu
@@ -1626,7 +1562,7 @@ export default function ExpensesPage() {
               variant="primary"
               disabled={!billingGroups.length && !effectiveExpandedCoded.length && !effectiveInvoiceGroups.length}
               items={[
-                { label: "All Invoices (ZIP)", description: "One PDF per billing property + TOP SHEET", onClick: () => { if (billingGroups.length) generateAllPdfsZip(); } },
+                { label: "All Invoices (ZIP)", description: "One PDF per billing property + TOP SHEET", onClick: () => { if (billingGroups.length || camGroups.length) generateAllPdfsZip(); } },
                 { label: "Excel Summary", description: "Coded expenses workbook", onClick: () => { if (effectiveExpandedCoded.length) downloadExcelSummary(); } },
                 { label: "GL Journal Entry", description: "Journal entry for the billing properties", onClick: () => { if (effectiveInvoiceGroups.length) downloadGLExport(); } },
               ]}
@@ -1642,6 +1578,12 @@ export default function ExpensesPage() {
               >
                 {g.propId} — {propName(g.propId)}{" "}
                 <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(g.accrued)})</span>
+              </button>
+            ))}
+            {camGroups.map((g) => (
+              <button key={`cam-${g.propId}`} className="btn" style={{ fontSize: "var(--fs-12)", padding: "5px 10px" }} onClick={() => downloadCamInvoicePdf(g)}>
+                {g.propId} — CAM{" "}
+                <span style={{ color: "var(--muted)", marginLeft: 4 }}>({toMoney(g.total)})</span>
               </button>
             ))}
           </div>

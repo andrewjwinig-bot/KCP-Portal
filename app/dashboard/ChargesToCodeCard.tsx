@@ -11,8 +11,9 @@
 // nothing to code.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Circle, CircleCheck, CreditCard } from "lucide-react";
+import { ChevronRight, Circle, CircleCheck, CreditCard } from "lucide-react";
 import { CATEGORIES, PROPERTIES, isRowCoded, type Tx } from "@/lib/expenses/coding";
+import { CamToggle, ReceiptButton } from "@/app/expenses/ChargeCam";
 
 const money = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const FIELD: React.CSSProperties = { fontSize: "var(--fs-11)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)", marginBottom: 4, display: "block" };
@@ -22,7 +23,10 @@ function shortDate(s: string) {
   return Number.isNaN(d.getTime()) ? s : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-export default function ChargesToCodeCard() {
+/** `page` — Greg's My Card Charges page: every charge on his card (coded ones
+ *  included, to fix), always shown. Default — the dashboard card: only what
+ *  is left, hidden when nothing is. */
+export default function ChargesToCodeCard({ page = false }: { page?: boolean }) {
   const [rows, setRows] = useState<Tx[] | null>(null);
   const [period, setPeriod] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -37,12 +41,17 @@ export default function ChargesToCodeCard() {
       const mine: Tx[] = j.tx ?? [];
       setRows(mine);
       setPeriod(j.statementPeriodText ?? "");
-      setSeen(new Set(mine.filter((t) => !isRowCoded(t)).map((t) => t.id)));
+      setSeen(new Set((page ? mine : mine.filter((t) => !isRowCoded(t))).map((t) => t.id)));
     }).catch(() => setRows([]));
   }, []);
 
   const shown = useMemo(() => (rows ?? []).filter((t) => seen.has(t.id)), [rows, seen]);
-  if (!rows || !shown.length) return null;
+  if (!rows) return null;
+  if (!shown.length) {
+    return page ? (
+      <section className="card"><div className="small muted">No charges on your card to code right now. You'll get an email when the next statement is imported.</div></section>
+    ) : null;
+  }
   const left = shown.filter((t) => !isRowCoded(t)).length;
 
   function save(id: string, patch: Partial<Tx>, debounce = false) {
@@ -70,6 +79,7 @@ export default function ChargesToCodeCard() {
         </div>
         <div className="small muted">
           {left ? `${left} of ${shown.length} left` : `All ${shown.length} coded — Harry has them`}{period ? ` · ${period}` : ""}
+          {!page && <a className="text-link" href="/expenses/mine" style={{ marginLeft: 10 }}>Open<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px" }} /></a>}
         </div>
       </div>
       {error && <div className="small" style={{ color: "var(--c-b42318)" }}>{error}</div>}
@@ -113,6 +123,10 @@ export default function ChargesToCodeCard() {
                   <span style={FIELD}>Description</span>
                   <input value={t.codedDescription} placeholder="What it was for" onChange={(e) => save(t.id, { codedDescription: e.target.value }, true)} style={{ width: "100%" }} />
                 </label>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", paddingLeft: 30 }}>
+                <CamToggle t={t} onChange={(cam) => save(t.id, { cam })} />
+                <ReceiptButton t={t} onSaved={(nt) => setRows((prev) => (prev ?? []).map((x) => (x.id === nt.id ? { ...x, receipt: nt.receipt ?? null } : x)))} />
               </div>
             </div>
           );
