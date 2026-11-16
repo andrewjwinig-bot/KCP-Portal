@@ -244,7 +244,7 @@ export const USERS: Record<UserId, UserDef> = {
     // "tenant-notices" + Open Credits (view): he approves the month's tenant
     // account notices (owner, 11/2026: "greg should approve … greg should see
     // open credits page").
-    // "my-card": his own credit-card charges at /expenses/mine (owner, 11/2026)
+    // "my-card": his own credit-card charges at /expenses/mine, under Invoicing
     // — ONLY his; the full statement stays behind /expenses.
     navKeys: new Set([...SERVICE_NAV, "financials-budgets", "communications", "tenant-notices", "open-credits", "my-card"]),
     allowedPathPrefixes: [...SERVICE_PATHS, "/financials/budgets", "/communications", TENANT_NOTICES_PAGE, OPEN_CREDITS_PAGE, MY_CARD_PAGE],
