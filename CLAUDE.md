@@ -1893,6 +1893,15 @@ variant="credit-balance"`. Its title prints "Aging Report (Detailed)".
   notice, and the page says which source each comes from. It used to read the
   report alone and said "no report imported" while Receipt Reconciliation
   showed the same tenants' credits.
+- **MONTH OVER MONTH** (owner: "see the +/- over previous months to see if we
+  are getting things resolved"; `creditHistory.ts`, pure, pinned by
+  `creditHistory.test.ts`): each of the last six months read by the page's OWN
+  rule as of that month's end — the newest Credit Balance snapshot on or before
+  it where it covers a property, else that month's Laser Statement — ending on
+  the list shown. A month with no data of its own is left out, never repeated.
+  The page shows the **Month over Month** card (tenants, credits, Down / Up in
+  green / red, net), a **Resolved since <Mon>** tile, the Resolved / New lists,
+  and a **vs <Mon>** column per tenant (New / Down / Up / No change).
 - **A credit under $5 is not listed** (`MIN_OPEN_CREDIT`; owner: "we dont
   need to bother emailing the tenant for something that small") — the page
   says how many were left off. Receipt Reconciliation still applies them.
@@ -1970,6 +1979,20 @@ batch), `reminderSchedule.ts` (the calendar), `reminderInternalEmails.ts`
   Drew + Tami (`CREDIT_SUMMARY_TO`) every credit asked for, unposted first.
 - **Open Credits counts the asks** — "Attempts" beside Last asked: open-credit
   notices + monthly notices. Greg VIEWS Open Credits.
+- **GREG IS TOLD WHERE HE LOOKS** (owner: "should also be on his action items
+  … there is no icon with # on the sidebar"): while the month's batch is built
+  and not sent, his dashboard's Action Items carry **Approve <Month>'s Tenant
+  Notices** (`TenantNoticesReminder.tsx`) and the sidebar's Tenant Notices
+  shows the count to send (`fetchPendingNotices`, shared).
+- **GREG SETS WHO EACH NOTICE GOES TO** (owner: "add or edit the email it sends
+  to in case there are multiple recipients or it needs to be updated"): the
+  pencil (or + where none is on file) beside Sends to opens Send To —
+  addresses added, edited, removed (`setRecipients`, `POST /api/tenant-notices
+  { action: "recipients" }`). Saved on the SUITE'S CONTACTS, not the batch
+  alone: the addresses become the suite's statement recipients (a new one is
+  added as a contact), every other contact stays but is no longer one — so it
+  holds next month and for Tami's emails too. At least one address (to send
+  nothing, untick the tenant).
 - The three staff emails are `portalEmail` (the portal's own look); only the
   tenant-facing notices use the Interplex look. Pinned by
   `monthlyReminder.test.ts`, `reminderBatch.test.ts`, `authz.test.ts`.

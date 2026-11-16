@@ -10,7 +10,7 @@
 
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Eye, Send, X } from "lucide-react";
+import { Eye, Pencil, Plus, Send, X } from "lucide-react";
 import { PageHeader } from "@/app/components/PageHeader";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { StatPill } from "@/app/components/Pill";
@@ -43,6 +43,7 @@ export default function TenantNoticesPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<BatchItem | null>(null);
+  const [editing, setEditing] = useState<BatchItem | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [result, setResult] = useState<{ sent: number; failed: number; remaining: number } | null>(null);
 
@@ -177,9 +178,18 @@ export default function TenantNoticesPage() {
                             <td style={{ ...tdL, whiteSpace: "normal", fontSize: "var(--fs-12-5)" }}>
                               {i.status === "sent" ? <span style={{ color: "var(--c-15803d)", fontWeight: 600 }}>Sent {i.sentAt ? when(i.sentAt) : ""}</span>
                                 : i.status === "failed" ? <span style={{ color: "var(--c-b91c1c)", fontWeight: 600 }}>Did not send · {i.error}</span>
-                                : i.blocked ? <span style={{ color: "var(--c-b45309)", fontWeight: 600 }}>{i.blocked}</span>
-                                : !i.send ? <span className="muted">Held back{i.toggledBy ? ` by ${i.toggledBy}` : ""}</span>
-                                : <span className="muted">{i.recipients.join(", ")}</span>}
+                                : <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                    {i.blocked ? <span style={{ color: "var(--c-b45309)", fontWeight: 600 }}>{i.blocked}</span>
+                                      : !i.send ? <span className="muted">Held back{i.toggledBy ? ` by ${i.toggledBy}` : ""}</span>
+                                      : <span className="muted">{i.recipients.join(", ")}</span>}
+                                    {!sentAll && (
+                                      <button className="icon-tip" data-tip={i.blocked ? "Add an email" : "Edit recipients"} aria-label={`Edit recipients for ${i.tenantName}`}
+                                        onClick={() => setEditing(i)}
+                                        style={{ border: 0, background: "transparent", padding: 2, cursor: "pointer", color: "var(--c-0b4a7d)", display: "inline-flex" }}>
+                                        {i.blocked ? <Plus {...ICON} /> : <Pencil {...ICON} />}
+                                      </button>
+                                    )}
+                                  </span>}
                             </td>
                             <td style={{ ...td, whiteSpace: "nowrap" }}>
                               <button className="btn sm" onClick={() => setPreview(i)}><Eye {...ICON} /> Preview</button>
@@ -199,6 +209,17 @@ export default function TenantNoticesPage() {
 
       {data && (b?.approvedAt || data.requests.length > 0) && <CreditRequests data={data} onChange={load} post={post} busy={busy} />}
 
+      {editing && b && (
+        <RecipientsModal item={editing} onClose={() => setEditing(null)}
+          onSave={async (emails) => {
+            // Its own request, so a refusal shows IN the dialog, not behind it.
+            const r = await fetch("/api/tenant-notices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ month: b.month, action: "recipients", unitRef: editing.unitRef, emails }) }).catch(() => null);
+            const j = r ? await r.json().catch(() => null) : null;
+            if (!r?.ok || !j?.ok) return j?.error ?? "Could not save the recipients.";
+            setData((d) => d ? { ...d, batch: j.batch, counts: j.counts } : d); setEditing(null);
+            return null;
+          }} />
+      )}
       {preview && b && <PreviewModal month={b.month} item={preview} onClose={() => setPreview(null)} />}
       {confirm && b && c && <ConfirmSend batch={b} counts={c} busy={busy === "send"} onCancel={() => setConfirm(false)} onSend={send} />}
     </main>
@@ -305,6 +326,38 @@ function ConfirmSend({ batch, counts, busy, onCancel, onSend }: { batch: Reminde
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
           <button className="btn" onClick={onCancel} disabled={busy}>Cancel</button>
           <button className="btn primary" onClick={onSend} disabled={busy}><Send {...ICON} /> {busy ? "Sending…" : `Send ${counts.toSend} Notices`}</button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/** Who this tenant's notice goes to. Saved on the suite's contacts, so it
+ *  holds for next month and for Tami's emails too. */
+function RecipientsModal({ item, onClose, onSave }: { item: BatchItem; onClose: () => void; onSave: (emails: string[]) => Promise<string | null> }) {
+  const [rows, setRows] = useState<string[]>(item.recipients.length ? item.recipients : [""]);
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const clean = rows.map((r) => r.trim()).filter(Boolean);
+  return (
+    <Modal title={`Send To — ${item.tenantName}`} onClose={onClose} width={520}>
+      <div style={{ display: "grid", gap: 10 }}>
+        <div className="small muted">Every address here gets this tenant&apos;s notice. It is saved on the suite&apos;s contacts (<code>{item.unitRef}</code>), so next month&apos;s notices and Tami&apos;s emails go to the same people.</div>
+        {rows.map((r, idx) => (
+          <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input type="email" value={r} placeholder="name@company.com" autoFocus={idx === rows.length - 1 && !r}
+              onChange={(e) => setRows((x) => x.map((v, j) => (j === idx ? e.target.value : v)))} style={{ flex: 1 }} />
+            <button className="btn sm" aria-label="Remove this address" onClick={() => setRows((x) => (x.length > 1 ? x.filter((_, j) => j !== idx) : [""]))}><X {...ICON} /></button>
+          </div>
+        ))}
+        <div><button className="btn sm" onClick={() => setRows((x) => [...x, ""])}><Plus {...ICON} /> Add Address</button></div>
+        {err && <StatusBanner compact tone="danger" title="Not saved">{err}</StatusBanner>}
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button className="btn" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn primary" disabled={saving || !clean.length}
+            onClick={async () => { setSaving(true); setErr(await onSave(clean)); setSaving(false); }}>
+            {saving ? "Saving…" : `Save ${clean.length} Recipient${clean.length === 1 ? "" : "s"}`}
+          </button>
         </div>
       </div>
     </Modal>

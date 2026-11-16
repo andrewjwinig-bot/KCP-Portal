@@ -32,6 +32,8 @@ import {
   type AccountIn, type BatchItem, type CreditRequest, type ReminderBatch,
 } from "./reminderBatch";
 import { approvalReminderEmail, approvalRequestEmail, creditSummaryEmail, postCreditEmail } from "./reminderInternalEmails";
+import { getOrEmptySuiteContacts, saveSuiteContacts } from "@/lib/suites/contactsStorage";
+import { emptyContact } from "@/lib/suites/contacts";
 import { addBusinessDays, applyDeadline, AUTO_SEND_AFTER_BUSINESS_DAYS, creditSummaryDay, etToday, nextMonthOf, NOTICE_DAY, REMIND_AFTER_BUSINESS_DAYS } from "./reminderSchedule";
 import { signCreditApplyToken, creditApplySecret } from "./creditApplyLink";
 
@@ -158,6 +160,36 @@ export async function setSend(month: string, unitRefs: string[], send: boolean, 
   b.items = b.items.map((i) => (keys.has(i.unitRef.toUpperCase()) && i.status !== "sent" ? { ...i, send, toggledBy: by } : i));
   await saveBatch(b);
   return b;
+}
+
+/** Greg sets who a tenant's notice goes to (owner: "greg needs to be able to
+ *  add or edit the email it sends to in case there are multiple recipients or
+ *  it needs to be updated"). Saved on the SUITE'S CONTACTS — the one list
+ *  every tenant email reads — so it holds next month and for Tami's emails
+ *  too: the addresses given become the suite's statement recipients (a new one
+ *  is added as a contact), every other contact stays but is no longer one. */
+export async function setRecipients(month: string, unitRef: string, emails: string[]): Promise<{ batch: ReminderBatch | null; error?: string }> {
+  const clean = [...new Map(emails.map((e) => e.trim()).filter(Boolean).map((e) => [e.toLowerCase(), e])).values()];
+  if (!clean.length) return { batch: null, error: "Keep at least one address — to not send this tenant a notice, untick them instead." };
+  const bad = clean.find((e) => !/^[^\s@,;<>]+@[^\s@,;<>]+\.[a-z]{2,}$/i.test(e));
+  if (bad) return { batch: null, error: `"${bad}" is not an email address.` };
+  const b = await getBatch(month);
+  if (!b) return { batch: null, error: "No notices for that month." };
+  const item = b.items.find((i) => i.unitRef.toUpperCase() === unitRef.toUpperCase());
+  if (!item) return { batch: null, error: "That tenant is not in this month's notices." };
+  if (item.status === "sent") return { batch: null, error: "This tenant's notice has already gone." };
+  const suite = unitRef.replace(/-(CU|FO)$/i, "");
+  const rec = await getOrEmptySuiteContacts(suite);
+  const want = new Set(clean.map((e) => e.toLowerCase()));
+  const contacts = rec.contacts.map((c) => ({ ...c, camRecipient: !!c.email.trim() && want.has(c.email.trim().toLowerCase()) }));
+  for (const e of clean) {
+    if (!contacts.some((c) => c.email.trim().toLowerCase() === e.toLowerCase())) contacts.push({ ...emptyContact(), email: e, camRecipient: true, source: "staff" });
+  }
+  await saveSuiteContacts(suite, contacts);
+  item.recipients = await suiteRecipients(item.unitRef);
+  item.blocked = item.recipients.length ? null : "No email on file";
+  await saveBatch(b);
+  return { batch: b };
 }
 
 // ─── The emails ──────────────────────────────────────────────────────────────

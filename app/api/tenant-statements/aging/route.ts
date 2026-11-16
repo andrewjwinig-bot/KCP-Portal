@@ -11,7 +11,10 @@
 //                              Bcc Tami, record it on the tenant's correspondence
 
 import { NextRequest, NextResponse } from "next/server";
-import { currentAging, importAging } from "@/lib/statements/agingStore";
+import { allAgingSnapshots, currentAging, importAging } from "@/lib/statements/agingStore";
+import { allRuns } from "@/lib/statements/store";
+import { laserDate } from "@/lib/statements/currentAccount";
+import { creditChange, creditHistory } from "@/lib/statements/creditHistory";
 import { agingLookup, creditLinesOf, daysOpen, MIN_OPEN_CREDIT, type CurrentAgingTenant, type OpenCreditTenant } from "@/lib/statements/aging";
 import { openCreditTenants } from "@/lib/statements/openCreditTenants";
 import { creditNoticeParts, creditNoticeTableHtml, creditTotals, nextMonthLabel, renderCreditNotice } from "@/lib/statements/creditNotice";
@@ -60,7 +63,17 @@ export async function GET(req: NextRequest) {
     if (!t) return NextResponse.json({ error: "That tenant is not on the latest Credit Balance report." }, { status: 404 });
     return NextResponse.json({ ok: true, draft: await draftFor(t), recipients: await suiteRecipients(t.unitRef), totals: creditTotals(t.lines) });
   }
-  const [aging, corr, notes] = await Promise.all([openCreditTenants(), allCorrespondence().catch(() => []), creditNotes().catch(() => ({}))]);
+  const [aging, corr, notes, snaps, runs] = await Promise.all([
+    openCreditTenants(), allCorrespondence().catch(() => []), creditNotes().catch(() => ({})),
+    allAgingSnapshots().catch(() => []), allRuns().catch(() => []),
+  ]);
+  // Month over month (owner: "see the +/- over previous months to see if we
+  // are getting things resolved"): each month read by the page's own rule.
+  const history = creditHistory(aging.tenants, snaps, runs, (st, upd) => laserDate(st, upd));
+  const change = creditChange(history);
+  const nameOf = new Map<string, string>();
+  for (const r of runs.slice(0, 6)) for (const st of r.statements) if (!nameOf.has(st.unitRef.toUpperCase())) nameOf.set(st.unitRef.toUpperCase(), st.tenantName);
+  for (const sn of snaps) for (const t of sn.tenants) if (!nameOf.has(t.unitRef.toUpperCase())) nameOf.set(t.unitRef.toUpperCase(), t.tenantName);
   let small = 0;
   const tenants = aging.tenants
     .map((t) => {
@@ -90,6 +103,13 @@ export async function GET(req: NextRequest) {
     ok: true, asOf, runAt: aging.tenants.find((t) => t.asOf === asOf && !(t as OpenCreditTenant).fromLaser)?.runAt ?? null, properties: Object.keys(aging.coverage).length, tenants,
     // Tenants read off the laser statement (properties the Credit Balance report doesn't cover).
     small, minCredit: MIN_OPEN_CREDIT,
+    trend: history.map(({ byUnit: _u, ...m }) => m),
+    change: change ? {
+      prior: { month: change.prior.month, asOf: change.prior.asOf },
+      priorByUnit: change.prior.byUnit,
+      resolved: change.resolved.map((x) => ({ ...x, tenantName: nameOf.get(x.unitRef) ?? x.unitRef })),
+      added: change.added.map((x) => ({ ...x, tenantName: nameOf.get(x.unitRef) ?? x.unitRef })),
+    } : null,
     laser: aging.laserPeriod ? { period: aging.laserPeriod, asOf: aging.laserAsOf } : null,
   });
 }
