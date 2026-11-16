@@ -71,3 +71,8 @@ export function verifyUserPassword(userId: string, password: string): boolean | 
   if (!password) return false;
   return stored.startsWith("scrypt$") ? verifyScrypt(password, stored) : safeEqual(password, stored);
 }
+
+/** True when the user has an entry in SITE_USER_PASSWORDS (Vercel). */
+export function hasEnvPassword(userId: string): boolean {
+  return !!load()?.[userId];
+}

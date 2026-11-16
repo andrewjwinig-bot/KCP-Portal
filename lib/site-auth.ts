@@ -44,21 +44,25 @@ export async function signSiteToken(
   secret: string,
   userId: string,
   enrollPending = false,
+  passwordPending = false,
 ): Promise<{ value: string; maxAge: number }> {
   const { expiresSec, maxAge } = dailyExpiry();
-  // Normal sessions stay 3-part (unchanged); an enroll-pending session adds an
-  // "enroll" flag segment so the middleware can confine the user to 2FA setup.
-  const payload = enrollPending ? `${expiresSec}.${userId}.enroll` : `${expiresSec}.${userId}`;
+  // Normal sessions stay 3-part (unchanged). A confined session adds ONE flag
+  // segment, signed with the rest: "enroll" (2FA setup owed), "pw" (a one-time
+  // password — the user must choose their own), or "enroll-pw" (both). The
+  // middleware confines such a session to /security until it is cleared.
+  const flag = [enrollPending ? "enroll" : "", passwordPending ? "pw" : ""].filter(Boolean).join("-");
+  const payload = flag ? `${expiresSec}.${userId}.${flag}` : `${expiresSec}.${userId}`;
   const sig = await hmac(secret, payload);
   return { value: `${payload}.${b64urlEncode(sig)}`, maxAge };
 }
 
 /** Verify a site token. Returns the signed-in user id + whether the session is
- *  confined to 2FA enrollment, or null if invalid. */
+ *  confined to 2FA enrollment / to choosing a password, or null if invalid. */
 export async function verifySiteTokenFull(
   token: string | undefined,
   secret: string,
-): Promise<{ userId: string; enrollPending: boolean } | null> {
+): Promise<{ userId: string; enrollPending: boolean; passwordPending: boolean } | null> {
   if (!token) return null;
   const parts = token.split(".");
   let expiresStr: string, userId: string, flag: string, sigStr: string;
@@ -72,7 +76,9 @@ export async function verifySiteTokenFull(
   const expected = await hmac(secret, payload);
   let provided: Uint8Array;
   try { provided = b64urlDecode(sigStr); } catch { return null; }
-  return timingSafeEqual(expected, provided) ? { userId, enrollPending: flag === "enroll" } : null;
+  if (!timingSafeEqual(expected, provided)) return null;
+  const flags = new Set(flag.split("-"));
+  return { userId, enrollPending: flags.has("enroll"), passwordPending: flags.has("pw") };
 }
 
 /** Verify a site token → the signed-in user id (or null). */

@@ -7,6 +7,8 @@ import { ChevronRight } from "lucide-react";
 
 import { useEffect, useState } from "react";
 import { Pill, TONE_GREEN, TONE_NEUTRAL } from "@/app/components/Pill";
+import { PasswordCard, PasswordResetCard } from "./PasswordCards";
+import { USERS, type UserId } from "@/lib/users";
 
 type Status = { user: string | null; enabled: boolean; required: boolean; disabled: boolean };
 type Enrollment = { otpauthUri: string; secret: string; manualKey: string; qrDataUrl: string };
@@ -71,6 +73,8 @@ export default function SecurityPage() {
       {status?.required && !status?.enabled && !status?.disabled && (
         <StatusBanner tone="warning" title="Two-factor authentication is required">Set it up below to continue using the portal.</StatusBanner>
       )}
+
+      <PasswordCard userId={status?.user ?? null} label={status?.user ? USERS[status.user as UserId]?.label : undefined} />
 
       <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -154,6 +158,8 @@ export default function SecurityPage() {
           </div>
         </div>
       )}
+
+      <PasswordResetCard />
 
       <p className="muted small" style={{ margin: 0 }}>Lost your device? An admin can clear 2FA via the <code>SITE_2FA_DISABLED</code> env var to restore password-only login.</p>
     </main>
