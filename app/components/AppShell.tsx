@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "./Sidebar";
 import GlobalSearch from "./GlobalSearch";
 import { useUser } from "./UserProvider";
 import { isPathAllowed } from "../../lib/users";
 import { applySkin, isSkinReviewer, readSkin } from "./SkinToggle";
+import { rememberSkin } from "../../lib/ui/firstPaint";
 import TitleTips from "./TitleTips";
 import { ScrollSync } from "./ScrollSync";
+
+const useBeforePaintShell = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 // Routes that render without the portal chrome (no sidebar, no auth gate).
 // These are exempt from the site-cookie check in middleware too, so anyone
@@ -32,6 +35,12 @@ export default function AppShell({ children, website = false }: { children: Reac
   // tenant portal or forms, even when a staff member opens one.
   // Every signed-in staff login gets it (classic stays one click away);
   // until we know who is signed in, keep whatever the pre-paint script set.
+  // A PUBLIC page never wears the new look — clear it before paint, without
+  // waiting for the sign-in check (the server marks <html> for any signed-in
+  // request, and a staff member can open a tenant or website page).
+  useBeforePaintShell(() => {
+    if (isPublic) applySkin("classic", true);
+  }, [isPublic]);
   useEffect(() => {
     if (!hydrated) return;
     // Mid sign-in / user switch there is briefly no one signed in: keep the
@@ -41,6 +50,9 @@ export default function AppShell({ children, website = false }: { children: Reac
     if (!loggedInUser && !isPublic) return;
     const skin = readSkin(isSkinReviewer(loggedInUser));
     applySkin(skin, isPublic);
+    // Keep the cookie the server draws the first frame from in step with the
+    // browser's choice (a "classic" chosen before the cookie existed).
+    if (!isPublic) rememberSkin(skin);
     setTipsOn(skin === "studio" && !isPublic);
   }, [isPublic, hydrated, loggedInUser]);
 

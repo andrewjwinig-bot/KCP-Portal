@@ -11,6 +11,7 @@
 
 import QuickLinks from "./QuickLinks";
 import { useEffect, useMemo, useState } from "react";
+import LoadingState from "@/app/components/LoadingState";
 import Link from "next/link";
 import {
   CircleCheck, Clock, FileCheck, Flag, Landmark, Plus, Send, Upload, UserRound, type LucideIcon,
@@ -90,6 +91,14 @@ const UNSENT_HREF: Record<string, string> = { allocated: "/allocated-invoicer", 
 
 export default function WorkQueue({ firstName, owner = "drew" }: { firstName: string; owner?: TaskOwner }) {
   const now = useMemo(() => new Date(), []);
+  // Everything below is worked out from TODAY — buckets, overdue counts, the
+  // greeting — and the server's today (UTC) is tomorrow every evening after
+  // 7pm Eastern. A first frame drawn on the server therefore never matched
+  // the browser's, React discarded the whole page and redrew it, and the
+  // portal flashed its classic look meanwhile. So the queue draws in the
+  // browser only: the server and the first browser frame both show the loader.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [tab, setTab] = useState<"me" | "waiting" | "everyone" | "done">("me");
   const [sel, setSel] = useState<string | null>(null);
 
@@ -289,14 +298,20 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
     : SECTIONS.map(([b, label, color]) => ({ key: b, label, color, rows: shown.filter((q) => q.bucket === b) })).filter((g) => g.rows.length);
 
   const selected = shown.find((q) => q.id === sel) ?? shown[0] ?? null;
-  const hour = now.getHours();
+  // The date and greeting are drawn in EASTERN time on the server and in the
+  // browser alike. Drawn in each one's own zone, the server (UTC) said
+  // "Tuesday" while the browser said "Monday" every evening after 7pm, React
+  // threw the whole first frame away, and the page flashed the classic look.
+  const hour = Number(now.toLocaleString("en-US", { timeZone: "America/New_York", hour: "numeric", hourCycle: "h23" }));
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
+  if (!mounted) return <LoadingState status="Loading your work queue…" rows={4} />;
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "flex-end", justifyContent: "space-between", gap: 16 }}>
         <div style={{ display: "grid", gap: 4 }}>
-          <span style={{ ...SECTION, color: "var(--muted)" }}>{now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}</span>
+          <span style={{ ...SECTION, color: "var(--muted)" }}>{now.toLocaleDateString("en-US", { timeZone: "America/New_York", weekday: "long", month: "long", day: "numeric" })}</span>
           <h1 style={{ margin: 0 }}>{greeting}, {firstName}</h1>
           <span style={{ color: "var(--muted)", fontSize: "var(--fs-14)" }}>
             {counts.me} thing{counts.me === 1 ? "" : "s"} need you{overdue ? ` · ${overdue} overdue` : ""} · {counts.waiting} waiting on others

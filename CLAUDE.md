@@ -401,6 +401,19 @@ touched UI to it.
   (`rememberActiveUser` — the profile admin / Alison are viewing, set by the
   logins and the switcher; `rememberSkin` — only "classic" is recorded).
   Never set `kcp:activeUser` or `kcp:skin` without them.
+  **The server also puts `data-skin="studio"` ON `<html>` itself** (signed-in
+  staff request, skin cookie not "classic"; `suppressHydrationWarning`), and
+  that is what actually stopped the flash (owner, again, 11/16/26): ANY
+  hydration mismatch makes React discard the server HTML and redraw from the
+  root, resetting `<html>` to its props — the pre-paint script's attribute was
+  wiped and the page sat in classic until AppShell re-applied it. The worst
+  mismatch was **the Work Queue's date**: the server's today is UTC, so every
+  evening after 7pm Eastern it drew "Tuesday" against the browser's "Monday"
+  (and different overdue counts). The queue now draws in the browser only
+  (`mounted`; the loader on the first frame), and its date / greeting read
+  Eastern time. A page that renders TODAY on the first frame must do the same.
+  AppShell clears the look before paint on a public page, and keeps the skin
+  cookie in step with the browser's choice.
 - **ONE LOADER: `LoadingState`** (`app/components/LoadingState.tsx` — the
   skyline + skeleton; owner: "bank rec loading state is different… should it
   be"). Every page's first load and every long run show it; a long one-request
