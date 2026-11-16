@@ -94,7 +94,7 @@ Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the bill
 - **GREG CODES HIS CHARGES ON HIS OWN PAGE, AND IS EMAILED WHEN THEY ARE IN**
   (owner: "make a credit card page for Greg … make him code all the charges
   with him as the user"; "email greg to let him know … itemize his charges").
-  **My Card Charges** (`/expenses/mine`, `MY_CARD_PAGE`, nav `my-card`) is the
+  **My Card Charges** (`/expenses/mine`, `MY_CARD_PAGE`, nav `my-card`, sidebar Invoicing) is the
   dashboard's `ChargesToCodeCard` with `page` — every charge on his card, CAM
   tick and receipt included; never the `/expenses` grant (that is the whole
   statement). A statement import (`POST /api/expenses/working`
