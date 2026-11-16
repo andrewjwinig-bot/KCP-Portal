@@ -15,6 +15,8 @@ import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { bankTaskOccurrence } from "@/lib/tracker/taskDefs";
 import { maybeSendCashPosition } from "@/lib/financials/bank-balances/ownershipEmail";
 
+const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -45,9 +47,18 @@ export async function POST(req: Request) {
   try {
     const form = await req.formData();
     const files = form.getAll("files").filter((f): f is File => f instanceof File);
-    if (!files.length) return NextResponse.json({ error: "No files uploaded." }, { status: 400 });
+    // An "Adobe PDF" printout has no readable text; the page reads it by OCR
+    // in the browser (lib/ocr/pdfOcr.ts) and sends the recognised TEXT here.
+    const ocrTexts = form.getAll("ocr").flatMap((v) => {
+      if (typeof v !== "string" || v.length > 500_000) return [];
+      try {
+        const o = JSON.parse(v);
+        return typeof o?.file === "string" && typeof o?.text === "string" ? [{ file: o.file as string, text: o.text as string }] : [];
+      } catch { return []; }
+    });
+    if (!files.length && !ocrTexts.length) return NextResponse.json({ error: "No files uploaded." }, { status: 400 });
     const parsed: ParsedStatement[] = [];
-    const results: { file: string; bank: string | null; accounts: number; total: number; error?: string }[] = [];
+    const results: { file: string; bank: string | null; accounts: number; total: number; error?: string; ocr?: boolean; totalCheck?: ParsedStatement["totalCheck"] }[] = [];
     for (const file of files) {
       try {
         const buf = Buffer.from(await file.arrayBuffer());
@@ -63,10 +74,25 @@ export async function POST(req: Request) {
         results.push({ file: file.name, bank: null, accounts: 0, total: 0, error: e?.message ?? "Could not read the PDF" });
       }
     }
+    for (const { file, text } of ocrTexts) {
+      const s = parseBankBalances(text, { ocr: true });
+      if (!s || !s.accounts.length) { results.push({ file, bank: s?.bank ?? null, accounts: 0, total: 0, ocr: true, error: UNREADABLE_PDF_MESSAGE }); continue; }
+      const total = Math.round(s.accounts.reduce((t, a) => t + a.balance, 0) * 100) / 100;
+      // One misread digit is a wrong balance — and the import can send the
+      // cash position to ownership. A page whose accounts don't add up to the
+      // total the bank printed on it is refused, not imported.
+      if (s.totalCheck && !s.totalCheck.ties) {
+        results.push({ file, bank: s.bank, accounts: 0, total: 0, ocr: true, totalCheck: s.totalCheck,
+          error: `Read by OCR, but the ${s.accounts.length} accounts read add to ${usd(s.totalCheck.sum)} against the ${s.totalCheck.what} the bank printed, ${usd(s.totalCheck.printed)} — a figure was misread. Re-save the page from Chrome (Print → "Save as PDF") and import that file.` });
+        continue;
+      }
+      parsed.push(s);
+      results.push({ file, bank: s.bank, accounts: s.accounts.length, total, ocr: true, totalCheck: s.totalCheck ?? null });
+    }
     if (!parsed.length) return NextResponse.json({ error: results[0]?.error ?? "Nothing imported.", results }, { status: 400 });
     const by = user ? USERS[user]?.label ?? user : null;
     const saved = await saveImport(parsed, by);
-    await logAudit({ event: "bank-balances.import", user: user ?? "?", ip: auditIp(req), detail: results.map((r) => `${r.bank ?? r.file}: ${r.accounts}`).join(" · ") }).catch(() => {});
+    await logAudit({ event: "bank-balances.import", user: user ?? "?", ip: auditIp(req), detail: results.map((r) => `${r.bank ?? r.file}: ${r.accounts}${r.ocr ? " (OCR)" : ""}`).join(" · ") }).catch(() => {});
     try { await recordImport("imp-bank", { at: new Date().toISOString(), by }); } catch { /* best-effort */ }
     // …and ticks this week's Monday "Bank Balances" task on everyone's tracker.
     try {

@@ -23,6 +23,21 @@ import { useImport } from "@/app/components/import/ImportProvider";
 import { useUser } from "@/app/components/UserProvider";
 import { CashForecastCard } from "./CashForecastCard";
 import { BalanceTrendModal, type PortfolioPoint, type TrendMetric } from "./BalanceTrendModal";
+import { ocrPdfs, pdfTextLayer } from "@/lib/ocr/pdfOcr";
+import { unreadablePdfText } from "@/lib/financials/bank-balances/parse";
+
+/** A PDF whose text layer reads as nothing (an "Adobe PDF" printout) — the
+ *  server could not read it either, so it is OCR'd here first. A file that is
+ *  not a PDF, or that pdf.js cannot open, goes to the server as it is. */
+async function looksUnreadable(f: File): Promise<boolean> {
+  try {
+    const head = new TextDecoder("latin1").decode(await f.slice(0, 1024).arrayBuffer());
+    if (!head.includes("%PDF")) return false;
+    return unreadablePdfText(await pdfTextLayer(f));
+  } catch {
+    return false;
+  }
+}
 
 type Account = { id: string; bank: string; last4: string; name: string; link: string | null; balance: number | null; available: number | null; asOf: string | null; prior: { balance: number; asOf: string } | null };
 type Row = {
@@ -140,7 +155,7 @@ export default function BankBalancesView() {
   async function importFiles(files: File[]) {
     if (!files.length) return;
     setBusy(true); setError(null); setNotice(null);
-    type Result = { file: string; bank: string | null; accounts: number; total: number; error?: string };
+    type Result = { file: string; bank: string | null; accounts: number; total: number; error?: string; ocr?: boolean; totalCheck?: { ties: boolean; what: string } | null };
     try {
       await startImport({
         kind: "bank-balances",
@@ -150,7 +165,23 @@ export default function BankBalancesView() {
         by: user?.label,
         uploadAll: async (all, { signal }) => {
           const fd = new FormData();
-          for (const f of all) fd.append("files", f);
+          // A PDF printed through "Adobe PDF" has no readable text: read it
+          // here by OCR and send the TEXT (parsed server-side by the same
+          // parse.ts). Anything that goes wrong sends the file as it is, and the
+          // server says it couldn't be read.
+          const needOcr: File[] = [];
+          for (const f of all) {
+            if (await looksUnreadable(f)) needOcr.push(f);
+            else fd.append("files", f);
+          }
+          if (needOcr.length) {
+            try {
+              const texts = await ocrPdfs(needOcr);
+              needOcr.forEach((f, i) => fd.append("ocr", JSON.stringify({ file: f.name, text: texts[i] })));
+            } catch {
+              for (const f of needOcr) fd.append("files", f);
+            }
+          }
           const res = await fetch("/api/financials/bank-balances", { method: "POST", body: fd, signal });
           const j = await res.json().catch(() => ({}));
           const results: Result[] = j.results ?? [];
@@ -166,6 +197,12 @@ export default function BankBalancesView() {
                 detail: money0(r.total),
                 count: r.accounts,
                 countLabel: r.accounts === 1 ? "account" : "accounts",
+                // Read off the page image: say so, and whether the accounts
+                // add up to the total the bank printed.
+                ...(r.ocr ? {
+                  note: r.totalCheck?.ties ? `Read by OCR — ties to the bank's printed ${r.totalCheck.what}` : "Read by OCR — check the figures",
+                  noteTone: r.totalCheck?.ties ? ("ok" as const) : ("warn" as const),
+                } : {}),
               };
             }),
           };
