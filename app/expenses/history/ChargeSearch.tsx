@@ -5,7 +5,7 @@
 // table: a period range, a text search, category / property / card member /
 // amount filters, every column sortable, and the total of what is showing.
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Download, Search, X } from "lucide-react";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { newWorkbook, headerBand, FMT, liveSum, titleBlock, freezeAbove, totalEmphasis } from "@/lib/excel/theme";
@@ -82,7 +82,9 @@ export function ChargeSearch({ onlyMember }: { onlyMember?: (c: Charge) => boole
   const [member, setMember] = useState("");
   const [min, setMin] = useState("");
   const [max, setMax] = useState("");
-  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "date", dir: -1 });
+  // Opens grouped by BATCH (the statement), newest first (owner: "still group
+  // by batch … so i can see cut offs for specific batch").
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "statement", dir: -1 });
 
   useEffect(() => {
     fetch("/api/statements?charges=1")
@@ -142,7 +144,7 @@ export function ChargeSearch({ onlyMember }: { onlyMember?: (c: Charge) => boole
     const range = from || to ? `${periodLabel(from || months[0] || "")} – ${periodLabel(to || months[months.length - 1] || "")}` : "All statements";
     let r = titleBlock(ws, { entity: "Korman Commercial Properties", document: "Credit Card Charges", asOf: range, meta: q ? [`Search: ${q}`] : [], width: 9 });
     r++;
-    headerBand(ws, r, ["Statement", "Date", "Card Member", "Description", "Invoice Description", "Category", "Property", "Suite", "Amount"]);
+    headerBand(ws, r, ["Batch", "Date", "Card Member", "Description", "Invoice Description", "Category", "Property", "Suite", "Amount"]);
     const first = ++r;
     for (const c of rows) {
       const row = ws.getRow(r++);
@@ -237,7 +239,7 @@ export function ChargeSearch({ onlyMember }: { onlyMember?: (c: Charge) => boole
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
             <thead>
               <tr>
-                {head("statement", "Statement")}
+                {head("statement", "Batch")}
                 {head("date", "Date")}
                 {head("cardMember", "Card Member")}
                 {head("description", "Description")}
@@ -247,8 +249,25 @@ export function ChargeSearch({ onlyMember }: { onlyMember?: (c: Charge) => boole
               </tr>
             </thead>
             <tbody>
-              {rows.slice(0, SHOW_MAX).map((c, i) => (
-                <tr key={`${c.statementId}-${i}`} style={{ borderBottom: "1px solid var(--hairline)" }}>
+              {rows.slice(0, SHOW_MAX).map((c, i, arr) => (
+                <Fragment key={`${c.statementId}-${i}`}>
+                {sort.key === "statement" && (i === 0 || arr[i - 1].statementId !== c.statementId) && (() => {
+                  const batch = rows.filter((x) => x.statementId === c.statementId);
+                  const first = batch.reduce((m, x) => (x.date && x.date < m ? x.date : m), batch[0]?.date ?? "");
+                  const last = batch.reduce((m, x) => (x.date > m ? x.date : m), "");
+                  return (
+                    <tr style={{ background: "var(--tint-brand-bg, rgba(11,74,125,0.07))" }}>
+                      <td style={{ ...tdL, fontWeight: 700 }} colSpan={6}>
+                        {c.periodText || periodLabel(c.statementMonth)}
+                        <span className="muted" style={{ fontWeight: 400, marginLeft: 10 }}>
+                          {batch.length} charge{batch.length === 1 ? "" : "s"}{first ? ` · ${fmtDate(first)} – ${fmtDate(last)}` : ""}
+                        </span>
+                      </td>
+                      <td style={{ ...td, fontWeight: 700 }}>{dollars(batch.reduce((a, x) => a + x.amount, 0))}</td>
+                    </tr>
+                  );
+                })()}
+                <tr style={{ borderBottom: "1px solid var(--hairline)" }}>
                   <td style={tdL}>{periodLabel(c.statementMonth, c.periodText)}</td>
                   <td style={tdL}>{fmtDate(c.date)}</td>
                   <td style={tdL}>{c.cardMember}</td>
@@ -260,6 +279,7 @@ export function ChargeSearch({ onlyMember }: { onlyMember?: (c: Charge) => boole
                   <td style={tdL}><code>{c.propertyId || "—"}</code>{c.suite ? <span className="muted"> · {c.suite}</span> : null}</td>
                   <td style={td}>{fig(c.amount)}</td>
                 </tr>
+                </Fragment>
               ))}
               <tr>
                 <td style={{ ...tdL, fontWeight: 700, borderTop: "2px solid var(--text)" }} colSpan={6}>Total · {rows.length.toLocaleString()} charges</td>

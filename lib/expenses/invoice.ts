@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { toMoney } from "./utils";
+import { CAM_ACCOUNT } from "./coding";
 
 /**
  * Invoice PDF builder — one invoice per property.
@@ -20,6 +21,8 @@ type Tx = {
   suite: string;
   codedDescription: string;
   originalAmount?: number;
+  /** A CAM charge — codes to its category's -8502 account (`CAM_ACCOUNT`). */
+  cam?: boolean;
 };
 
 export type CategoryGroup = {
@@ -108,7 +111,8 @@ const PROPERTY_ACC2: Record<string, string[]> = {
   "0800": ["8501"],
 };
 
-// Office Supplies codes to the -8502 suffix (G&A, not in CAM),
+// Every card charge codes to -8501 unless ticked CAM (see CAM_ACCOUNT in
+// coding.ts). recoverableSuffix is kept for the property rule below;
 // which exists only at a property with tenants. 2010 LIK Management has none
 // (owner: "there is not 8502 suffix for 2010 since its not a property with
 // tenants"), so its charges code to -8501. Shared with the Expenses page.
@@ -121,6 +125,19 @@ export const recoverableSuffix = (propertyCode: string) => (NO_RECOVERABLE_SUFFI
 // from — so a card charge there was passed to tenants. Every property codes
 // it to 6220-8501, the Non-Reimbursable Building Maintenance line.
 export const CC_BUILDING_MAINT_ACCOUNT = "6220-8501";
+
+/** The account(s) a coded card charge posts to, as the invoice codes it —
+ *  ONE rule for the invoice lines and the Credit Card page's Acct column. */
+export function ccAccountsFor(category: string, propertyId: string, cam?: boolean): string[] {
+  if (category === "EQUIPMENT (CAP)") return ["1450-0000"];
+  if (category === "BUILDINGS (CAP)") return ["1430-0000"];
+  if (cam && CAM_ACCOUNT[category]) return [CAM_ACCOUNT[category]];
+  if (category === "BUILDING MAINT.") return [CC_BUILDING_MAINT_ACCOUNT];
+  const catAcc = CATEGORY_ACC[category];
+  const suffixes = PROPERTY_ACC2[propertyId];
+  if (!catAcc || !suffixes || !suffixes.length) return [];
+  return suffixes.map((suffix) => `${catAcc}-${suffix}`);
+}
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -181,13 +198,12 @@ function buildLinesForCategory(
       const amt = Number(t.amount || 0);
       return [{ date: t.date, accountCode: "1430-0000", description: useDesc, amount: amt, originalAmount: orig }];
     }
+    if (t.cam && CAM_ACCOUNT[category]) {
+      return [{ date: t.date, accountCode: CAM_ACCOUNT[category], description: useDesc, amount: Number(t.amount || 0), originalAmount: orig }];
+    }
     if (category === "BUILDING MAINT.") {
       const amt = Number(t.amount || 0);
       return [{ date: t.date, accountCode: CC_BUILDING_MAINT_ACCOUNT, description: useDesc, amount: amt, originalAmount: orig }];
-    }
-    if (category === "OFFICE SUPPLIES") {
-      const amt = Number(t.amount || 0);
-      return [{ date: t.date, accountCode: `8930-${recoverableSuffix(propertyCode)}`, description: useDesc, amount: amt, originalAmount: orig }];
     }
 
     const acc = CATEGORY_ACC[category] || "";

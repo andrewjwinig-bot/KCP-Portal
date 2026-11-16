@@ -67,15 +67,40 @@ Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the bill
 - **ALLOCATED EXPENSE INVOICES ARE PAYABLE TO LIKM4** (the LIK clearing
   vendor; owner, 10/2026) — `buildAllocInvoicePdf`'s footer, both layouts. It
   read LIKM1, which Credit Card invoices still use.
-- **CREDIT CARD (and Payroll) INVOICES ARE ARCHIVED AS SENT** (owner: "i see the charges history but i need to see the actual invoices history as well"; `lib/invoicing/sentInvoiceArchive.ts`, written by `/api/avid-send`). Expense History's statement opens with an **Invoices** list — invoice # (`makeInvoiceId`), property, billed, sent, View PDF / download, all as a ZIP (`GET /api/statements/invoices?period=[&file=|&zip=1]`, never for Greg). A month sent before the archive lists the file names the send ledger kept, and each property row offers **View copy** / download (owner: "i cant download or view specific property invoices"): `rebuildPropertyCharges` (`lib/expenses/rebuild.ts`) re-splits the saved, un-split charges with the coder's OWN rule (`lib/expenses/split.ts` — `expandForAllocation`, now shared with `/expenses`) and `buildInvoicePdf` draws it with `reconstructed: true` (an amber "REBUILT FROM EXPENSE HISTORY" band). A balance held from earlier months and billed with it is not in the saved statement, so the copy can be lower than the original — the panel and the hover say so. **Search Charges** (`ChargeSearch.tsx`, `GET /api/statements?charges=1`) leads the page: every saved charge in one table — period range (statement month), text search, category / property / card member / amount filters, every column sortable, the total of what shows, an Excel export of the filtered rows (shared theme, live total). Greg sees only his own charges there too.
+- **CREDIT CARD (and Payroll) INVOICES ARE ARCHIVED AS SENT** (owner: "i see the charges history but i need to see the actual invoices history as well"; `lib/invoicing/sentInvoiceArchive.ts`, written by `/api/avid-send`). Expense History's statement opens with an **Invoices** list — invoice # (`makeInvoiceId`), property, billed, sent, View PDF / download, all as a ZIP (`GET /api/statements/invoices?period=[&file=|&zip=1]`, never for Greg). A month sent before the archive lists the file names the send ledger kept, and each property row offers **View copy** / download (owner: "i cant download or view specific property invoices"): `rebuildPropertyCharges` (`lib/expenses/rebuild.ts`) re-splits the saved, un-split charges with the coder's OWN rule (`lib/expenses/split.ts` — `expandForAllocation`, now shared with `/expenses`) and `buildInvoicePdf` draws it with `reconstructed: true` (an amber "REBUILT FROM EXPENSE HISTORY" band). A balance held from earlier months and billed with it is not in the saved statement, so the copy can be lower than the original — the panel and the hover say so. **Search Charges** (`ChargeSearch.tsx`, `GET /api/statements?charges=1`) leads the page, GROUPED BY BATCH by default (a band per statement with its count, date range and subtotal — owner: "so i can see cut offs for specific batch"): every saved charge in one table — period range (statement month), text search, category / property / card member / amount filters, every column sortable, the total of what shows, an Excel export of the filtered rows (shared theme, live total). Greg sees only his own charges there too.
 - **HARRY'S REIMBURSEMENT IS THIS STATEMENT'S CHARGES, ONCE** (`reimbursementForBatch`): every charge on his card, properties held under $100 included — he paid them. A held property's balance bills to the PROPERTY in a later batch as a prior balance and is never in a later reimbursement (`invoiceGroups` only, never priors), so nothing is repaid twice; the held part is LIK's to collect, tracked by the carryover ledger. Held lines read "held, bills property next batch" and the invoice prints the held total under the table (`heldTotal`).
-- **A CREDIT-CARD CHARGE IS NEVER RECOVERABLE** (owner, 11/2026: "i dont
-  think credit card charges should be going to CAM as recoverable"). Building
-  Maint. codes to **6220-8501** (Non-Reimbursable Building Maintenance) at
-  every property — `CC_BUILDING_MAINT_ACCOUNT` in `lib/expenses/invoice.ts`.
-  It used to code to 6220-8502, the Reimbursable line, so card charges went
-  into the CAM pool and were billed to tenants. Office Supplies' 8930-8502 is
-  G&A (non-reimbursable) and stays.
+- **A CREDIT-CARD CHARGE IS NON-RECOVERABLE (-8501) UNLESS TICKED CAM**
+  (owner, 11/2026: "the default should be 8501 nonrecoverable … a checkbox
+  next to charges that says CAM and that would move it to 8502"). Every
+  category codes to -8501 (Building Maint. 6220-8501, Office Supplies now
+  8930-8501 too) — `ccAccountsFor` in `lib/expenses/invoice.ts`, ONE rule for
+  the invoice lines and the page's Acct column. A **CAM** tick (`cam` on the
+  charge; `CamToggle` in `app/expenses/ChargeCam.tsx`) moves it to
+  `CAM_ACCOUNT` (`lib/expenses/coding.ts`: Building Maint. 6220-8502,
+  Landscaping 6380-8502 — the Reimbursable Expenses lines), only where
+  `camAllowed` (not 2000 / 2010 / Korman Homes). A CAM charge is NOT coded
+  until its **receipt** is attached (`needsReceipt` inside `isRowCoded`;
+  owner: "make the user attach a receipt before finishing") — receipts are
+  stored in the portal (`/api/expenses/receipt`, direct-to-Blob upload, on
+  the charge as `receipt`; the old in-browser PDF attachment column is gone)
+  and ride behind every invoice (`appendReceipts`, PDFs copied in, photos
+  drawn on a page). **CAM charges get their OWN invoice per property**
+  (`CC<prop>CAM<MMYY>`, file `<month> - <prop> CAM.pdf`, "— CAM
+  (Recoverable)", receipts attached — the tenants' backup; owner: "a separate
+  invoice just for the 8502 CAM items"), kept OUT of the $250 hold (never
+  held), in the GL JE, TOP SHEET and Harry's reimbursement. **Nothing is sent
+  until every charge is coded**: the page's send banner is replaced by "n
+  charges still to code" naming who (`codingProgress`).
+- **GREG CODES HIS CHARGES ON HIS OWN PAGE, AND IS EMAILED WHEN THEY ARE IN**
+  (owner: "make a credit card page for Greg … make him code all the charges
+  with him as the user"; "email greg to let him know … itemize his charges").
+  **My Card Charges** (`/expenses/mine`, `MY_CARD_PAGE`, nav `my-card`) is the
+  dashboard's `ChargesToCodeCard` with `page` — every charge on his card, CAM
+  tick and receipt included; never the `/expenses` grant (that is the whole
+  statement). A statement import (`POST /api/expenses/working`
+  `action: "import"`) emails each cardholder in `NOTIFY_CARDHOLDERS`
+  (`lib/expenses/codingNotice.ts` — Greg, `CC_CODING_GREG_TO` overrides) the
+  NEW charges on their card, itemized, with a link to the page.
 - **CREDIT-CARD CHARGES ARE ROUTED TO THEIR CARDHOLDER** (owner: "greg
   should see his charges and drew should see the charges from Andrew … assigns
   the right work to the right user"). The statement Harry imports lives on the

@@ -7,7 +7,7 @@ import "server-only";
 // clears it.
 
 import { getJSON, storeJSON, deleteJSON } from "@/lib/storage";
-import { cleanPatch, type Tx } from "./coding";
+import { cleanPatch, type ChargeReceipt, type Tx } from "./coding";
 
 const PREFIX = "cc-working";
 const KEY = "current";
@@ -47,4 +47,14 @@ export async function patchCharge(id: string, patch: Record<string, unknown>): P
 
 export async function clearWorking(): Promise<void> {
   await deleteJSON(PREFIX, KEY);
+}
+
+/** Attach (or clear) a charge's receipt — read fresh, this charge only. */
+export async function setReceipt(id: string, receipt: ChargeReceipt | null): Promise<Tx | null> {
+  const doc = await getWorking();
+  const i = doc.tx.findIndex((t) => t.id === id);
+  if (i < 0) return null;
+  doc.tx[i] = { ...doc.tx[i], receipt };
+  await saveWorking(doc);
+  return doc.tx[i];
 }

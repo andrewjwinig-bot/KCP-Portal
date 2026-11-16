@@ -43,6 +43,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Payroll History":    "payroll-history",
   "CC Expense Coder":   "expenses",
   "CC Expense History": "expenses-history",
+  "My Card Charges":    "my-card",
   "Allocated Invoicer": "allocated",
   "Requests":           "maintenance",
   "Maintenance Reports":"maintenance",
@@ -567,6 +568,22 @@ const NAV = [
     indent: false,
     showFor: null as string | null,
     groupId: "invoicing",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <line x1="2" y1="10" x2="22" y2="10" />
+      </svg>
+    ),
+  },
+  {
+    // Greg's own credit-card charges (owner, 11/2026: "make a credit card page
+    // for Greg … make him code all the charges with him as the user").
+    label: "My Card Charges",
+    href: "/expenses/mine",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "service",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="5" width="20" height="14" rx="2" />

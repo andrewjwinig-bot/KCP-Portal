@@ -75,16 +75,52 @@ export type Tx = {
   propertyId: string;
   suite: string;
   codedDescription: string;
+  /** Ticked CAM: a recoverable charge, billed to tenants through CAM — codes
+   *  to the -8502 account and goes on the property's separate CAM invoice. */
+  cam?: boolean;
+  /** The receipt, stored in the portal (required for a CAM charge — it is
+   *  what the tenant is shown). */
+  receipt?: ChargeReceipt | null;
 };
+
+export type ChargeReceipt = { url: string; name: string; contentType: string; size: number; uploadedAt: string; by: string | null };
+
+// ── CAM (recoverable) ──────────────────────────────────────────────────────
+// A card charge is NON-recoverable (-8501) by default (owner, 11/2026: "the
+// default should be 8501 nonrecoverable … a checkbox next to charges that
+// says CAM and that would move it to 8502 and thus be recoverable"). Only a
+// category with a line in the Reimbursable Expenses section can be CAM, and
+// only at a property with tenants to bill.
+export const CAM_ACCOUNT: Record<string, string> = {
+  "BUILDING MAINT.": "6220-8502",
+  LANDSCAPING: "6380-8502",
+};
+/** No tenants recover through CAM here: LIK, Clearing and Korman Homes. */
+export const NO_CAM_PROPERTIES = new Set(["2000", "2010", "KH", "9800", "9820", "9840", "9860"]);
+
+/** May this charge be ticked CAM, as coded? */
+export function camAllowed(t: Pick<Tx, "category" | "propertyId">): boolean {
+  return !!CAM_ACCOUNT[t.category] && !!t.propertyId && !NO_CAM_PROPERTIES.has(t.propertyId);
+}
+/** A CAM charge that counts as one (ticked, and allowed as coded). */
+export function isCamCharge(t: Pick<Tx, "category" | "propertyId" | "cam">): boolean {
+  return !!t.cam && camAllowed(t);
+}
+/** A CAM charge with no receipt cannot be finished (owner: "make the user
+ *  attach a receipt before finishing"). */
+export function needsReceipt(t: Tx): boolean {
+  return isCamCharge(t) && !t.receipt?.url;
+}
 
 export function isRowCoded(t: Tx) {
   if (!t.category || !t.propertyId) return false;
   if (t.category === "TI" && !String(t.suite || "").trim()) return false;
+  if (needsReceipt(t)) return false;
   return true;
 }
 
 /** The fields a cardholder codes — the only ones a patch may change. */
-export const CODING_FIELDS = ["category", "propertyId", "suite", "codedDescription"] as const;
+export const CODING_FIELDS = ["category", "propertyId", "suite", "codedDescription", "cam"] as const;
 export type CodingPatch = Partial<Pick<Tx, (typeof CODING_FIELDS)[number]>>;
 
 /** Who codes a charge, by the statement's Card Member. Three cards (owner):
@@ -114,6 +150,10 @@ export function codingProgress(tx: Tx[]): Record<Cardholder, { coded: number; to
 /** A patch kept to the coding fields, every value a trimmed string. */
 export function cleanPatch(patch: Record<string, unknown>): CodingPatch {
   const out: CodingPatch = {};
-  for (const f of CODING_FIELDS) if (f in patch) out[f] = String(patch[f] ?? "").slice(0, 300);
+  for (const f of CODING_FIELDS) {
+    if (!(f in patch)) continue;
+    if (f === "cam") out.cam = patch.cam === true;
+    else out[f] = String(patch[f] ?? "").slice(0, 300);
+  }
   return out;
 }

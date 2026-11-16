@@ -53,6 +53,9 @@ const SC_AND_RESIDENTIAL = new Set([...SC_INDIVIDUAL, ...RESIDENTIAL_INDIVIDUAL]
 /** The Open Credits page — granted on its own to people who VIEW it (Harry,
  *  Alison, Nancy) without the rest of Monthly Statements. */
 export const OPEN_CREDITS_PAGE = "/tenant-statements/credits";
+/** A cardholder's own credit-card charges (Greg). NOT /expenses — that grant
+ *  is the whole statement (`/api/expenses/working`'s full access). */
+export const MY_CARD_PAGE = "/expenses/mine";
 
 /** The monthly tenant notices — Greg approves and sends them (owner, 11/2026:
  *  "greg should approve … give him access to that page"). Granted on its own,
@@ -241,8 +244,10 @@ export const USERS: Record<UserId, UserDef> = {
     // "tenant-notices" + Open Credits (view): he approves the month's tenant
     // account notices (owner, 11/2026: "greg should approve … greg should see
     // open credits page").
-    navKeys: new Set([...SERVICE_NAV, "financials-budgets", "communications", "tenant-notices", "open-credits"]),
-    allowedPathPrefixes: [...SERVICE_PATHS, "/financials/budgets", "/communications", TENANT_NOTICES_PAGE, OPEN_CREDITS_PAGE],
+    // "my-card": his own credit-card charges at /expenses/mine (owner, 11/2026)
+    // — ONLY his; the full statement stays behind /expenses.
+    navKeys: new Set([...SERVICE_NAV, "financials-budgets", "communications", "tenant-notices", "open-credits", "my-card"]),
+    allowedPathPrefixes: [...SERVICE_PATHS, "/financials/budgets", "/communications", TENANT_NOTICES_PAGE, OPEN_CREDITS_PAGE, MY_CARD_PAGE],
   },
   charles: serviceUser("charles", "CHARLES"),
   jay: serviceUser("jay", "JAY"),
