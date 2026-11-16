@@ -96,7 +96,7 @@ Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the bill
   with him as the user"; "email greg to let him know … itemize his charges").
   **My Card Charges** (`/expenses/mine`, `MY_CARD_PAGE`, nav `my-card`, sidebar Invoicing) is the
   dashboard's `ChargesToCodeCard` with `page` — every charge on his card, CAM
-  tick and receipt included; never the `/expenses` grant (that is the whole
+  tick and receipt included, then **My Past Charges** (`ChargeSearch`, every past batch on his card — `?charges=1` returns only the caller's own card to anyone without `/expenses`); never the `/expenses` grant (that is the whole
   statement). A statement import (`POST /api/expenses/working`
   `action: "import"`) emails each cardholder in `NOTIFY_CARDHOLDERS`
   (`lib/expenses/codingNotice.ts` — Greg, `CC_CODING_GREG_TO` overrides) the

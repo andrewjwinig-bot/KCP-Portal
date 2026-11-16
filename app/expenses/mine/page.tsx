@@ -10,6 +10,7 @@
 
 import { PageHeader } from "@/app/components/PageHeader";
 import ChargesToCodeCard from "@/app/dashboard/ChargesToCodeCard";
+import { ChargeSearch } from "@/app/expenses/history/ChargeSearch";
 
 export default function MyCardChargesPage() {
   return (
@@ -24,6 +25,9 @@ export default function MyCardChargesPage() {
         </>}
       />
       <ChargesToCodeCard page />
+      {/* Every charge on his card from past statements, by batch — his log
+          (owner: "should show gregs historical charges as well on his page"). */}
+      <ChargeSearch title="My Past Charges" />
     </main>
   );
 }

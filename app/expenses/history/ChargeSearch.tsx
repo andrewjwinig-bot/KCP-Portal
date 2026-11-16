@@ -22,6 +22,7 @@ export type Charge = {
   propertyId: string;
   suite: string;
   amount: number;
+  cam?: boolean;
 };
 
 type SortKey = "statement" | "date" | "cardMember" | "description" | "category" | "propertyId" | "amount";
@@ -71,7 +72,7 @@ export function filterCharges(all: Charge[], f: {
   });
 }
 
-export function ChargeSearch({ onlyMember }: { onlyMember?: (c: Charge) => boolean }) {
+export function ChargeSearch({ onlyMember, title = "Search Charges" }: { onlyMember?: (c: Charge) => boolean; title?: string }) {
   const [all, setAll] = useState<Charge[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [from, setFrom] = useState("");
@@ -172,7 +173,7 @@ export function ChargeSearch({ onlyMember }: { onlyMember?: (c: Charge) => boole
   return (
     <div className="card">
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <b style={{ fontSize: 17 }}>Search Charges</b>
+        <b style={{ fontSize: 17 }}>{title}</b>
         <div style={{ display: "flex", gap: 8 }}>
           {filtered && <button className="btn sm" onClick={clear}><X size={16} strokeWidth={1.75} aria-hidden /> Clear filters</button>}
           <button className="btn sm" onClick={exportRows} disabled={!rows.length}><Download size={16} strokeWidth={1.75} aria-hidden /> Export</button>
@@ -275,7 +276,7 @@ export function ChargeSearch({ onlyMember }: { onlyMember?: (c: Charge) => boole
                     <div style={{ fontWeight: 600 }}>{c.description}</div>
                     {c.codedDescription && c.codedDescription !== c.description && <div className="muted" style={{ fontSize: "var(--fs-13)" }}>{c.codedDescription}</div>}
                   </td>
-                  <td style={tdL}>{c.category || "—"}</td>
+                  <td style={tdL}>{c.category || "—"}{c.cam ? <span className="muted"> · CAM</span> : null}</td>
                   <td style={tdL}><code>{c.propertyId || "—"}</code>{c.suite ? <span className="muted"> · {c.suite}</span> : null}</td>
                   <td style={td}>{fig(c.amount)}</td>
                 </tr>
