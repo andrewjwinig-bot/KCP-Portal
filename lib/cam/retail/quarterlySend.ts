@@ -3,7 +3,7 @@ import { createMapStore } from "@/lib/collectionStore";
 import { sendMailDetailed, VERIFIED_FROM } from "@/lib/mail";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
 import {
-  QUARTERLY_BILLINGS, QUARTERS, isAutoQuarter, isBeforePortal, quarterLastMonth, quarterPosted, quarterSpikes, quarterlyEmail,
+  QUARTERLY_BILLINGS, QUARTERS, isAutoQuarter, isBeforePortal, quarterClosed, quarterDueISO, quarterLastMonth, quarterPosted, quarterSpikes, quarterlyEmail,
   type Quarter, type QuarterSpike,
 } from "./quarterly";
 import { loadQuarterly } from "./quarterlyLoad";
@@ -260,4 +260,90 @@ export async function detailFor(key: string, year: number, q: Quarter): Promise<
   if (!loaded) return null;
   const tx = await assembledTransactions(loaded.def.parentProperty, year);
   return { detail: quarterDetail(loaded.def, q, year, tx, loaded.effective), frozen: false };
+}
+
+// ── Nothing forgotten ───────────────────────────────────────────────────────
+// Owner, 11/16/26: "this didnt go out on time and it wasnt even brought to my
+// attention on my dashboard … we cannot have things forgotten like this." Q3
+// 2026 was the first portal quarter, set to go out by hand, and nothing said
+// it hadn't. Every closed quarter the portal owes and has not sent is now an
+// OBLIGATION: on Drew's Work Queue from the day the quarter closes (red once
+// past its due date), and emailed to him weekly once overdue, until it goes.
+
+export type QuarterObligation = {
+  key: string; name: string; year: number; quarter: Quarter;
+  /** ISO — the last day of the month after the quarter. */
+  due: string;
+  overdue: boolean;
+  /** What is in the way, in words. */
+  state: "ready" | "held" | "manual" | "waiting-gl";
+  reason: string;
+  href: string;
+};
+
+const todayEt = (now: Date) =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+
+/** Every closed quarter, from the first the portal bills, not yet sent. */
+export async function quarterlyObligations(now: Date = new Date()): Promise<QuarterObligation[]> {
+  const today = todayEt(now);
+  const thisYear = Number(today.slice(0, 4));
+  const out: QuarterObligation[] = [];
+  for (const def of Object.values(QUARTERLY_BILLINGS)) {
+    for (let year = def.portalFrom.year; year <= thisYear; year++) {
+      for (const q of QUARTERS) {
+        if (isBeforePortal(def, year, q) || !quarterClosed(year, q, today)) continue;
+        const rec = await getSendRecord(def.key, year, q);
+        if (rec?.status === "sent") continue;
+        const p = await previewQuarter(def.key, year, q).catch(() => null);
+        const due = quarterDueISO(year, q);
+        const href = `/cam-recon?property=${encodeURIComponent(def.key)}&year=${year}`;
+        let state: QuarterObligation["state"];
+        let reason: string;
+        if (!p) { state = "waiting-gl"; reason = `Could not read the ${def.parentProperty} GL`; }
+        else if (!p.ready) { state = "waiting-gl"; reason = `Waiting on the ${def.parentProperty} GL through month ${p.lastMonth} (posted through ${p.maxPosted || "none"})`; }
+        else if (rec?.status === "held" && rec.heldReasons?.length) { state = "held"; reason = `Held: ${rec.heldReasons[0]}${rec.heldReasons.length > 1 ? ` (+${rec.heldReasons.length - 1} more)` : ""}`; }
+        else if (p.spikes.length) { state = "held"; reason = `Check before sending: ${p.spikes[0]}`; }
+        else if (!isAutoQuarter(def, year, q)) { state = "manual"; reason = "Ready: send it from the page"; }
+        else { state = "ready"; reason = rec?.lastError ? `Send failed: ${rec.lastError}` : "Ready: posted, not sent yet"; }
+        out.push({ key: def.key, name: def.storeName, year, quarter: q, due, overdue: today > due, state, reason, href });
+      }
+    }
+  }
+  return out;
+}
+
+/** When Drew was last told a quarter is overdue — kept apart from the send
+ *  record so a reminder never reads as a hold or a send. */
+const overdueStore = createMapStore<{ at: string }>({ prefix: "cam-retail-quarterly-overdue" });
+
+/** The weekly overdue email to Drew, one per quarter per seven days. */
+export async function remindOverdueQuarters(now: Date = new Date()): Promise<{ key: string; year: number; quarter: Quarter }[]> {
+  const told: { key: string; year: number; quarter: Quarter }[] = [];
+  for (const o of (await quarterlyObligations(now)).filter((x) => x.overdue)) {
+    const k = recKey(o.key, o.year, o.quarter);
+    const last = await overdueStore.get(k);
+    if (last?.at && now.getTime() - Date.parse(last.at) < 7 * 86_400_000) continue;
+    const def = QUARTERLY_BILLINGS[o.key];
+    const r = await sendMailDetailed({
+      from: VERIFIED_FROM,
+      to: COPY_TO,
+      subject: `OVERDUE: ${def.storeName} ${o.quarter} ${o.year} CAM has not been sent`,
+      textBody: [
+        `The ${o.quarter} ${o.year} quarterly CAM and tax for ${def.storeName} was due ${o.due} and has NOT been sent to ${def.sendTo}.`,
+        "",
+        o.reason,
+        "",
+        "Send it from the page:",
+        `${PORTAL}${o.href}`,
+        "",
+        "You will be reminded weekly until it goes.",
+      ].join("\n"),
+    }).catch(() => ({ ok: false }));
+    if (r.ok) {
+      await overdueStore.set(k, { at: now.toISOString() });
+      told.push({ key: o.key, year: o.year, quarter: o.quarter });
+    }
+  }
+  return told;
 }

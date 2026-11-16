@@ -251,6 +251,24 @@ export function computeQuarterly(def: QuarterlyBillingDef, data: QuarterlyData):
 /** The quarter's last month (1-based) — its GL being imported is the trigger. */
 export const quarterLastMonth = (q: Quarter): number => (QUARTERS.indexOf(q) + 1) * 3;
 
+/** When the quarter's statement is DUE to the tenant: the last day of the
+ *  month after the quarter closes (Q3 → Oct 31), as the Task Tracker's
+ *  "LHSC Wawa Quarterly CAM" reads it. ISO date. */
+export function quarterDueISO(year: number, q: Quarter): string {
+  const m = quarterLastMonth(q) + 1; // 1-based month after the quarter (13 = next January)
+  const y = m > 12 ? year + 1 : year;
+  const mm = m > 12 ? 1 : m;
+  const last = new Date(Date.UTC(y, mm, 0)).getUTCDate();
+  return `${y}-${String(mm).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
+}
+
+/** The quarter has closed (the day after its last month) as of `todayISO`. */
+export function quarterClosed(year: number, q: Quarter, todayISO: string): boolean {
+  const m = quarterLastMonth(q);
+  const next = m === 12 ? `${year + 1}-01-01` : `${year}-${String(m + 1).padStart(2, "0")}-01`;
+  return todayISO >= next;
+}
+
 /** Every month of the quarter is posted in the GL. */
 export const quarterPosted = (q: Quarter, maxPostedMonth: number): boolean => maxPostedMonth >= quarterLastMonth(q);
 
