@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storeJSON, listJSON, deleteJSON } from "@/lib/storage";
+import { budgetUser } from "@/lib/financials/budgets/currentUser";
+import { isPathAllowed } from "@/lib/users";
+import { cardholderOf } from "@/lib/expenses/coding";
 
 // Always read fresh — otherwise Next caches the GET and the dashboard freezes on
 // a stale "most recent CC statement".
@@ -13,6 +16,11 @@ export async function GET(req: NextRequest) {
     // for Expense History's search (owner: "sort and filter historic charges in
     // periods to help find something specific").
     if (req.nextUrl.searchParams.get("charges") === "1") {
+      // The whole archive for the Credit Card page; anyone else (Greg, on My
+      // Card Charges) gets ONLY the charges on their own card.
+      const user = await budgetUser();
+      if (!user) return NextResponse.json({ error: "Sign in." }, { status: 401 });
+      const full = isPathAllowed(user, "/expenses");
       const charges = all.flatMap((d) =>
         (Array.isArray(d.tx) ? d.tx : []).map((t: any) => ({
           statementId: d.id,
@@ -26,8 +34,9 @@ export async function GET(req: NextRequest) {
           propertyId: t.propertyId ?? "",
           suite: t.suite ?? "",
           amount: Number(t.amount) || 0,
+          cam: t.cam === true,
         })),
-      );
+      ).filter((c) => full || cardholderOf(c.cardMember) === user);
       return NextResponse.json({ charges });
     }
     const items = all
