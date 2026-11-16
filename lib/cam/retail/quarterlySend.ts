@@ -3,7 +3,7 @@ import { createMapStore } from "@/lib/collectionStore";
 import { sendMailDetailed, VERIFIED_FROM } from "@/lib/mail";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
 import {
-  QUARTERLY_BILLINGS, QUARTERS, isAutoQuarter, quarterLastMonth, quarterPosted, quarterSpikes, quarterlyEmail,
+  QUARTERLY_BILLINGS, QUARTERS, isAutoQuarter, isBeforePortal, quarterLastMonth, quarterPosted, quarterSpikes, quarterlyEmail,
   type Quarter, type QuarterSpike,
 } from "./quarterly";
 import { loadQuarterly } from "./quarterlyLoad";
@@ -69,7 +69,11 @@ const SENT_OUTSIDE: Record<string, QuarterSendRecord> = {
 };
 
 export async function getSendRecord(key: string, year: number, q: Quarter): Promise<QuarterSendRecord | null> {
-  const rec = (await store.get(recKey(key, year, q))) ?? SENT_OUTSIDE[recKey(key, year, q)] ?? null;
+  const def = QUARTERLY_BILLINGS[key];
+  const handBilled = def && isBeforePortal(def, year, q)
+    ? { status: "sent", outside: true, sentAt: null, to: def.sendTo } as QuarterSendRecord
+    : null;
+  const rec = (await store.get(recKey(key, year, q))) ?? SENT_OUTSIDE[recKey(key, year, q)] ?? handBilled;
   if (!rec) return null;
   const { detail, ...rest } = rec; // the frozen detail is served by `detailFor`
   return { ...rest, hasDetail: !!detail };
@@ -136,6 +140,10 @@ export async function sendQuarter(
   const k = recKey(key, year, q);
   const prev = p.record;
   if (prev?.status === "sent" && !opts.force) return { ok: true, alreadySent: true, record: prev };
+  // A quarter billed by hand before the portal is never sent from here.
+  if (isBeforePortal(p.loaded.def, year, q)) {
+    return { ok: false, error: `${q} ${year} was billed by hand before the portal sent Wawa's statements — it is not sent from here.` };
+  }
   if (prev?.status === "sending" && prev.startedAt && Date.now() - Date.parse(prev.startedAt) < 10 * 60_000) {
     return { ok: false, error: "This quarter is being sent right now." };
   }
