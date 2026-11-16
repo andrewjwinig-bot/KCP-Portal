@@ -3,7 +3,10 @@ import { useEffect, useState } from "react";
 import { FileText, Download } from "lucide-react";
 import { Pill, TONE_GREEN, TONE_AMBER } from "@/app/components/Pill";
 import { thDetail, tdDetail, thDetailL, tdDetailL } from "@/app/components/tableStyles";
-import { makeInvoiceId } from "@/lib/expenses/invoice";
+import { buildInvoicePdf, makeInvoiceId } from "@/lib/expenses/invoice";
+import { rebuildPropertyCharges, type SavedCharge } from "@/lib/expenses/rebuild";
+import { PROPERTIES } from "@/lib/expenses/coding";
+import { HoverCard } from "@/app/components/HoverCard";
 
 // The invoices a Credit Card statement produced, as they went to AvidXchange
 // (owner: "i see the charges history but i need to see the actual invoices
@@ -27,7 +30,28 @@ function codeFromFile(f: string): string {
   return m ? m[1].trim() : f;
 }
 
-export function InvoicesPanel({ period }: { period: string }) {
+/** Rebuild one property's invoice from the saved statement and open or save it. */
+function openRebuilt(tx: SavedCharge[], code: string, period: string, periodText: string, save: boolean) {
+  const r = rebuildPropertyCharges(tx, code);
+  const name = (PROPERTIES as readonly { id: string; name: string }[]).find((p) => p.id === code)?.name ?? code;
+  const blob = buildInvoicePdf({
+    propertyName: name, propertyCode: code, categoryGroups: r.categoryGroups,
+    invoiceDate: "", statementMonth: period, periodText, invoiceId: makeInvoiceId(code, period), reconstructed: true,
+  });
+  const url = URL.createObjectURL(blob);
+  if (save) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${period} - ${code} (rebuilt copy).pdf`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  } else {
+    window.open(url, "_blank", "noopener");
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+}
+
+export function InvoicesPanel({ period, tx, periodText }: { period: string; tx?: SavedCharge[]; periodText?: string }) {
   const [d, setD] = useState<Data | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
@@ -88,20 +112,37 @@ export function InvoicesPanel({ period }: { period: string }) {
         <>
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
-              <thead><tr><th style={thDetailL}>Invoice #</th><th style={thDetailL}>File</th><th style={thDetailL}>Sent</th></tr></thead>
+              <thead><tr><th style={thDetailL}>Invoice #</th><th style={thDetailL}>File</th><th style={thDetail}>Charges</th><th style={thDetailL}>Sent</th><th style={thDetail} /></tr></thead>
               <tbody>
-                {d.ledgerFiles.map((f) => (
-                  <tr key={f.fileName} className="task-row" style={{ borderBottom: "1px solid var(--hairline)" }}>
-                    <td style={tdDetailL}><code>{makeInvoiceId(codeFromFile(f.fileName), period)}</code></td>
-                    <td style={tdDetailL}>{f.fileName}</td>
-                    <td style={tdDetailL}>{when(f.sentAt)}</td>
-                  </tr>
-                ))}
+                {d.ledgerFiles.map((f) => {
+                  const code = codeFromFile(f.fileName);
+                  const r = tx && code !== "REIMB" ? rebuildPropertyCharges(tx, code) : null;
+                  const can = !!r && r.count > 0;
+                  return (
+                    <tr key={f.fileName} className="task-row" style={{ borderBottom: "1px solid var(--hairline)" }}>
+                      <td style={tdDetailL}><code>{makeInvoiceId(code, period)}</code></td>
+                      <td style={tdDetailL}>{f.fileName}</td>
+                      <td style={tdDetail}>{r ? money(r.total) : "—"}</td>
+                      <td style={tdDetailL}>{when(f.sentAt)}</td>
+                      <td style={{ ...tdDetail, whiteSpace: "nowrap" }}>
+                        {can ? (
+                          <HoverCard title="Rebuilt copy" rows={[{ label: "This month's charges", value: `$${money(r!.total)}` }]}
+                            footer={{ label: "Held balances not included", value: "" }}>
+                            <span>
+                              <button className="btn sm" onClick={() => openRebuilt(tx!, code, period, periodText ?? "", false)}><FileText size={16} {...ICON} /> View copy</button>{" "}
+                              <button className="btn sm" aria-label="Download copy" onClick={() => openRebuilt(tx!, code, period, periodText ?? "", true)}><Download size={16} {...ICON} /></button>
+                            </span>
+                          </HoverCard>
+                        ) : <span className="small muted">{code === "REIMB" ? "Reimbursement" : tx ? "No charges saved" : "Loading…"}</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
           <div className="small muted" style={{ padding: "8px 16px 14px" }}>
-            Sent before invoices were archived, so the PDFs are not kept here. Every send from now on keeps them. Copies are in AvidXchange and in the team summary email for this month.
+            Sent before invoices were archived, so the original PDFs are not kept here. View copy rebuilds a property's invoice from this statement's saved charges, marked as a copy; a balance held from earlier months and billed with it is not included. The originals are in AvidXchange and in the team summary email for this month.
           </div>
         </>
       )}

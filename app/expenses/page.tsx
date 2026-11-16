@@ -20,7 +20,7 @@ import {
   type PropertyCarry,
 } from "../../lib/expenses/carryover";
 import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
-import { ALLOC_PCT, FUND_SF_ALLOC } from "../../lib/properties/data";
+import { ALLOC_BP, ALLOC_SC, ALLOC_BP_SC, expandForAllocation } from "../../lib/expenses/split";
 import { useUser } from "../components/UserProvider";
 import { LastImported } from "@/app/components/LastImported";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
@@ -102,18 +102,8 @@ const PROPERTY_ACC2: Record<(typeof PROPERTIES)[number]["id"], string[]> = {
   "0800": ["8501"],
 };
 
-// Overhead-allocation shares — derived from the single source of truth
-// (ALLOC_PCT in lib/properties/data.ts). BP = 9301 (business parks), SC = 9302
-// (shopping centers), BP & SC = 9303 (all-property combined share).
-const ALLOC_BP: Record<string, number> = Object.fromEntries(
-  Object.entries(ALLOC_PCT).filter(([, v]) => v["9301"] > 0).map(([id, v]) => [id, v["9301"]]),
-);
-const ALLOC_SC: Record<string, number> = Object.fromEntries(
-  Object.entries(ALLOC_PCT).filter(([, v]) => v["9302"] > 0).map(([id, v]) => [id, v["9302"]]),
-);
-const ALLOC_BP_SC: Record<string, number> = Object.fromEntries(
-  Object.entries(ALLOC_PCT).map(([id, v]) => [id, v["9303"]]),
-);
+// Overhead-allocation shares (BP 9301, SC 9302, BP & SC 9303) and the split
+// itself live in lib/expenses/split.ts, shared with Expense History.
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -303,36 +293,6 @@ function getAccountCodes(category: string, propertyId: string): string[] {
 
 function cents(n: number) { return Math.round((Number(n) || 0) * 100); }
 function dollars(c: number) { return c / 100; }
-
-function allocateCentsByPercents(totalCents: number, entries: Array<{ key: string; pct: number }>) {
-  const nonZero = entries.filter((e) => e.pct > 0);
-  if (!nonZero.length) return [] as Array<{ key: string; cents: number }>;
-  const exact = nonZero.map((e) => ({ key: e.key, exact: totalCents * e.pct }));
-  const floors = exact.map((e) => ({ key: e.key, cents: Math.floor(e.exact), frac: e.exact - Math.floor(e.exact) }));
-  let used = floors.reduce((a, e) => a + e.cents, 0);
-  let rem = totalCents - used;
-  floors.sort((a, b) => b.frac - a.frac);
-  for (let i = 0; i < floors.length && rem > 0; i++) { floors[i].cents += 1; rem -= 1; }
-  return floors.map((e) => ({ key: e.key, cents: e.cents }));
-}
-
-function expandForAllocation(t: Tx): Array<Tx & { originalAmount?: number }> {
-  // Synthetic overhead codes explode by ALLOC_PCT; a fund code (PJV3 / PNIPLX)
-  // explodes across that fund's own buildings pro-rata by building square footage.
-  const allocTable =
-    t.propertyId === "BP & SC" ? ALLOC_BP_SC :
-    t.propertyId === "BP"      ? ALLOC_BP :
-    t.propertyId === "SC"      ? ALLOC_SC :
-    FUND_SF_ALLOC[t.propertyId] ?? null;
-  if (!allocTable) return [t];
-  const totalC = cents(t.amount);
-  const entries = Object.entries(allocTable).map(([key, pct]) => ({ key, pct }));
-  const alloc = allocateCentsByPercents(totalC, entries);
-  if (!alloc.length) return [t];
-  return alloc
-    .filter((a) => a.cents !== 0)
-    .map((a) => ({ ...t, propertyId: a.key, amount: dollars(a.cents), originalAmount: t.amount }));
-}
 
 function download(filename: string, blob: Blob) {
   const url = URL.createObjectURL(blob);

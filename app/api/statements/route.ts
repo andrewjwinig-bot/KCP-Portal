@@ -6,9 +6,30 @@ import { storeJSON, listJSON, deleteJSON } from "@/lib/storage";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const all = await listJSON("statements");
+    // ?charges=1 — every saved charge, flattened and tagged with its statement,
+    // for Expense History's search (owner: "sort and filter historic charges in
+    // periods to help find something specific").
+    if (req.nextUrl.searchParams.get("charges") === "1") {
+      const charges = all.flatMap((d) =>
+        (Array.isArray(d.tx) ? d.tx : []).map((t: any) => ({
+          statementId: d.id,
+          statementMonth: d.statementMonth ?? "",
+          periodText: d.periodText ?? "",
+          date: t.date ?? "",
+          cardMember: t.cardMember ?? "",
+          description: t.description ?? "",
+          codedDescription: t.codedDescription ?? "",
+          category: t.category ?? "",
+          propertyId: t.propertyId ?? "",
+          suite: t.suite ?? "",
+          amount: Number(t.amount) || 0,
+        })),
+      );
+      return NextResponse.json({ charges });
+    }
     const items = all
       .map((d) => ({
         id: d.id,
