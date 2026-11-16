@@ -33,8 +33,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     : "admin";
   const initialActive = jar.get(ACTIVE_USER_COOKIE)?.value ?? null;
   const initialSkin = jar.get(SKIN_COOKIE)?.value === "classic" ? "classic" : "studio";
+  // The new look is drawn ON <html> by the SERVER for a signed-in staff page,
+  // not only by the pre-paint script below (owner, 11/2026: "it keeps flashing
+  // to my old dashboard and sidebar when it loads"). When hydration hits any
+  // mismatch, React re-renders the root from scratch and resets <html> to its
+  // own props — wiping an attribute only the script had set — so the page fell
+  // back to classic until AppShell re-applied it after /api/site/status
+  // answered. With the attribute in the props, a re-render keeps it.
+  const studioFirst = !website && !!initialUser && initialSkin === "studio";
   return (
-    <html lang="en">
+    <html lang="en" data-skin={studioFirst ? "studio" : undefined} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
