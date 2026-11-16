@@ -40,6 +40,9 @@ export type BuildInvoicePdfArgs = {
    *  added to the grand total (the held months' charges are itemized in the GL /
    *  TOP SHEET, not re-listed here). */
   priorBalance?: number;
+  /** A copy rebuilt from Expense History for a month sent before invoices
+   *  were archived — an amber band on every page says so. */
+  reconstructed?: boolean;
 };
 
 // ─── Lookup tables (mirrored from App.tsx) ──────────────────────────────────
@@ -595,6 +598,19 @@ export function buildInvoicePdf(args: BuildInvoicePdfArgs): Blob {
   doc.text("TOTAL",                                  margin + contentW - 210, pageH - 68);
   doc.text(toMoney(grandTotal).replace("$", "$ "),   margin + contentW - 10,  pageH - 68, { align: "right" });
   doc.setTextColor(0, 0, 0);
+
+  if (args.reconstructed) {
+    for (let pg = 1; pg <= doc.getNumberOfPages(); pg++) {
+      doc.setPage(pg);
+      doc.setFillColor(254, 243, 199);
+      doc.rect(0, 0, pageW, 22, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(146, 64, 14);
+      doc.text("REBUILT FROM EXPENSE HISTORY — A COPY FOR REFERENCE, NOT THE ORIGINAL INVOICE AS SENT", pageW / 2, 14, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+    }
+  }
 
   return doc.output("blob") as Blob;
 }

@@ -6,6 +6,7 @@ import * as XLSX from "xlsx";
 import { useUser } from "../../components/UserProvider";
 import { Pill, TONE_NEUTRAL, TONE_TEAL } from "@/app/components/Pill";
 import { InvoicesPanel } from "./InvoicesPanel";
+import { ChargeSearch, type Charge } from "./ChargeSearch";
 
 type SavedTx = {
   date: string;
@@ -86,6 +87,7 @@ export default function ExpenseHistoryPage() {
       ? txs.filter((t) => String(t.cardMember || "").toLowerCase().includes("greg"))
       : txs;
 
+  const onlyGreg = (c: Charge) => String(c.cardMember || "").toLowerCase().includes("greg");
   const [statements, setStatements] = useState<StatementMeta[]>([]);
   const [details, setDetails] = useState<Record<string, StatementDetail>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -132,6 +134,8 @@ export default function ExpenseHistoryPage() {
         </div>
       </header>
 
+      <ChargeSearch onlyMember={isMaint ? onlyGreg : undefined} />
+
       <div className="card">
         <b style={{ fontSize: 15 }}>Statement History</b>
         <div className="small muted" style={{ marginTop: 4, marginBottom: 16 }}>
@@ -171,7 +175,7 @@ export default function ExpenseHistoryPage() {
               {isExpanded && (
                 <div style={{ borderTop: "1px solid var(--border)", overflowX: "auto" }}>
                   {!isMaint && /^\d{4}-\d{2}/.test(s.statementMonth || "") && (
-                    <div style={{ borderBottom: "1px solid var(--border)" }}><InvoicesPanel period={s.statementMonth} /></div>
+                    <div style={{ borderBottom: "1px solid var(--border)" }}><InvoicesPanel period={s.statementMonth} tx={detail?.tx} periodText={s.periodText} /></div>
                   )}
                   {detail && visibleTx(detail.tx).length > 0 && <div style={{ padding: "14px 16px 0" }}><b style={{ fontSize: 15 }}>Charges</b></div>}
                   {!detail ? (
