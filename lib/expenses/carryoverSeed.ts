@@ -25,7 +25,7 @@ type CarryoverSeed = {
 // NI LLC (PNIPLX) charges from the July 2, 2026 batch that were billed to the
 // fund directly. Re-held, split across the seven NI LLC buildings by SF, so the
 // next run bills them per building. (category → GL account is derived downstream:
-// BUILDING MAINT. → 6220-8502, EQUIPMENT (CAP) → 1450-0000, OFFICE SUPPLIES →
+// BUILDING MAINT. → 6220-8501 (never recoverable), EQUIPMENT (CAP) → 1450-0000, OFFICE SUPPLIES →
 // 8930-8502.) Total = $358.99.
 export const CARRYOVER_SEEDS: CarryoverSeed[] = [
   {
