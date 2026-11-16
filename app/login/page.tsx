@@ -1,5 +1,6 @@
 "use client";
 
+import { rememberActiveUser } from "@/lib/ui/firstPaint";
 import { Suspense, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { safeNext, loginDestination } from "@/lib/loginNext";
@@ -79,7 +80,7 @@ function LoginFormInner() {
       // ignoring a bare-page `next`; later logins the same day honor `next`.
       let dest = nextPath;
       try {
-        localStorage.setItem("kcp:activeUser", resolvedId);
+        rememberActiveUser(resolvedId);
         const today = new Date().toDateString();
         dest = loginDestination(nextPath, localStorage.getItem("kcp:lastLoginDay") !== today);
         localStorage.setItem("kcp:lastLoginDay", today);

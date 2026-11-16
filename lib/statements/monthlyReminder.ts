@@ -53,7 +53,14 @@ export function tierOf(acct: Account, asOfISO: string): ReminderTier | null {
   if (acct.net <= -MIN_REMINDER_AMOUNT) return "credit";
   if (acct.net < MIN_REMINDER_AMOUNT) return null;
   const age = oldestChargeMonths(acct, asOfISO);
-  return age != null && age >= PAST_DUE_MONTHS ? "past-due" : "courtesy";
+  if (age != null && age >= PAST_DUE_MONTHS) return "past-due";
+  // NO courtesy reminder when everything open is THIS month's (owner: "dont
+  // send a courtesy reminder november 15th if their only open charges are in
+  // november"): open charges come from the Laser Statement run around the 5th,
+  // and many tenants pay this month's rent between then and the 15th — it is
+  // not re-run mid-month. Anything from a prior month still open is reliable.
+  if (age === 0) return null;
+  return "courtesy";
 }
 
 export type CreditMonth = { ym: string; charges: number; credit: number; pay: number };

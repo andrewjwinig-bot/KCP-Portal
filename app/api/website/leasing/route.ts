@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { leasingInquiryEmail } from "@/lib/site/inquiryEmails";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { checkLeasing, leasingEmailText, leasingRecipients } from "@/lib/site/leasing";
+import { checkLeasing, leasingRecipients } from "@/lib/site/leasing";
 
 // Public endpoint behind the Neshaminy Interplex Business Center website's
 // leasing form (/site/office/neshaminy-interplex). Same guards as the tour and
@@ -34,10 +35,12 @@ export async function POST(req: NextRequest) {
   const { value } = check;
   let delivered = false;
   if (isMailConfigured()) {
+    const mail = leasingInquiryEmail(value);
     delivered = await sendMail({
       to: leasingRecipients().join(", "),
-      subject: `Interplex leasing inquiry — ${value.name}${value.building ? ` · ${value.building}` : ""}`,
-      textBody: leasingEmailText(value),
+      subject: mail.subject,
+      textBody: mail.text,
+      htmlBody: mail.html,
       headers: [{ Name: "Reply-To", Value: value.email }],
     });
   }

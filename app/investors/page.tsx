@@ -1818,7 +1818,7 @@ export default function InvestorInfoPage() {
                                 { label: "Excel — workbook", description: "Live SUM totals; year-end + estimated values", onClick: exportStatement },
                               ]}
                             />
-                            {canEdit && <SendStatementButton beneficiary={sovName} email={resolveContact(sovName)?.email} />}
+                            {canEdit && <SendStatementButton beneficiary={sovName} email={resolveContact(sovName)?.email} emailName={resolveContact(sovName)?.emailName} />}
                           </div>
                           <StatementView
                             beneficiary={sovName}
@@ -2441,8 +2441,10 @@ function ResidencyChip({ contact }: { contact: OwnerContact | undefined }) {
 
 /** Manual "email this statement to the owner" action — gated + confirmed, never
  *  automatic. Disabled until the owner has an email on file. */
-function SendStatementButton({ beneficiary, email }: { beneficiary: string; email?: string }) {
+function SendStatementButton({ beneficiary, email, emailName }: { beneficiary: string; email?: string; emailName?: string }) {
   const [state, setState] = useState<"idle" | "confirm" | "sending" | "sent" | "error">("idle");
+  // Who the email greets — the investor, or the admin / accountant it goes to.
+  const [dear, setDear] = useState(emailName || beneficiary);
   const [msg, setMsg] = useState("");
 
   async function send() {
@@ -2450,7 +2452,7 @@ function SendStatementButton({ beneficiary, email }: { beneficiary: string; emai
     try {
       const res = await fetch("/api/ownership/send", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ beneficiary }),
+        body: JSON.stringify({ beneficiary, addressedTo: dear }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) { setMsg(d.error || "Send failed."); setState("error"); return; }
@@ -2465,7 +2467,8 @@ function SendStatementButton({ beneficiary, email }: { beneficiary: string; emai
   if (state === "confirm" || state === "sending") {
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-        <span className="small" style={{ color: "var(--muted)" }}>Email to {email}?</span>
+        <span className="small" style={{ color: "var(--muted)" }}>Email to {email}, addressed to</span>
+        <input value={dear} onChange={(e) => setDear(e.target.value)} disabled={state === "sending"} aria-label="Addressed to" style={{ width: 180 }} />
         <button type="button" className="btn primary" disabled={state === "sending"} onClick={send} style={{ fontSize: "var(--fs-12)", padding: "6px 12px", fontWeight: 700 }}>{state === "sending" ? "Sending…" : "Send"}</button>
         <button type="button" className="btn" disabled={state === "sending"} onClick={() => setState("idle")} style={{ fontSize: "var(--fs-12)", padding: "6px 12px" }}>Cancel</button>
       </span>

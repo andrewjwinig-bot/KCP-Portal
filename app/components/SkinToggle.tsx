@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useState } from "react";
 // Before paint on the client (no frame of the classic layout), plain effect on the server.
 const useBeforePaint = typeof window === "undefined" ? useEffect : useLayoutEffect;
 import { useUser } from "./UserProvider";
+import { rememberSkin } from "../../lib/ui/firstPaint";
 
 /**
  * The portal's look: "classic" (the original navy rail) or "studio" (the
@@ -53,6 +54,7 @@ export default function SkinToggle() {
     setSkin(next);
     applySkin(next);
     try { localStorage.setItem(SKIN_KEY, next); } catch { /* ignore */ }
+    rememberSkin(next);
   }
 
   if (!hydrated || !isSkinReviewer(loggedInUser)) return null;
@@ -90,7 +92,10 @@ export default function SkinToggle() {
  *  toggle live. Layout that only exists in the new look (Drew's work queue)
  *  reads this, so switching back to classic brings the old page back. */
 export function useStudioSkin(): boolean {
-  const [on, setOn] = useState(false);
+  // Start where the SERVER drew (the skin cookie), so a studio page is not
+  // rendered classic first and swapped on hydration.
+  const { initialSkin } = useUser();
+  const [on, setOn] = useState(initialSkin === "studio");
   useBeforePaint(() => {
     const el = document.documentElement;
     const read = () => setOn(el.dataset.skin === "studio");

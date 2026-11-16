@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendMail, isMailConfigured, NEW_REQUEST_NOTIFY } from "@/lib/mail";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 import { centerBySlug } from "@/lib/centers/registry";
+import { centerLeasingEmail } from "@/lib/site/inquiryEmails";
 
 // Public leasing-inquiry endpoint for the shopping-center marketing pages.
 // Same honeypot + rate-limit + middleware-exemption pattern as
@@ -56,30 +57,18 @@ export async function POST(req: NextRequest) {
   const centerName = center?.name ?? "Shopping center";
   const to = center?.contact.email || "hfeldman@kormancommercial.com";
 
-  const subjectSuite = space && !/^which space/i.test(space) ? ` — ${space}` : "";
-  const subject = `Leasing inquiry: ${centerName}${subjectSuite}`;
-  const textBody = [
-    `New leasing inquiry for ${centerName}${center ? ` (${center.addressLine})` : ""}.`,
-    "",
-    `Name:     ${name}`,
-    `Company:  ${company || "—"}`,
-    `Email:    ${email}`,
-    `Phone:    ${phone || "—"}`,
-    `Space:    ${space || "—"}`,
-    "",
-    "Message:",
-    message,
-    "",
-    "— Sent from the property website leasing form.",
-  ].join("\n");
+  const mail = centerLeasingEmail({
+    centerName, address: center?.addressLine, name, company, email, phone, space, message,
+  });
 
   let delivered = false;
   if (isMailConfigured()) {
     delivered = await sendMail({
       to,
       cc: NEW_REQUEST_NOTIFY,
-      subject,
-      textBody,
+      subject: mail.subject,
+      textBody: mail.text,
+      htmlBody: mail.html,
       headers: [{ Name: "Reply-To", Value: email }],
     });
   }

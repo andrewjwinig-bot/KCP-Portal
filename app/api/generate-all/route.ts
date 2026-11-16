@@ -7,16 +7,9 @@ import { renderInvoicePdf } from "../../../lib/pdf/renderInvoicePdf";
 import { payrollInvoiceNumber } from "../../../lib/payroll/invoiceNumber";
 import { parseAllocationWorkbook } from "../../../lib/allocation/parseAllocationWorkbook";
 import { buildPayrollExportXlsx, buildPayrollGLXlsx } from "../../../lib/payroll/export";
-import { sendMail, isMailConfigured } from "@/lib/mail";
-import { allocReportAlreadySent, markAllocReportSent } from "@/lib/payroll/allocReportSent";
 import { storeJSON, listJSON } from "@/lib/storage";
 import { readFile } from "fs/promises";
 import path from "path";
-
-// When payroll is processed, the property-level allocation report goes to the
-// controller. NEVER the confidential by-employee allocation.
-const ALLOC_REPORT_TO = "mjaster@kormancommercial.com";
-const ALLOC_REPORT_CC = "dwinig@kormancommercial.com";
 
 export const runtime = "nodejs";
 
@@ -63,41 +56,11 @@ export async function POST(req: Request) {
     const glBuf = Buffer.from(await glBlob.arrayBuffer());
     archive.append(glBuf, { name: `${datePrefix} GL Journal Entry.xlsx` });
 
-    // Auto-email the PROPERTY allocation report (the per-property Payroll Summary
-    // above — property-level totals only, no per-employee detail) plus the GL
-    // Journal Entry import file (account/property-level journal lines, also no
-    // per-employee detail) to the controller when payroll is processed.
-    // Best-effort and once per pay date so re-downloading the batch doesn't
-    // resend. The confidential by-employee allocation is never attached.
-    try {
-      if (payDate && invoices.length && isMailConfigured() && !(await allocReportAlreadySent(payDate))) {
-        const ok = await sendMail({
-          to: ALLOC_REPORT_TO,
-          cc: ALLOC_REPORT_CC,
-          from: ALLOC_REPORT_CC, // verified sender (also used by the commissions batch)
-          subject: `Payroll Processed — ${payDate}`,
-          textBody:
-            `Marie,\n\n` +
-            `Attached are the GL Skyline import file and the corresponding property allocation report for the ${payDate} payroll.\n\n` +
-            `Sent automatically when the payroll invoices were processed.`,
-          attachments: [
-            {
-              name: `${datePrefix} Payroll Property Allocation.xlsx`,
-              content: summaryBuf,
-              contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            },
-            {
-              name: `${datePrefix} GL Journal Entry.xlsx`,
-              content: glBuf,
-              contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            },
-          ],
-        });
-        if (ok) await markAllocReportSent(payDate, ALLOC_REPORT_TO);
-      }
-    } catch {
-      // Never let the report email block invoice generation.
-    }
+    // No email to Marie here (owner, 11/2026: "why does she get two emails for
+    // payroll"). Processing only builds the batch; the AvidXchange send
+    // (`/api/payroll/avid-send`) emails her the team summary with these same
+    // two files — the allocation by property and the GL import — as Credit
+    // Card and Allocated Expenses do. The by-employee allocation never goes.
 
     // Processing the invoices is the save — record the period so the dashboard
     // reflects the latest run without anyone clicking "Save". Best-effort.

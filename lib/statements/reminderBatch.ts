@@ -51,6 +51,13 @@ export type ReminderBatch = {
   items: BatchItem[];
   /** Greg was emailed to review it. */
   approverNotifiedAt?: string | null;
+  /** The Eastern date Greg is reminded, and the date the ticked notices send
+   *  on their own if he has not sent them (set at the FIRST build). */
+  remindOn?: string | null;
+  autoSendOn?: string | null;
+  approverRemindedAt?: string | null;
+  /** Sent by the automatic send, not a person. */
+  autoSent?: boolean;
   approvedAt?: string | null;
   approvedBy?: string | null;
   /** The credit summary to Drew and Tami (business day before the 25th). */

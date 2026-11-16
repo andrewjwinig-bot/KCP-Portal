@@ -107,13 +107,13 @@ export default function TenantNoticesPage() {
       )}
       {b && sentAll && (
         <StatusBanner tone="success" title={`${monthName(b.month)} notices have been sent`}>
-          Sent {when(b.approvedAt!)}{b.approvedBy ? ` by ${b.approvedBy}` : ""} · {c?.sent ?? 0} tenant{c?.sent === 1 ? "" : "s"}{c?.failed ? ` · ${c.failed} did not send` : ""}{c?.withheld ? ` · ${c.withheld} held back` : ""}
+          Sent {when(b.approvedAt!)}{b.autoSent ? " automatically — not sent by hand in time" : b.approvedBy ? ` by ${b.approvedBy}` : ""} · {c?.sent ?? 0} tenant{c?.sent === 1 ? "" : "s"}{c?.failed ? ` · ${c.failed} did not send` : ""}{c?.withheld ? ` · ${c.withheld} held back` : ""}
         </StatusBanner>
       )}
       {b && !sentAll && c && (
         <StatusBanner tone="warning" title={`${c.toSend} notice${c.toSend === 1 ? "" : "s"} ready to send`}
           actions={<button className="btn primary" disabled={!!busy || !c.toSend} onClick={() => setConfirm(true)}><Send {...ICON} /> Send {c.toSend}</button>}>
-          Every tenant is ticked. Untick anyone you want to hold back this month.
+          Every tenant is ticked. Untick anyone you want to hold back this month.{b.autoSendOn ? ` If not sent before ${dayName(b.autoSendOn)} morning, every ticked notice goes on its own.` : ""}
         </StatusBanner>
       )}
       {result && (

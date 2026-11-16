@@ -56,3 +56,19 @@ export function creditSummaryDay(ym: string): string {
 export function applyDeadline(ym: string): string {
   return ymd(Number(ym.slice(0, 4)), Number(ym.slice(5, 7)), STATEMENT_DAY - 1);
 }
+
+/** `n` business days after `iso` (weekends and the holidays above skipped). */
+export function addBusinessDays(iso: string, n: number): string {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  for (let k = 0; k < n;) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    if (isBusinessDay(d.toISOString().slice(0, 10))) k++;
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+/** If Greg has not sent the notices (owner: "if greg doesnt approve or
+ *  forgets it will send automatically"): a reminder one business day after
+ *  they are built, and every ticked notice goes on its own after two. */
+export const REMIND_AFTER_BUSINESS_DAYS = 1;
+export const AUTO_SEND_AFTER_BUSINESS_DAYS = 2;

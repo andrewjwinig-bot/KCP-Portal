@@ -54,7 +54,7 @@ Anything sent to AP for processing (`kormancommercial@avidbill.com`) as the bill
   December lump. Pinned by `sharedOffice.test.ts` and `draft.test.ts`.
 - **THE HOLD IS $250 PER ACCOUNT, NOT $100** (owner, 11/13/26: "cut down our # of invoices … there is a small fee to send each invoice to avid"; `CARRYOVER_THRESHOLD` in `lib/allocated-invoicer/carryover.ts` AND `lib/expenses/carryover.ts` — Credit Card moved with it). Wherever this file says "$100 hold" read $250; the 10/2026 incident notes describe sends made at $100. The invoicer's **Hold Threshold · What If** card (`thresholdWhatIf`, `GET /api/allocation/invoices/threshold`) replays the year's 2000 GL at $100 / $250 / $500. The logic tests pin chaining at an explicit `T = 100` (`computeMonths` / `finalizeMonth` take an optional threshold); `carryover.test.ts` pins the constant. AP's register lists the properties held this time (`held`), so Tanya isn't looking for an invoice that didn't go.
 - **"Processed" is not "sent" — the AP Outbox flags the difference** (`unsentBatches` in `lib/invoicing/unsent.ts`, `unsent` on `/api/avid-sends`). The Allocated Invoicer logs a run when its zip or Excel is DOWNLOADED, and a CC statement / payroll period is logged when SAVED; the dashboard read "Allocated Expenses · Processed Sep 24" while nothing had gone to Avid. Each flow's newest processed batch with no send at or after it (2-day grace) shows in amber, "not sent to AvidXchange". Only batches since the send log began (`SEND_LOG_START`). Drew's Allocated Expenses status card was removed for this — the outbox is the record.
-- **No zips, one invoice per email.** AvidXchange cannot open a ZIP and ingests one invoice per email, so NEVER send Avid a `.zip` (or multiple invoices in one file/email). Each invoice PDF goes to `kormancommercial@avidbill.com` as its OWN email with a single PDF attachment. The cc'd team (Marie/Drew/Harry) get ONE separate summary email instead of being copied on every invoice — that email carries the per-building summary + the xlsx references (and may include the full zip, which is fine for them since only Avid can't open it). Shared helper: `lib/invoicing/avidDelivery.ts` (`deliverInvoicesToAvid`) — all four flows (Allocated, Credit Card, Payroll, Commissions) send through it. **Commissions were the holdout** — every quarter's PDFs rode ONE email, so Avid processed only the first; now `sendQuarterToAvidBill` delivers through the helper (cc Drew + Harry on Marie's summary; the memo + GL files still go to Marie separately).
+- **No zips, one invoice per email.** AvidXchange cannot open a ZIP and ingests one invoice per email, so NEVER send Avid a `.zip` (or multiple invoices in one file/email). Each invoice PDF goes to `kormancommercial@avidbill.com` as its OWN email with a single PDF attachment. The cc'd team (Marie/Drew/Harry) get ONE separate summary email instead of being copied on every invoice — that email carries the per-building summary + the xlsx references (and may include the full zip, which is fine for them since only Avid can't open it). **The team summary is ONE email for every flow, laid out like Tanya's AP register** (`teamSummaryEmail.ts`, portal look: total, a table by property, the files attached; owner: "same setup … just swap the info"), and it goes ONCE per batch, only after EVERY invoice has reached Avid (a partial send emails no one; the retry that finishes it sends the one summary — owner: Marie books the JE from it), and it is Marie's ONLY payroll email — the old "Payroll Processed" email from `/api/generate-all` sent her the same two files a second time and was removed. Shared helper: `lib/invoicing/avidDelivery.ts` (`deliverInvoicesToAvid`) — all four flows (Allocated, Credit Card, Payroll, Commissions) send through it. **Tanya's AP register** (`sendApRegister`, `lib/invoicing/apRegister.ts`) goes for all four flows too, once every invoice is out — commissions one register per set of invoices sent (office, retail, a single retail entry). **Commissions were the holdout** — every quarter's PDFs rode ONE email, so Avid processed only the first; now `sendQuarterToAvidBill` delivers through the helper (cc Drew + Harry on Marie's summary; the memo + GL files still go to Marie separately).
 - **BP COMMISSION TERMS ARE KEYED IN MONTHS** (owner: "nancy need to be able to put in months … like 6 months, or 38 months"). The form's Term is a months field plus quick picks (6 mo, 1–5 yr) that set Lease To from Lease From (`renewalEndISOMonths`); picking Lease To by hand sets the months (`termMonthsBetween`). Stored as `termYears` = months ÷ 12 so nothing downstream changes; shown everywhere by `formatTerm` ("3 yr", "38 mo"). A term between the standard ones takes the HIGHEST TIER REACHED (`incentiveTier` — 38 months earns the 3-year rate; under 6 months none), the rule `internalCommission` already budgets by — it used to give "non-standard term, no rate", which left a 38-month deal with no incentive. The shared `Calendar` now follows its value when it changes from outside, so a Lease To set five years out opens on that month. Pinned by `commissions.term.test.ts`.
 - **COMMISSIONS GO TO AVID AUTOMATICALLY — NO APPROVAL STEP** (owner, reversing the earlier review gate: "send the individual invoices to avid automatically without requiring alison to approve. send alison the pdf memo for her records but it shouldnt be a step before"). `runQuarterEnd` (`lib/commissions/quarterReview.ts`; the morning cron for the most recently completed quarter, and each page's **Send to AvidXchange** button with `kind`) sends every invoice not yet at Avid, one per email, billed × 1.2 for office AND retail (retail billed the bare commission until the owner asked for the markup). Once every invoice of a kind is out: **Marie** (mjaster@) gets the memo — office: memo + GL import per fund; retail: the memo, re-sent if the quarter's count changed — and **Alison** gets the memo FOR HER RECORDS (`sendMemoToAlison`, once per quarter per kind; `COMMISSION_REVIEW_TO` overrides her address). The page's send is ONE modal (`SendToAvidBillButton`), shaped like the Allocated send: confirm (tiles, the invoices, who gets what) → a sending sweep → the RESULT, recipient by recipient read off the send's own answer (SENT / NOT SENT / WAITING / n OF m), never a blanket "done". The route has `maxDuration = 300` — a quarter is one email per invoice. **Every memo carries a CONTROL SHEET as page 2** (`controlSheet.ts`): each invoice # / date / tenant / property / suite / commission / billed with a tick box, so Marie can check the invoices against Avid. The `/commissions-review/[token]` page and its approve path still exist so an old link opens; nothing requires it. A quarter sent the OLD way (one email, no per-invoice ledger) is never re-sent — that takes `force`. **Quarter labels are canonical "Q3 26"** (`canonicalQuarter`, `priorQuarterLabel`; `sentRecordFor` finds old long-keyed records). Pinned by `quarterLabel.test.ts`.
 - **HARRY'S RETAIL COMMISSIONS GO TO AVID THE MOMENT HE SAVES ONE** (owner: "automatically be sent to avid when he hits add entry. rename that button Send to Avid. still send marie the excel entry … email harry the … $ amount (before the 20% markup) so he can put it on the payroll"). `sendRetailEntry` (`lib/commissions/sendRetailEntry.ts`, `POST /api/commissions/retail/send`): the invoice to Avid (× 1.2) → that commission's GL import .xlsx to Marie (a bare BTCH/INVH/DIST machine import to the centre — never theme it) → Harry (`hfeldman@`, `RETAIL_COMMISSION_PAYEE_TO` overrides) the commission BEFORE markup for payroll. Each step is logged (`retail-entry-log`), so a retry finishes and never repeats; the cron runs it for any retail entry that did not go. The retail page has the same Period select and "Move to…" as the office page.
@@ -347,7 +347,16 @@ touched UI to it.
   sidebar"). The pre-paint script in `app/layout.tsx` turns the new look on
   unless the browser saved "classic"; AppShell never clears that choice and
   does nothing while no one is signed in mid-switch; `useStudioSkin` reads it
-  in a layout effect, before paint.
+  in a layout effect, before paint. **The SERVER draws the real person's
+  first frame** (owner, again: "i still see old sidebar when i refresh" — the
+  first frame was ADMIN's sidebar and the classic dashboard, swapped once the
+  browser asked /api/site/status who was signed in): `app/layout.tsx` reads
+  the site cookie (`verifySiteToken`) and passes `initialUser` /
+  `initialActive` / `initialSkin` to `UserProvider`. The two browser-side
+  choices are mirrored into cookies by `lib/ui/firstPaint.ts`
+  (`rememberActiveUser` — the profile admin / Alison are viewing, set by the
+  logins and the switcher; `rememberSkin` — only "classic" is recorded).
+  Never set `kcp:activeUser` or `kcp:skin` without them.
 - **ONE LOADER: `LoadingState`** (`app/components/LoadingState.tsx` — the
   skyline + skeleton; owner: "bank rec loading state is different… should it
   be"). Every page's first load and every long run show it; a long one-request
@@ -1864,8 +1873,9 @@ batch), `reminderSchedule.ts` (the calendar), `reminderInternalEmails.ts`
   task `m-aging` ("Credit Balance Report") is due the 15th or the NEXT WORK DAY
   (`effDay`; the import reminder `imp-aging` matches via `nextWorkday`), and
   only an import on/after the 15th satisfies it — the import ticks it.
-- **THREE NOTICES** (`tierOf`): COURTESY (oldest open charge 0–2 calendar
-  months), PAST DUE (3+ — firm, NO late fees or default language), CREDIT (the
+- **THREE NOTICES** (`tierOf`): COURTESY (oldest open charge 1–2 calendar
+  months — NONE when everything open is this month's: the Laser Statement is
+  run ~the 5th and not re-run, so this month's rent may since be paid; owner), PAST DUE (3+ — firm, NO late fees or default language), CREDIT (the
   credit exceeds the charges). Under $5 is not sent; former occupants (`-FO`)
   never. All itemize the account; the balance notices say "Payment already on
   its way? Please disregard"; NO refund offer anywhere (owner); NO phone —
@@ -1892,6 +1902,12 @@ batch), `reminderSchedule.ts` (the calendar), `reminderInternalEmails.ts`
   notice, Preview each, one Send (a confirm modal). Progress saves per email, so
   a second press never double-sends. Below it, the credits tenants asked for —
   Tami ticks each posted (her WRITE_SCOPE includes `/api/tenant-notices`).
+- **IF GREG FORGETS** (owner): `/api/cron/tenant-notices` (13:45 UTC daily,
+  `autoSendTick`) reminds him ONE business day after the build (`remindOn`) and
+  SENDS every ticked notice on its own after TWO (`autoSendOn`, set at the
+  first build, said in his email and on the page); unticked tenants stay held;
+  the batch reads "sent automatically". It also finishes a send that ran out
+  of time.
 - **THE BUSINESS DAY BEFORE THE 25TH** (`creditSummaryDay`; weekends,
   Thanksgiving, Dec 24–25): `/api/cron/credit-summary` (13:30 UTC daily) emails
   Drew + Tami (`CREDIT_SUMMARY_TO`) every credit asked for, unposted first.
@@ -4921,6 +4937,36 @@ then the user imports Skyline reports, so keep ingestion paths import-friendly.
   (from operating statements), the tenant's YTD escrow billed, and occupancy
   through the move-out date → `balance = YTD due − YTD escrow`. An interim/
   move-out statement layered on the existing per-tenant compute + PDF.
+- **ESCROW BILLED ← Skyline's activity report, and the statement carries the
+  account** (owner, 11/2026 — decided, not built; needs one real export to
+  write the parser). Run Skyline's itemized activity report once all twelve
+  months have billed — as soon as December's statements go out (owner: no
+  adjustments are keyed after; re-import before the recon if one ever is); each tenant's CAM / RET /
+  INS escrow billed is the sum of its charges by type, LESS the prior year's
+  year-end adjustments dated 4/30 (YEC / RER / YEI — last year's true-up, not
+  this year's escrow). It also lists tenants who left mid-year. Cross-check
+  each tenant against the summed rent rolls (`sumRentRollEscrow`) and flag
+  disagreements. The recon still credits escrow AS BILLED; the statement
+  continues the waterfall: reconciliation balance → **plus billed estimates
+  still unpaid** (CAM / RET / INS open charges DATED IN THE RECON YEAR only —
+  owner: a January 2027 estimate never shows on the 2026 rec — from the newest
+  laser statement / Credit Balance report, as of a stated date) → **less open credits,
+  APPLES TO APPLES only** (owner): a CAM credit (YEC) against CAM, RET (RER)
+  against RET, INS (YEI) against INS — never across categories, and only credits
+  dated on or before the recon year's Dec 31; a leftover
+  stays on account. A credit whose category is unknown (the laser
+  statement's undated "Open Credits" total) is shown, not applied — run the
+  Credit Balance report first. Only the reconciliation balance posts to
+  Skyline as the year-end charge (the unpaid estimates are already on the
+  account); the credits to apply go to Tanya as a list beside it.
+  GUARDRAILS (owner agreed): the recon section stays the lease's own math
+  (share − escrow billed); the open charges and credits sit in a SEPARATE
+  "Your account as of <date>" block under it, so the recon stands alone in a
+  dispute and a tenant can pay the undisputed part. Every credit the statement
+  applies, Tanya applies in Skyline the same week — the statement and the next
+  laser statement must agree. A lease that requires an overpayment REFUNDED
+  (some nationals) gets a flag on its unit CAM config; its credit is shown,
+  never applied.
 - **Per-year methodology snapshot.** Retail methodology is currently "current
   state" (the unit page), shared across years. For correct multi-year + mid-year
   close-outs, freeze each recon year's methodology when it closes (like office

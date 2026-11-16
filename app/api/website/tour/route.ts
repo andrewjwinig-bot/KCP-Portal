@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { tourRequestEmail } from "@/lib/site/inquiryEmails";
 import { sendMail, isMailConfigured } from "@/lib/mail";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { checkTour, tourEmailText, tourRecipients } from "@/lib/site/tour";
+import { checkTour, tourRecipients } from "@/lib/site/tour";
 
 // Public endpoint behind The Office Works website's tour form (/office-works).
 // Same guards as /api/website/contact: honeypot + per-IP rate limit, public by
@@ -33,10 +34,12 @@ export async function POST(req: NextRequest) {
   const { value } = check;
   let delivered = false;
   if (isMailConfigured()) {
+    const mail = tourRequestEmail(value);
     delivered = await sendMail({
       to: tourRecipients().join(", "),
-      subject: `Office Works tour request — ${value.name}${value.office ? ` · Office ${value.office}` : ""}`,
-      textBody: tourEmailText(value),
+      subject: mail.subject,
+      textBody: mail.text,
+      htmlBody: mail.html,
       headers: [{ Name: "Reply-To", Value: value.email }],
     });
   }
