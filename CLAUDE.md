@@ -153,6 +153,25 @@ list — Tasks This Week, the daily digest, the Monday email, the sidebar count 
 until its due day, then keeps it through the week if not ticked. The Task
 Tracker's calendar still shows every Wednesday. Pinned by `taskDefs.test.ts`.
 
+**EVERYONE CHOOSES AND CHANGES THEIR OWN PASSWORD** (owner, 11/2026: "let
+users select and change their own passwords without me getting involved").
+Security (`/security`) carries a **Password** card (`app/security/PasswordCards.tsx`,
+`POST /api/site/password` — current + new, `passwordPolicy.ts`: 10+ characters,
+not their name, not a common word, not a shared password). Only a scrypt HASH is
+stored, one private doc per user (`lib/passwordStore.ts`, `user-passwords/<id>`).
+`checkPassword` is the ONE check, for sign-in and change alike, in order: the
+password they set in the portal (then ONLY that one works) → their
+`SITE_USER_PASSWORDS` entry in Vercel → the shared tier password
+(`SITE_PASSWORD`, `HISTORY_PASSWORD` for admin / Drew). A store that can't be
+read fails CLOSED (503), never falls back to the shared password. An admin
+issues a **one-time password** from the same page (`/api/site/password/reset`,
+admin-cookie only via `ADMIN_PATH_PREFIXES`); signing in with it gives a
+session flagged `pw` in the signed cookie (`signSiteToken`'s
+`passwordPending`), which the middleware confines to `/security` — like the
+2FA enroll gate — until they choose their own. Every change / reset is in the
+audit log. Changing a password does not sign out other sessions. Pinned by
+`passwordStore.test.ts` and `site-auth.test.ts`.
+
 **RANDY (Randolph Lee) IS THE STAFF ACCOUNTANT, READ-ONLY WHILE ONBOARDING**
 (owner: "lets make randy his account"; earlier: "without giving him full access
 yet"). His profile (`randy` in `lib/users.ts`, access group `accounting`)

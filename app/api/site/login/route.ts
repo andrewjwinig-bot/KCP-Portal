@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { SITE_COOKIE, signSiteToken } from "@/lib/site-auth";
 import { HISTORY_COOKIE, signHistoryToken } from "@/lib/history-auth";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
-import { verifyUserPassword } from "@/lib/user-passwords";
+import { checkPassword } from "@/lib/passwordStore";
 import { logAudit, auditIp } from "@/lib/audit";
 import { totpRequired, getSecret, mustEnroll } from "@/lib/totp-store";
 import { verifyTotp } from "@/lib/totp";
@@ -64,21 +64,24 @@ export async function POST(req: NextRequest) {
   const adminPassword = process.env.HISTORY_PASSWORD;
   const adminSecret = process.env.HISTORY_AUTH_SECRET;
 
-  // Verify against the user's OWN password when configured (proves identity);
-  // otherwise fall back to the shared tier password.
-  const perUser = verifyUserPassword(user, password);
+  // ONE check (`checkPassword`): the password the user set in the portal, else
+  // their SITE_USER_PASSWORDS entry, else the shared tier password. Once a
+  // user has set their own, only theirs works. A store that can't be read
+  // fails closed rather than falling back to the shared password.
+  if (isAdmin && !adminPassword && !adminSecret) {
+    return NextResponse.json(
+      { error: "Admin auth is not configured. Set HISTORY_PASSWORD and HISTORY_AUTH_SECRET env vars." },
+      { status: 503 },
+    );
+  }
   let ok: boolean;
-  if (perUser !== null) {
-    ok = perUser;
-  } else {
-    if (isAdmin && (!adminPassword || !adminSecret)) {
-      return NextResponse.json(
-        { error: "Admin auth is not configured. Set HISTORY_PASSWORD and HISTORY_AUTH_SECRET env vars." },
-        { status: 503 },
-      );
-    }
-    const expected = isAdmin ? adminPassword : employeePassword;
-    ok = !!password && !!expected && safeEqual(password, expected);
+  let passwordPending = false;
+  try {
+    const r = await checkPassword(user, password, { adminTier: isAdmin });
+    ok = r.ok;
+    passwordPending = r.ok && r.mustChange;
+  } catch {
+    return NextResponse.json({ error: "Sign-in is unavailable for a moment — try again." }, { status: 503 });
   }
   if (!ok) {
     await logAudit({ event: "login.fail", user, ip: auditIp(req), detail: isAdmin ? "admin tier" : "employee tier" });
@@ -114,8 +117,8 @@ export async function POST(req: NextRequest) {
   // (totpRequired would have challenged a code above otherwise).
   const enrollPending = await mustEnroll(user);
 
-  const site = await signSiteToken(siteSecret, user, enrollPending);
-  const res = NextResponse.json({ ok: true, mustEnroll: enrollPending });
+  const site = await signSiteToken(siteSecret, user, enrollPending, passwordPending);
+  const res = NextResponse.json({ ok: true, mustEnroll: enrollPending, mustChangePassword: passwordPending });
   res.cookies.set(SITE_COOKIE, site.value, { ...COOKIE_OPTS, maxAge: site.maxAge });
 
   // Signing in as admin also grants the elevated admin cookie.
@@ -124,6 +127,6 @@ export async function POST(req: NextRequest) {
     res.cookies.set(HISTORY_COOKIE, hist.value, { ...COOKIE_OPTS, maxAge: hist.maxAge });
   }
 
-  await logAudit({ event: "login.success", user, ip: auditIp(req), detail: `${isAdmin ? "admin tier" : "employee tier"}${enrollPending ? " · enrollment required" : ""}` });
+  await logAudit({ event: "login.success", user, ip: auditIp(req), detail: `${isAdmin ? "admin tier" : "employee tier"}${enrollPending ? " · enrollment required" : ""}${passwordPending ? " · one-time password" : ""}` });
   return res;
 }

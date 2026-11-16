@@ -46,6 +46,9 @@ const ADMIN_PATH_PREFIXES = [
   // Managing who is REQUIRED to use 2FA is admin-only. Enrolling your own 2FA
   // (/security, the rest of /api/2fa) is self-service for every signed-in user.
   "/api/2fa/required",
+  // Issuing someone a one-time password is admin-only; changing your OWN
+  // (/api/site/password) is self-service.
+  "/api/site/password/reset",
 ];
 
 function isAdminPath(pathname: string): boolean {
@@ -103,12 +106,15 @@ export async function middleware(req: NextRequest) {
     // An enroll-pending session may only reach the 2FA setup page + its APIs
     // (and logout / the status checks the shell needs). Everything else is
     // funneled to /security until enrollment completes.
-    if (full.enrollPending) {
+    // A ONE-TIME password (an admin reset) is confined the same way until the
+    // person chooses their own on /security (`/api/site/password`).
+    if (full.enrollPending || full.passwordPending) {
       const allowed = pathname.startsWith("/security") || pathname.startsWith("/api/2fa")
+        || pathname === "/api/site/password"
         || pathname === "/api/site/logout" || pathname === "/api/site/status" || pathname === "/api/history/status";
       if (!allowed) {
         if (pathname.startsWith("/api/")) {
-          return NextResponse.json({ error: "Two-factor setup required" }, { status: 403 });
+          return NextResponse.json({ error: full.passwordPending ? "Choose your own password first" : "Two-factor setup required" }, { status: 403 });
         }
         const url = req.nextUrl.clone();
         url.pathname = "/security";

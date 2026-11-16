@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { SITE_COOKIE, verifySiteToken, signSiteToken } from "@/lib/site-auth";
+import { SITE_COOKIE, verifySiteToken, verifySiteTokenFull, signSiteToken } from "@/lib/site-auth";
 import { verifyTotp } from "@/lib/totp";
 import { getSecret, enableTotp } from "@/lib/totp-store";
 import { logAudit, auditIp } from "@/lib/audit";
@@ -35,7 +35,10 @@ export async function POST(req: NextRequest) {
   // user has completed setup.
   const siteSecret = process.env.SITE_AUTH_SECRET;
   if (siteSecret) {
-    const site = await signSiteToken(siteSecret, user, false);
+    // Keep a pending "choose your own password" step: finishing 2FA does not
+    // clear it.
+    const full = await verifySiteTokenFull(req.cookies.get(SITE_COOKIE)?.value, siteSecret);
+    const site = await signSiteToken(siteSecret, user, false, !!full?.passwordPending);
     res.cookies.set(SITE_COOKIE, site.value, { ...COOKIE_OPTS, maxAge: site.maxAge });
   }
   return res;
