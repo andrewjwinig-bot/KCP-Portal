@@ -59,6 +59,9 @@ export const COLOR = {
   warnTint: "FFFDE9C8",
   positiveTint: "FFDCFCE7",
   zebra: "FFFAFBFC",
+  /** A cell someone types into — light blue, the input-cell convention the
+   *  budget grid uses on screen. */
+  input: "FFDDEBF7",
 } as const;
 
 // ── Number formats ─────────────────────────────────────────────────────────

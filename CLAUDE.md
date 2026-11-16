@@ -1839,6 +1839,30 @@ charges"; `RESPOND_BUSINESS_DAYS`, `respondByFrom`); with no answer the record t
   `tenantMail.ts` (`sendFromAr`, `statementPdf`, `arSigner`) the receipt
   email uses. Pinned by `correspondence.test.ts`.
 
+# Tenant emails — where they come from, and filling the gaps
+
+**Every tenant email (notices, receipts, balance reminders, statements) reads
+the unit page's Contacts** (`suiteRecipients` → `camRecipientEmails`). Nothing
+imports them from Skyline. They came from ONE office spreadsheet loaded
+5/2026 (`SUITE_CONTACTS_SEED` — the business parks only, ~100 suites) plus
+whatever people added since (unit page, tenant portal, service requests), so
+the shopping centres, Kor Center C, The Office Works, Butler & Main and
+Korman Homes were mostly empty (owner: "we have no email on file for a lot of
+tenants"). The CAM recon's own office billing emails (`lib/cam/office/
+contacts.ts`) were never copied to the unit pages.
+
+**Tenant Emails to Add** (`/units/missing-emails`, `lib/suites/missingEmails.ts`,
+`/api/suites/missing-emails`): every current tenant (not vacant, not an
+amenity) with no recipient email — Harry sees Shopping Centers & Residential,
+Nancy Office (`contactGroupOf`; 4900 is office), anyone else picks a tab. Type
+the email on the row, or Export the fill-in sheet (`missingEmailsXlsx.ts`:
+letterhead, blue Email / Contact Name columns, the Credit Balance Report's
+contact and phone as a hint), fill it and **Import Filled Sheet** — read back
+by its header (Unit Ref + Email), several addresses split on ; or ,. Addresses
+are ADDED as statement recipients (`addSuiteEmails`); nothing on file is
+removed or overwritten; a unit not on the current rent roll or a bad address is
+reported by row. Pinned by `missingEmailsXlsx.test.ts`.
+
 # Open credits — Skyline's Credit Balance report, itemized
 
 **The laser statement prints credits as ONE undated "Open Credits" total; the
