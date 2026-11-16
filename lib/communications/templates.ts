@@ -82,7 +82,7 @@ export const TENANT_TEMPLATES: TenantTemplate[] = [
     blurb: "Quiet, preventative pest tips for the colder months: seal up food, empty trash daily, keep doors closed, report gaps. Never names a pest.",
     button: { label: "Submit a request", width: 176 }, topHeight: 586, bottomHeight: 1013,
     altTop: "Neshaminy Interplex Seasonal Care Guide. Cozy suites, closed for the season. As the weather turns colder, small outdoor visitors start looking for somewhere warm. Spot a gap, crack or opening? Submit a request and our maintenance team will seal it up.",
-    altBottom: "Seven everyday habits: seal up snacks, empty food trash daily, wipe up crumbs and spills, keep entry doors closed, clear the clutter, tell us about gaps, and let us know right away if you notice anything unusual. Thank you for doing your part.",
+    altBottom: "Seven everyday habits: seal up snacks (pests can chew through packaging and plastic bags), empty food trash daily, wipe up crumbs and spills, keep entry doors closed, clear the clutter, tell us about gaps, and let us know right away if you notice anything unusual. Thank you for doing your part.",
     schedule: { remindFrom: { month: 10, day: 1 }, due: { month: 10, day: 15 } },
   },
   {
