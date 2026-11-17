@@ -64,9 +64,14 @@ export default function WorkpapersPage() {
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j.error) throw new Error(j.error ?? `Import failed (${r.status}).`);
       const asOf = new Date(j.asOf + "T12:00:00").toLocaleDateString("en-US");
-      const total = j.total != null ? ` · $${Math.round(j.total).toLocaleString("en-US")}` : "";
-      const problems = (j.unplaced?.length ? [`${j.unplaced.length} section${j.unplaced.length === 1 ? "" : "s"} couldn't be matched to a property`] : [])
-        .concat(j.untied?.length ? [`${j.untied.length} section${j.untied.length === 1 ? "" : "s"} don't add up to Skyline's total`] : []);
+      const total = j.total != null ? ` · ${j.total < 0 ? "-" : ""}$${Math.abs(Math.round(j.total)).toLocaleString("en-US")}` : "";
+      const isAr = j.kind === "ar";
+      const problems = isAr
+        ? (j.unresolved?.length ? [`${j.unresolved.length} tenant${j.unresolved.length === 1 ? "" : "s"} couldn't be matched to a property`] : [])
+            .concat(j.untied?.length ? [`${j.untied.length} tenant${j.untied.length === 1 ? "" : "s"} don't add up to Skyline's balance`] : [])
+        : (j.unplaced?.length ? [`${j.unplaced.length} section${j.unplaced.length === 1 ? "" : "s"} couldn't be matched to a property`] : [])
+            .concat(j.untied?.length ? [`${j.untied.length} section${j.untied.length === 1 ? "" : "s"} don't add up to Skyline's total`] : []);
+      const count = isAr ? `${j.properties.length} properties · ${j.tenants} tenants` : `${j.properties} properties`;
       // Show the quarter the aging proves — it says nothing about any other.
       const target = String(j.asOf).slice(0, 7);
       const jump = target !== period && periods.includes(target);
@@ -75,12 +80,12 @@ export default function WorkpapersPage() {
         : ` · it proves ${quarterLabel(target)}, which has no General Ledger for this property`;
       setApResult({
         tone: problems.length ? "warning" : "success",
-        title: `AP Aged Trial Balance as of ${asOf} imported`,
-        meta: `${j.properties} properties${total}${showing}${problems.length ? ` · ${problems.join(" · ")}` : ""}`,
+        title: `${isAr ? "Tenant Aging" : "AP Aged Trial Balance"} as of ${asOf} imported`,
+        meta: `${count}${total}${showing}${problems.length ? ` · ${problems.join(" · ")}` : ""}`,
       });
       if (jump) setPeriod(target); else setReload((n) => n + 1);
     } catch (e) {
-      setApResult({ tone: "danger", title: "Couldn't import the AP Aged Trial Balance", meta: (e as Error).message });
+      setApResult({ tone: "danger", title: "Couldn't import the aging", meta: (e as Error).message });
     } finally { setApBusy(false); }
   };
 
@@ -143,17 +148,27 @@ export default function WorkpapersPage() {
         </>}
         actions={<>
           <button className="btn import" disabled={apBusy} onClick={() => pickInto(apInput.current, "ap-aging")}>
-            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> {apBusy ? "Importing…" : "Import AP Aging"}
+            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> {apBusy ? "Importing…" : "Import Aging"}
           </button>
-          <InfoPopover label="AP Aged Trial Balance steps">
-            <div style={{ display: "grid", gap: 8, maxWidth: 460 }}>
-              <div style={{ fontWeight: 700 }}>Skyline&rsquo;s AP Aged Trial Balance</div>
-              <ol style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 4 }}>
-                <li>Run it for <b>PALL</b>, as of the quarter-end date (3/31, 6/30, 9/30 or 12/31), not today.</li>
-                <li>All vendors, unpaid only.</li>
-                <li>Save it as a <b>PDF</b> (it names every property) and import it here. Excel works too.</li>
-              </ol>
-              <div className="small muted">It proves Accounts Payable (2110) for every property that quarter.</div>
+          <InfoPopover label="Aging report steps">
+            <div style={{ display: "grid", gap: 10, maxWidth: 480 }}>
+              <div>Two Skyline reports, both for <b>PALL</b> and both <b>as of the quarter-end date</b> (3/31, 6/30, 9/30 or 12/31), not today. Import each here; the page tells them apart.</div>
+              <div>
+                <div style={{ fontWeight: 700 }}>Tenant Aging: proves Trade Receivables (0420)</div>
+                <ol style={{ margin: "4px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
+                  <li>Property Management, Reports, Financial Reports, <b>Credit Balance</b> (it prints &ldquo;Aging Report (Detailed)&rdquo;).</li>
+                  <li>Set the as-of date to the quarter end, and <b>Occupants to Include</b> to every tenant with a balance (not &ldquo;Any With Open Credits&rdquo;), former occupants included.</li>
+                  <li>Export to <b>Microsoft Excel (97-2003) (.xls)</b> and import it unmodified.</li>
+                </ol>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700 }}>AP Aged Trial Balance: proves Accounts Payable (2110)</div>
+                <ol style={{ margin: "4px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
+                  <li>All vendors, unpaid only.</li>
+                  <li>Save as a <b>PDF</b> (it names every property). Excel works too.</li>
+                </ol>
+              </div>
+              <div className="small muted">Imported here, the tenant aging stays out of Open Credits and the monthly tenant notices.</div>
             </div>
           </InfoPopover>
           <input ref={apInput} type="file" hidden accept=".pdf,.xls,.xlsx" onChange={(ev) => { const f = ev.target.files?.[0]; if (f) importAp(f); ev.target.value = ""; }} />

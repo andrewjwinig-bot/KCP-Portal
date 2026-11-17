@@ -38,7 +38,7 @@ export const KIND_INFO: Record<WpKind, { label: string; section: "Cash" | "Recei
   restricted:   { label: "Restricted cash",         section: "Cash",                      support: "Bank statement — security deposit account" },
   suspense:     { label: "Suspense",                section: "Suspense & Clearing",       support: "Should be $0 — every entry moved to its real account" },
   clearing:     { label: "Clearing",                section: "Suspense & Clearing",       support: "Should be $0 at quarter end" },
-  receivable:   { label: "Receivable",              section: "Receivables",               support: "Tenant aging — Laser Statement / Credit Balance Report" },
+  receivable:   { label: "Receivable",              section: "Receivables",               support: "Tenant aging — Skyline Aging Report at the quarter end" },
   unbilled:     { label: "Unbilled receivable",     section: "Receivables",               support: "Year-end adjustments billed — CAM Reconciliation" },
   intercompany: { label: "Intercompany",            section: "Receivables",               support: "The other entity's matching balance" },
   prepaid:      { label: "Prepaid",                 section: "Prepaids & Escrows",        support: "Premium / bill paid less the months expensed" },
@@ -173,6 +173,9 @@ export interface WpInput {
     /** Skyline's AP Aged Trial Balance at the quarter end: what vendors are
      *  owed (positive), and its invoices the books' payables never carried. */
     apAging?: { asOf: string; total: number; invoices: number; notInBooks: { vendor: string; date: string | null; amount: number }[] } | null;
+    /** Skyline's tenant Aging Report at the quarter end: what tenants owe net
+     *  of their credits, and the largest balances behind it. */
+    arAging?: { asOf: string; total: number; charges: number; credits: number; tenants: number; top: { unitRef: string; tenantName: string; balance: number; former: boolean }[]} | null;
     /** Bank rec: Skyline register vs this GL's cash at month end. */
     bankRec?: { period: string; skyline: number; gl: number | null; difference: number | null; signedOff: boolean } | null;
   };
@@ -196,6 +199,7 @@ export interface Workpapers {
 
 const norm = (s: string) => (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 const fmt = (n: number) => "$" + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const signed = (n: number) => (n < 0 ? `(${fmt(n)})` : fmt(n));
 const fmt0 = (n: number) => "$" + Math.round(Math.abs(n)).toLocaleString("en-US");
 const mdy = (iso: string | null) => {
   if (!iso) return "";
@@ -377,6 +381,28 @@ export function computeWorkpapers(input: WpInput): Workpapers {
       note: br.difference == null ? "The bank rec couldn't compare this property's General Ledger cash." : `Skyline's bank register ${fmt0(br.skyline)} vs the General Ledger's cash ${fmt0(br.gl ?? 0)}.` };
     for (const s of cash) s.support = support;
     if (cash.length && br.difference != null && !ties) cash[0].flags.push({ level: "red", text: `Cash on the books doesn't match the bank rec — off by ${fmt0(br.difference)}. See Bank Recs for the entries on one side only.` });
+  }
+
+  // Trade receivables against the tenant aging (the accountants' A/R tab).
+  // Only 042x — unbilled CAM / tax is proven by the recon, not the aging.
+  const ar = schedules.filter((s) => /^042\d-/.test(s.code));
+  if (sources?.arAging && ar.length) {
+    const ag = sources.arAging;
+    const ledger = round2(ar.reduce((t, s) => t + s.ending, 0));
+    const diff = round2(ledger - ag.total);
+    const ties = Math.abs(diff) < 1;
+    const support: WpSupport = { label: `Tenant aging — ${ag.tenants} tenant${ag.tenants === 1 ? "" : "s"}`, amount: ag.total, ties, difference: diff,
+      note: `Owed by tenants per the books ${signed(ledger)} vs Skyline's tenant aging ${signed(ag.total)} (charges ${fmt(ag.charges)}, credits ${fmt(ag.credits)}).` };
+    for (const s of ar) s.support = support;
+    if (!ties) {
+      const exact = ag.top.filter((t) => Math.abs(Math.abs(t.balance) - Math.abs(diff)) < 0.01);
+      const hint = exact.length
+        ? ` The gap is exactly ${exact.map((t) => `${t.tenantName} (${t.unitRef}, ${signed(t.balance)})`).join(" or ")} — a balance booked to another property or account, or one side of a write-off.`
+        : " A payment or charge posted to the wrong property, a write-off on one side only, or a tenant the aging left out.";
+      ar[0].flags.push({ level: "amber", text: `What tenants owe on the books (${signed(ledger)}) doesn't match the tenant aging (${signed(ag.total)}) — off by ${fmt(diff)}.${hint}` });
+    }
+    // The 0420 credit flag is answered by the aging when it ties.
+    if (ties) for (const s of ar) s.flags = s.flags.filter((f) => !f.text.startsWith("Tenants are net in credit"));
   }
 
   // Accounts payable against the vendor aging (the accountants' AP tab).
