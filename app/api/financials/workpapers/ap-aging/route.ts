@@ -6,6 +6,7 @@ import { parseApAging, apAgingFromPdfPages, placeApSections, type ApAgingFile, t
 import { saveApAging, listApAgings, type StoredApSection } from "@/lib/financials/workpapers/apAgingStore";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
+import { importArAging, isTenantAging } from "@/lib/financials/workpapers/arAgingStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,6 +32,17 @@ export async function POST(req: Request) {
   const file = form?.get("file");
   if (!(file instanceof File)) return NextResponse.json({ error: "Choose the AP Aged Trial Balance to import." }, { status: 400 });
   const buf = Buffer.from(await file.arrayBuffer());
+
+  // The TENANT aging (Aging Report (Detailed)) comes through the same button.
+  if (buf.subarray(0, 4).toString() !== "%PDF" && isTenantAging(buf)) {
+    const user = await budgetUser().catch(() => null);
+    try {
+      const r = await importArAging(buf, file.name, user ? (USERS[user]?.label ?? user) : null);
+      return NextResponse.json({ ok: true, kind: "ar", ...r });
+    } catch (e) {
+      return NextResponse.json({ error: (e as Error).message || "Couldn't read that file." }, { status: 400 });
+    }
+  }
 
   let parsed: ApAgingFile;
   try {
@@ -96,6 +108,7 @@ export async function POST(req: Request) {
   });
   return NextResponse.json({
     ok: true,
+    kind: "ap",
     asOf: parsed.asOf,
     format: buf.subarray(0, 4).toString() === "%PDF" ? "pdf" : "excel",
     properties: placements.filter((p) => p.key).length,

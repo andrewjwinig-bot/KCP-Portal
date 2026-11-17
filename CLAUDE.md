@@ -4274,7 +4274,23 @@ Center (Financial), not the sidebar.
   `invoicesNotInBooks` finds the aging's invoices the year's 2110 credits never
   carried; a gap that equals them exactly is info ("Timing, not an error"),
   anything else is amber. Pinned by `apAging.test.ts` (synthetic files).
-- NEXT: the A/R tie to the Laser Statement / Credit Balance report, unbilled vs the CAM recon's year-end
+- **TRADE RECEIVABLES TIE TO SKYLINE'S TENANT AGING AT THE QUARTER END**
+  (`arAging.ts` pure, `arAgingStore.ts` — `workpaper-ar-aging`, one record
+  per as-of date, a re-import merges by property). The report is the Aging
+  Report (Detailed) Open Credits imports as the Credit Balance report, run for
+  PALL AS OF the quarter end for EVERY tenant with a balance (not "Any With
+  Open Credits"), former occupants included. The Laser Statement cannot prove a
+  quarter — it lists what is open the day it is run. It comes through the SAME
+  "Import Aging" button as the AP aging (the route tells them apart by content)
+  and is stored APART from Open Credits' `tenant-aging`: an import there builds
+  the month's tenant notices and ticks Drew's task, which a backdated
+  quarter-end report must never do. Tenants are placed by `resolveAgingProperties`
+  against the roll AS OF the report's month plus today's roll and the newest
+  laser statements. The tie is on 042x only (unbilled is the recon's); a fund
+  sums its buildings; a gap that is exactly one tenant's balance names them;
+  when it ties, the "tenants net in credit" review is cleared. Pinned by
+  `arAging.test.ts`.
+- NEXT: unbilled vs the CAM recon's year-end
   charges, partner contributions by name from the roster, sign-off per quarter
   on Month-End Close, then all entities. Checked against the 2025 package.
 

@@ -16,6 +16,7 @@ import { runFor } from "@/lib/bank-rec/store";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { computeWorkpapers, type Workpapers } from "./compute";
 import { getApAging } from "./apAgingStore";
+import { getArAging } from "./arAgingStore";
 import { invoicesNotInBooks } from "./apAging";
 
 export type WpMeta = { key: string; name: string; entityName: string; ein: string | null };
@@ -67,12 +68,24 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
     };
   }
 
+  // Skyline's tenant aging at the quarter end (a fund sums its buildings).
+  const arRec = await getArAging(asOfDate).catch(() => null);
+  const arSecs = arRec ? [...members].map((k) => arRec.sections[k]).filter(Boolean) : [];
+  const arAging = arSecs.length ? {
+    asOf: arRec!.asOf,
+    total: Math.round(arSecs.reduce((t, s) => t + s.total, 0) * 100) / 100,
+    charges: Math.round(arSecs.reduce((t, s) => t + s.charges, 0) * 100) / 100,
+    credits: Math.round(arSecs.reduce((t, s) => t + s.credits, 0) * 100) / 100,
+    tenants: arSecs.reduce((t, s) => t + s.tenants.length, 0),
+    top: arSecs.flatMap((s) => s.tenants).sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)).slice(0, 25),
+  } : null;
+
   const wp = computeWorkpapers({
     key, year, asOfMonth,
     gl: { beginning: gl.beginning, monthly: gl.monthly, names, coverageStartMonth: gl.coverageStartMonth },
     transactions,
     overrides: await getBsOverrides(key),
-    sources: { debtPrincipal, depositsHeld, bankRec, apAging },
+    sources: { debtPrincipal, depositsHeld, bankRec, apAging, arAging },
   });
   const def = PROPERTY_DEFS.find((d) => d.id === key);
   const entityName = (await availableStatements()).find((p) => p.key === key)?.entityName ?? def?.name ?? key;
