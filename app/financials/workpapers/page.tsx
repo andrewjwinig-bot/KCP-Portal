@@ -10,8 +10,11 @@
 // the balance sheet's Flags to Investigate. The Excel is their layout,
 // cleaned up (lib/financials/workpapers/export.ts).
 
+import { FilePath } from "@/app/components/FilePath";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Circle, CircleCheck, CircleX, Info, Minus, TriangleAlert, Upload } from "lucide-react";
+import { ChevronDown, ChevronRight, Circle, CircleCheck, CircleX, FolderSync, Info, Minus, TriangleAlert, Upload } from "lucide-react";
+import { child, connectFolder, connectedFolder, filesUnder, folderAccessSupported, forgetFolder, resolvePath } from "@/app/components/shareFolder";
+import { pickRecFiles } from "@/lib/financials/workpapers/bankRecs";
 import { InfoPopover } from "@/app/components/InfoPopover";
 import { pickInto } from "@/app/components/pickFiles";
 import { PageHeader } from "@/app/components/PageHeader";
@@ -132,6 +135,32 @@ export default function WorkpapersPage() {
     setApBusy(false);
   };
 
+  // Pull Marie's recs for the quarter-end month straight from the synced share
+  // drive (Chrome / Edge): the folder is connected once, then each pull reads
+  // "!<year> Year End\Bank Account Reconciliations\<NN Month YYYY>\<Bank>".
+  const pullRecs = async () => {
+    if (!period) return;
+    const y = period.slice(0, 4), mm = period.slice(5);
+    const where = `!${y} Year End\\Bank Account Reconciliations`;
+    try {
+      const root = (await connectedFolder(SHARE_ID)) ?? (await connectFolder(SHARE_ID));
+      if (!root) return;
+      const recsDir = await resolvePath(root, ["Data", "Accounting", `!${y} Year End`, "Bank Account Reconciliations"]);
+      if (!recsDir) {
+        await forgetFolder(SHARE_ID);
+        setApResult({ tone: "danger", title: `Couldn't find ${where} in "${root.name}"`, meta: "Click again and choose your KCP - Documents folder (or the Bank Account Reconciliations folder itself)." });
+        return;
+      }
+      const month = await child(recsDir, (n) => n.startsWith(`${mm} `));
+      if (!month) { setApResult({ tone: "warning", title: `No ${mm} folder in ${where} yet`, meta: "Marie hasn't saved the quarter-end month's recs." }); return; }
+      const found = pickRecFiles((await filesUnder(month, 2)).map((f) => ({ name: f.handle.name, h: f.handle })));
+      if (!found.length) { setApResult({ tone: "warning", title: `No recs in "${month.name}"`, meta: "Looked for Rec2B, Rec1&2, Rec2 or Rec1 PDFs in each bank's folder." }); return; }
+      await importFiles(await Promise.all(found.map((f) => f.h.getFile())));
+    } catch (e) {
+      setApResult({ tone: "danger", title: "Couldn't read the share drive", meta: (e as Error).message });
+    }
+  };
+
   useEffect(() => {
     fetch("/api/financials/workpapers").then((r) => r.json()).then((j) => {
       const list: Prop[] = j.properties ?? [];
@@ -214,7 +243,9 @@ export default function WorkpapersPage() {
               <div>
                 <div style={{ fontWeight: 700 }}>Bank Recs (Statement Reconcile Report): proves Cash (01xx, 02xx)</div>
                 <ol style={{ margin: "4px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
-                  <li>Marie&rsquo;s recs for the quarter-end month (Rec1&amp;2, Rec2 or Rec2B PDFs), in each bank&rsquo;s folder under Bank Account Reconciliations.</li>
+                  <li>Marie&rsquo;s Rec2 for each account (Rec2B if she re-ran it, Rec1&amp;2 for a quiet account), in the Chase, M&amp;T and Liberty folders of the quarter-end month:
+                    {period && <div style={{ marginTop: 6 }}><FilePath label="Find them in" path={`Data\\Accounting\\!${period.slice(0, 4)} Year End\\Bank Account Reconciliations\\${period.slice(5)} ${new Date(period + "-15T12:00:00").toLocaleDateString("en-US", { month: "long" })} ${period.slice(0, 4)}`} /></div>}
+                  </li>
                   <li>Select them all at once. The account is read from the report, not the file name.</li>
                 </ol>
               </div>
@@ -256,7 +287,7 @@ export default function WorkpapersPage() {
           <StatPill label="To fix" value={String(wp.counts.fix)} />
         </div>
 
-        {checklist.length > 0 && <ReportChecklist items={checklist} quarter={`Q${wp.quarter} ${y}`} busy={apBusy} onImport={() => pickInto(apInput.current, "ap-aging")} />}
+        {checklist.length > 0 && <ReportChecklist items={checklist} quarter={`Q${wp.quarter} ${y}`} busy={apBusy} onImport={() => pickInto(apInput.current, "ap-aging")} onPull={pullRecs} />}
 
         <div className="card" style={{ display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -348,6 +379,9 @@ function Schedule({ s }: { s: WpSchedule }) {
 }
 
 // The reports the quarter is proven against: what is in, what is still owed.
+/** The share drive folder this browser connected (KCP - Documents, or any folder down to Bank Account Reconciliations). */
+const SHARE_ID = "share-drive";
+
 const SOURCE_STATUS: Record<WpSourceItem["status"], { word: string; color: string; Icon: typeof CircleCheck }> = {
   done: { word: "In", color: "var(--c-067647)", Icon: CircleCheck },
   review: { word: "Finish", color: "var(--c-b54708)", Icon: TriangleAlert },
@@ -355,7 +389,9 @@ const SOURCE_STATUS: Record<WpSourceItem["status"], { word: string; color: strin
   na: { word: "Not needed", color: "var(--muted)", Icon: Minus },
 };
 
-function ReportChecklist({ items, quarter, busy, onImport }: { items: WpSourceItem[]; quarter: string; busy: boolean; onImport: () => void }) {
+function ReportChecklist({ items, quarter, busy, onImport, onPull }: { items: WpSourceItem[]; quarter: string; busy: boolean; onImport: () => void; onPull?: () => void }) {
+  const [canPull, setCanPull] = useState(false);
+  useEffect(() => setCanPull(!!onPull && folderAccessSupported()), [onPull]);
   const needed = items.filter((i) => i.status !== "na");
   const inHand = needed.filter((i) => i.status === "done").length;
   return (
@@ -375,6 +411,9 @@ function ReportChecklist({ items, quarter, busy, onImport }: { items: WpSourceIt
               <div className="muted" style={{ fontSize: "var(--fs-14)" }}>{i.detail}</div>
             </div>
             <span style={{ color: st.color, fontWeight: 600, fontSize: "var(--fs-14)", whiteSpace: "nowrap" }}>{st.word}</span>
+            {i.status !== "na" && i.id === "bank" && canPull && (
+              <button className="btn sm" disabled={busy} onClick={onPull}><FolderSync size={16} strokeWidth={1.75} aria-hidden /> Pull from Share Drive</button>
+            )}
             {i.status !== "na" && (importable
               ? <button className="btn sm" disabled={busy} onClick={onImport}><Upload size={16} strokeWidth={1.75} aria-hidden /> {i.status === "done" ? "Re-import" : "Import"}</button>
               : i.href ? <a className="btn sm" href={i.href}>Open</a> : null)}

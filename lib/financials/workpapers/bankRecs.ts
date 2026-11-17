@@ -11,7 +11,8 @@
 // It reads her PDFs directly, NOT the portal's Bank Recs page (still a draft).
 // Pure: the store and the route read and write; this decides and explains.
 
-import type { OpenItem, SkylineRec } from "@/lib/bank-rec/monthFiles";
+import type { OpenItem, SkylineRec, RecFileKind } from "@/lib/bank-rec/monthFiles";
+import { kindFromName, last4FromName } from "@/lib/bank-rec/monthFiles";
 
 export type RecRole = "operating" | "restricted";
 
@@ -122,4 +123,23 @@ export const STALE_OPEN_DAYS = 90;
 export function staleItems(a: RecAccount, asOfISO: string): OpenItem[] {
   const asOf = Date.parse(asOfISO + "T12:00:00Z");
   return a.unreconciled.filter((i) => i.dateISO && (asOf - Date.parse(i.dateISO + "T12:00:00Z")) / 86400000 > STALE_OPEN_DAYS);
+}
+
+/** From a month folder's file names, the one rec to import per account: a
+ *  re-run (Rec2B) first, then the single-file Rec1&2, then Rec2, then Rec1.
+ *  Bank statements and anything else are left out. */
+export function pickRecFiles<T extends { name: string }>(files: T[]): T[] {
+  const RANK: Partial<Record<RecFileKind, number>> = { rec2b: 4, rec12: 3, rec2: 2, rec1: 1 };
+  const best = new Map<string, { f: T; r: number }>();
+  const loose: T[] = [];
+  for (const f of files) {
+    if (!/\.pdf$/i.test(f.name)) continue;
+    const r = RANK[kindFromName(f.name)];
+    if (!r) continue;
+    const l4 = last4FromName(f.name);
+    if (!l4) { loose.push(f); continue; }
+    const cur = best.get(l4);
+    if (!cur || r > cur.r) best.set(l4, { f, r });
+  }
+  return [...[...best.values()].map((b) => b.f), ...loose];
 }

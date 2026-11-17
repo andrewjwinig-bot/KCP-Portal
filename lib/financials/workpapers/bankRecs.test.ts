@@ -54,3 +54,22 @@ describe("cash against the recs", () => {
     expect(recsForLedger("3620", "2026-09", {})).toBeNull();
   });
 });
+
+import { pickRecFiles } from "./bankRecs";
+describe("choosing the rec to import from a month folder", () => {
+  it("one per account: a re-run first, then Rec1&2, then Rec2; never a statement", () => {
+    const names = [
+      "1100 5300 The Korman Co xx9879 30 Sept 2026 Rec1.pdf",
+      "1100 5300 The Korman Co xx9879 30 Sept 2026 Rec2.pdf",
+      "7200 Elbridge xx1692 30 Sept 2026 Rec2.pdf",
+      "7200 Elbridge xx1692 30 Sept 2026 Rec2B.pdf",
+      "2070 30 Sept 2026 xx6119 Kosano Assoc Rec1&2.pdf",
+      "7200 Elbridge xx1692 30 Sept 2026 Stmt.pdf",
+    ].map((name) => ({ name }));
+    expect(pickRecFiles(names).map((f) => f.name).sort()).toEqual([
+      "1100 5300 The Korman Co xx9879 30 Sept 2026 Rec2.pdf",
+      "2070 30 Sept 2026 xx6119 Kosano Assoc Rec1&2.pdf",
+      "7200 Elbridge xx1692 30 Sept 2026 Rec2B.pdf",
+    ]);
+  });
+});
