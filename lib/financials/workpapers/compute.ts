@@ -170,6 +170,9 @@ export interface WpInput {
     debtPrincipal?: { amount: number; loans: number } | null;
     /** Deposits register: what we hold for this property's tenants (positive). */
     depositsHeld?: number | null;
+    /** Skyline's AP Aged Trial Balance at the quarter end: what vendors are
+     *  owed (positive), and its invoices the books' payables never carried. */
+    apAging?: { asOf: string; total: number; invoices: number; notInBooks: { vendor: string; date: string | null; amount: number }[] } | null;
     /** Bank rec: Skyline register vs this GL's cash at month end. */
     bankRec?: { period: string; skyline: number; gl: number | null; difference: number | null; signedOff: boolean } | null;
   };
@@ -374,6 +377,28 @@ export function computeWorkpapers(input: WpInput): Workpapers {
       note: br.difference == null ? "The bank rec couldn't compare this property's General Ledger cash." : `Skyline's bank register ${fmt0(br.skyline)} vs the General Ledger's cash ${fmt0(br.gl ?? 0)}.` };
     for (const s of cash) s.support = support;
     if (cash.length && br.difference != null && !ties) cash[0].flags.push({ level: "red", text: `Cash on the books doesn't match the bank rec — off by ${fmt0(br.difference)}. See Bank Recs for the entries on one side only.` });
+  }
+
+  // Accounts payable against the vendor aging (the accountants' AP tab).
+  const ap = schedules.filter((s) => /^211\d-/.test(s.code));
+  if (sources?.apAging && ap.length) {
+    const ag = sources.apAging;
+    const ledger = round2(-ap.reduce((t, s) => t + s.ending, 0));
+    const diff = round2(ledger - ag.total);
+    const ties = Math.abs(diff) < 1;
+    const support: WpSupport = { label: `AP Aged Trial Balance — ${ag.invoices} invoices`, amount: ag.total, ties, difference: diff,
+      note: `Owed to vendors per the books ${fmt(ledger)} vs Skyline's vendor aging ${fmt(ag.total)}.` };
+    for (const s of ap) s.support = support;
+    if (!ties) {
+      const late = ag.notInBooks;
+      const lateSum = round2(late.reduce((a, i) => a + i.amount, 0));
+      const list = late.slice(0, 4).map((i) => `${i.vendor} ${fmt(i.amount)}${i.date ? ` (${mdy(i.date)})` : ""}`).join(", ") + (late.length > 4 ? ` and ${late.length - 4} more` : "");
+      if (late.length && Math.abs(round2(-diff) - lateSum) < 1) {
+        ap[0].flags.push({ level: "info", text: `The vendor aging is ${fmt(diff)} higher than the books — exactly ${late.length === 1 ? "a bill" : `${late.length} bills`} dated before the quarter end but entered after it: ${list}. Timing, not an error.` });
+      } else {
+        ap[0].flags.push({ level: "amber", text: `Owed to vendors on the books (${fmt(ledger)}) doesn't match the vendor aging (${fmt(ag.total)}) — off by ${fmt(diff)}.${late.length ? ` On the aging but not found in the books' payables: ${list}.` : ""} A bill posted to the wrong property, or a payment on one side only.` });
+      }
+    }
   }
 
   for (const s of schedules) s.status = s.flags.some((f) => f.level === "red") ? "fix" : s.flags.some((f) => f.level === "amber") ? "review" : "ok";
