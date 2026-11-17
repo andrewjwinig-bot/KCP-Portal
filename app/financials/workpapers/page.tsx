@@ -11,7 +11,7 @@
 // cleaned up (lib/financials/workpapers/export.ts).
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, CircleCheck, CircleX, Info, TriangleAlert, Upload } from "lucide-react";
+import { ChevronDown, ChevronRight, Circle, CircleCheck, CircleX, Info, Minus, TriangleAlert, Upload } from "lucide-react";
 import { InfoPopover } from "@/app/components/InfoPopover";
 import { pickInto } from "@/app/components/pickFiles";
 import { PageHeader } from "@/app/components/PageHeader";
@@ -26,6 +26,7 @@ import { groupStatementOptions } from "@/lib/financials/operating-statements/pro
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import type { Workpapers, WpSchedule, WpFlag } from "@/lib/financials/workpapers/compute";
 import { KIND_INFO, SECTION_ORDER } from "@/lib/financials/workpapers/compute";
+import type { WpSourceItem } from "@/lib/financials/workpapers/load";
 
 type Prop = { key: string; name: string; years: number[] };
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -46,6 +47,7 @@ export default function WorkpapersPage() {
   const [period, setPeriod] = useState(""); // "YYYY-MM" quarter end
   const [wp, setWp] = useState<Workpapers | null>(null);
   const [coverageEnd, setCoverageEnd] = useState(12);
+  const [checklist, setChecklist] = useState<WpSourceItem[]>([]);
   const [reason, setReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -111,7 +113,7 @@ export default function WorkpapersPage() {
       .then((r) => r.json())
       .then((j) => {
         if (j.error) throw new Error(j.error);
-        setWp(j.wp ?? null); setReason(j.reason ?? null); setCoverageEnd(j.coverageEnd ?? 12);
+        setWp(j.wp ?? null); setReason(j.reason ?? null); setCoverageEnd(j.coverageEnd ?? 12); setChecklist(j.checklist ?? []);
       })
       .catch((e) => setError(e?.message ?? "Couldn't build the workpapers."))
       .finally(() => setLoading(false));
@@ -148,7 +150,7 @@ export default function WorkpapersPage() {
         </>}
         actions={<>
           <button className="btn import" disabled={apBusy} onClick={() => pickInto(apInput.current, "ap-aging")}>
-            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> {apBusy ? "Importing…" : "Import Aging"}
+            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> {apBusy ? "Importing…" : "Import Aging Reports"}
           </button>
           <InfoPopover label="Aging report steps">
             <div style={{ display: "grid", gap: 10, maxWidth: 480 }}>
@@ -205,6 +207,8 @@ export default function WorkpapersPage() {
           <StatPill label="To review" value={String(wp.counts.review)} />
           <StatPill label="To fix" value={String(wp.counts.fix)} />
         </div>
+
+        {checklist.length > 0 && <ReportChecklist items={checklist} quarter={`Q${wp.quarter} ${y}`} busy={apBusy} onImport={() => pickInto(apInput.current, "ap-aging")} />}
 
         <div className="card" style={{ display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -291,6 +295,44 @@ function Schedule({ s }: { s: WpSchedule }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// The reports the quarter is proven against: what is in, what is still owed.
+const SOURCE_STATUS: Record<WpSourceItem["status"], { word: string; color: string; Icon: typeof CircleCheck }> = {
+  done: { word: "In", color: "var(--c-067647)", Icon: CircleCheck },
+  review: { word: "Finish", color: "var(--c-b54708)", Icon: TriangleAlert },
+  missing: { word: "Needed", color: "var(--c-b42318)", Icon: Circle },
+  na: { word: "Not needed", color: "var(--muted)", Icon: Minus },
+};
+
+function ReportChecklist({ items, quarter, busy, onImport }: { items: WpSourceItem[]; quarter: string; busy: boolean; onImport: () => void }) {
+  const needed = items.filter((i) => i.status !== "na");
+  const inHand = needed.filter((i) => i.status === "done").length;
+  return (
+    <div className="card" style={{ display: "grid", gap: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 17, fontWeight: 700 }}>Reports for {quarter}</div>
+        <div className="muted" style={{ fontSize: "var(--fs-14)" }}>{inHand} of {needed.length} in</div>
+      </div>
+      {items.map((i) => {
+        const st = SOURCE_STATUS[i.status];
+        const importable = i.id === "ar" || i.id === "ap";
+        return (
+          <div key={i.id} className="task-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 2px", borderBottom: "1px solid var(--hairline)", opacity: i.status === "na" ? 0.6 : 1 }}>
+            <st.Icon size={20} strokeWidth={1.75} color={st.color} aria-hidden style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600 }}>{i.label}</div>
+              <div className="muted" style={{ fontSize: "var(--fs-14)" }}>{i.detail}</div>
+            </div>
+            <span style={{ color: st.color, fontWeight: 600, fontSize: "var(--fs-14)", whiteSpace: "nowrap" }}>{st.word}</span>
+            {i.status !== "na" && (importable
+              ? <button className="btn sm" disabled={busy} onClick={onImport}><Upload size={16} strokeWidth={1.75} aria-hidden /> {i.status === "done" ? "Re-import" : "Import"}</button>
+              : i.href ? <a className="btn sm" href={i.href}>Open</a> : null)}
+          </div>
+        );
+      })}
     </div>
   );
 }

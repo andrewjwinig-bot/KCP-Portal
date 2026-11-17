@@ -21,7 +21,19 @@ import { invoicesNotInBooks } from "./apAging";
 
 export type WpMeta = { key: string; name: string; entityName: string; ein: string | null };
 
-export async function loadWorkpapers(key: string, year: number, asOfMonth: number): Promise<{ wp: Workpapers; meta: WpMeta; coverageEnd: number } | null> {
+/** One report or record the quarter's workpapers are checked against. */
+export type WpSourceItem = {
+  id: "gl" | "ar" | "ap" | "bank" | "debt" | "deposits";
+  label: string;
+  /** done = in hand for this quarter; missing = still to import / run;
+   *  review = in hand but not finished; na = this property has no such account. */
+  status: "done" | "missing" | "review" | "na";
+  detail: string;
+  /** The page that produces it (none for the agings — they import here). */
+  href?: string;
+};
+
+export async function loadWorkpapers(key: string, year: number, asOfMonth: number): Promise<{ wp: Workpapers; meta: WpMeta; coverageEnd: number; checklist: WpSourceItem[] } | null> {
   const gl = await assembledGlConsolidated(key, year);
   if (!gl) return null;
   const metas = await listGls();
@@ -89,9 +101,57 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
   });
   const def = PROPERTY_DEFS.find((d) => d.id === key);
   const entityName = (await availableStatements()).find((p) => p.key === key)?.entityName ?? def?.name ?? key;
+  const coverageEnd = Math.min(12, gl.coverageEnd ?? gl.maxPeriodInFile ?? 12);
+
+  // The reports this quarter is proven against, and which are still owed.
+  const has = (re: RegExp) => wp.schedules.some((s) => re.test(s.code));
+  const asOfShort = `${asOfMonth}/${asOfDate.slice(8)}/${year}`;
+  const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const checklist: WpSourceItem[] = [
+    {
+      id: "gl", label: "General Ledger", href: "/financials/operating-statements",
+      status: coverageEnd >= asOfMonth ? "done" : "missing",
+      detail: coverageEnd >= asOfMonth ? `Through ${MONTH[asOfMonth - 1]} ${year}` : `Only through ${MONTH[coverageEnd - 1]} — import through ${MONTH[asOfMonth - 1]}`,
+    },
+    {
+      id: "ar", label: "Tenant Aging (Skyline Credit Balance report)",
+      status: !has(/^042\d-/) ? "na" : arAging ? "done" : "missing",
+      detail: !has(/^042\d-/) ? "No tenant receivables on this ledger"
+        : arAging ? `As of ${asOfShort} · ${arAging.tenants} tenant${arAging.tenants === 1 ? "" : "s"}`
+        : `Not imported as of ${asOfShort} — every tenant with a balance`,
+    },
+    {
+      id: "ap", label: "AP Aged Trial Balance",
+      status: !has(/^211\d-/) ? "na" : apAging ? "done" : "missing",
+      detail: !has(/^211\d-/) ? "No accounts payable on this ledger"
+        : apAging ? `As of ${asOfShort} · ${apAging.invoices} invoice${apAging.invoices === 1 ? "" : "s"}`
+        : `Not imported as of ${asOfShort}`,
+    },
+    {
+      id: "bank", label: "Bank Rec", href: "/bank-rec/reconcile",
+      status: !wp.schedules.some((s) => s.kind === "cash") ? "na" : !bankRec ? "missing" : bankRec.signedOff ? "done" : "review",
+      detail: !wp.schedules.some((s) => s.kind === "cash") ? "No cash accounts on this ledger"
+        : !bankRec ? `${MONTH[asOfMonth - 1]} ${year} not reconciled in the portal`
+        : bankRec.signedOff ? `${MONTH[asOfMonth - 1]} ${year} signed off` : `${MONTH[asOfMonth - 1]} ${year} run, not signed off`,
+    },
+    {
+      id: "debt", label: "Debt Tracker", href: "/debt",
+      status: !loans.length ? "na" : debtPrincipal ? "done" : "review",
+      detail: !loans.length ? "No loans on file for this property"
+        : debtPrincipal ? `${loans.length} loan${loans.length === 1 ? "" : "s"} · balance at ${asOfShort}`
+        : "A loan's schedule doesn't reach the quarter end",
+    },
+    {
+      id: "deposits", label: "Security Deposits register", href: "/deposits",
+      status: !wp.schedules.some((s) => s.kind === "sdPayable") && depositsHeld == null ? "na" : depositsHeld != null ? "done" : "missing",
+      detail: depositsHeld != null ? `${deposits.length} deposit${deposits.length === 1 ? "" : "s"} on file` : !wp.schedules.some((s) => s.kind === "sdPayable") ? "No deposits liability on this ledger" : "No deposits on file",
+    },
+  ];
+
   return {
     wp,
     meta: { key, name: def?.name ?? entityName, entityName, ein: def?.ein ?? null },
-    coverageEnd: Math.min(12, gl.coverageEnd ?? gl.maxPeriodInFile ?? 12),
+    coverageEnd,
+    checklist,
   };
 }
