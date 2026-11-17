@@ -13,7 +13,7 @@
 import { FilePath } from "@/app/components/FilePath";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Circle, CircleCheck, CircleX, FolderSync, Info, Minus, TriangleAlert, Upload } from "lucide-react";
-import { child, connectFolder, connectedFolder, filesUnder, folderAccessSupported, forgetFolder, resolvePath } from "@/app/components/shareFolder";
+import { child, connectFolder, type DirHandle, connectedFolder, filesUnder, folderAccessSupported, forgetFolder, resolvePath } from "@/app/components/shareFolder";
 import { pickRecFiles } from "@/lib/financials/workpapers/bankRecs";
 import { InfoPopover } from "@/app/components/InfoPopover";
 import { pickInto } from "@/app/components/pickFiles";
@@ -145,14 +145,27 @@ export default function WorkpapersPage() {
     try {
       const root = (await connectedFolder(SHARE_ID)) ?? (await connectFolder(SHARE_ID));
       if (!root) return;
-      const recsDir = await resolvePath(root, ["Data", "Accounting", `!${y} Year End`, "Bank Account Reconciliations"]);
-      if (!recsDir) {
-        await forgetFolder(SHARE_ID);
-        setApResult({ tone: "danger", title: `Couldn't find ${where} in "${root.name}"`, meta: "Click again and choose your KCP - Documents folder (or the Bank Account Reconciliations folder itself)." });
-        return;
+      // The month folder itself ("09 September 2026") works for that month;
+      // anything higher works for every month.
+      const isMonth = /^\d{2}\s/.test(root.name) && /\d{4}\s*$/.test(root.name);
+      let month: DirHandle | null = null;
+      if (isMonth) {
+        if (root.name.startsWith(`${mm} `) && root.name.trim().endsWith(y)) month = root;
+        else {
+          await forgetFolder(SHARE_ID);
+          setApResult({ tone: "warning", title: `You connected "${root.name}", not this quarter's month`, meta: "Click again and choose the Bank Account Reconciliations folder (or KCP - Documents), so every quarter can be found." });
+          return;
+        }
+      } else {
+        const recsDir = await resolvePath(root, ["Data", "Accounting", `!${y} Year End`, "Bank Account Reconciliations"]);
+        if (!recsDir) {
+          await forgetFolder(SHARE_ID);
+          setApResult({ tone: "danger", title: `Couldn't find ${where} in "${root.name}"`, meta: "Click again and choose your KCP - Documents folder (or the Bank Account Reconciliations folder itself)." });
+          return;
+        }
+        month = await child(recsDir, (n) => n.startsWith(`${mm} `));
+        if (!month) { setApResult({ tone: "warning", title: `No ${mm} folder in ${where} yet`, meta: "Marie hasn't saved the quarter-end month's recs." }); return; }
       }
-      const month = await child(recsDir, (n) => n.startsWith(`${mm} `));
-      if (!month) { setApResult({ tone: "warning", title: `No ${mm} folder in ${where} yet`, meta: "Marie hasn't saved the quarter-end month's recs." }); return; }
       const found = pickRecFiles((await filesUnder(month, 2)).map((f) => ({ name: f.handle.name, h: f.handle })));
       if (!found.length) { setApResult({ tone: "warning", title: `No recs in "${month.name}"`, meta: "Looked for Rec2B, Rec1&2, Rec2 or Rec1 PDFs in each bank's folder." }); return; }
       await importFiles(await Promise.all(found.map((f) => f.h.getFile())));
