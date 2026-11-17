@@ -36,7 +36,7 @@ export const IMPORT_STEPS: Record<string, ImportSteps> = {
       "Save it to the Monthly GLs folder below. The file name does not matter.",
       "In the portal: Operating Statements, Upload GL, and pick the files.",
     ],
-    path: { label: "Save to", value: "Data\\Accounting\\{year} Year End\\Reports to Eisner\\Monthly GLs" },
+    path: { label: "Save to", value: "Data\\Accounting\\!{year} Year End\\Reports to Eisner\\Monthly GLs" },
     importAt: { label: "Operating Statements", href: "/financials/operating-statements" },
     note: "Importing 2000's GL sends the Allocated Expenses to AvidXchange on its own.",
   },

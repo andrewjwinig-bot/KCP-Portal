@@ -542,6 +542,23 @@ the page's own hidden input, so its onChange runs unchanged; Firefox / Safari
 get the ordinary picker. A new import button calls `pickInto`, never
 `ref.current.click()`.
 
+**AN IMPORT CAN PULL ITS NEWEST FILE STRAIGHT FROM THE SHARE DRIVE** (owner,
+11/2026: "apply these pull from the share drive for more reports … much
+faster and easier"). The folder icon beside an import (`SharePullButton`,
+`app/components/`) reads the OneDrive-synced KCP - Documents folder, connected
+ONCE per browser (`shareFolder.ts`, `SHARE_ID`, kept in IndexedDB; Chrome /
+Edge only, hidden elsewhere) and hands the file to the page's own input
+(`feedInput`), so the import runs unchanged. Where each report lives and which
+file to take is ONE list, `lib/shareDrive/pullSpecs.ts`: reports are saved
+with the MONTH NUMBER in front ("10 PALL.xls", "11 RR.xls"; owner: "i can do NN
+for all reports") and the highest wins; the year folder is filled in, falling
+back to last year early in January. So far: the General Ledger (newest PALL +
+PFUNDS in `!{year} Year End\Reports to Eisner\Monthly GLs` — the
+single-property files there predate PALL and are never taken), the Rent Roll
+(`Shared\Properties\Monthly Rent Rolls\{year}`), and Marie's bank recs on
+Workpapers. A new one is a spec there + the button beside the import.
+A browser cannot read a folder without a click; hands-off needs the Graph app.
+
 **A FILE OR FOLDER PATH IS ALWAYS `FilePath`** (`app/components/FilePath.tsx`;
 owner: "file paths should have a format too"): a quiet chip with a folder icon,
 the path in navy mono, `{year}` filled in, any part still to choose
