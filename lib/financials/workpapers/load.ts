@@ -171,14 +171,14 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
         : `Not imported as of ${asOfShort} — every tenant with a balance`,
     },
     {
-      id: "ap", label: "AP Aged Trial Balance",
+      id: "ap", label: "AP Aged Trial Balance (PDF)",
       status: !has(/^211\d-/) ? "na" : apAging ? "done" : "missing",
       detail: !has(/^211\d-/) ? "No accounts payable on this ledger"
         : apAging ? `As of ${asOfShort} · ${apAging.invoices} invoice${apAging.invoices === 1 ? "" : "s"}`
         : `Not imported as of ${asOfShort}`,
     },
     {
-      id: "bank", label: "Statement Reconcile Report", href: "/bank-rec/reconcile",
+      id: "bank", label: "Statement Reconcile Report (PDF)", href: "/bank-rec/reconcile",
       status: !wp.schedules.some((s) => s.kind === "cash") ? "na" : !bankRec ? "missing" : bankRec.signedOff ? "done" : "review",
       detail: !wp.schedules.some((s) => s.kind === "cash") ? "No cash accounts on this ledger"
         : !bankRec ? `${MONTH[asOfMonth - 1]} ${year} not reconciled in the portal`
