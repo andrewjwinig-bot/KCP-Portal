@@ -184,13 +184,16 @@ export function placeApSections(file: ApAgingFile, candidates: ApCandidate[]): A
  *  on or before the as-of date but entered after it (they age by invoice date,
  *  so a later re-run picks them up), or keyed to another property. Matched by
  *  amount and vendor against the year's 2110 credits. */
-export function invoicesNotInBooks(invoices: ApInvoice[], payableCredits: { amount: number; text: string }[]): ApInvoice[] {
-  const pool = payableCredits.map((c) => ({ amount: round2(Math.abs(c.amount)), text: foldVendor(c.text), used: false }));
+export function invoicesNotInBooks(invoices: ApInvoice[], payableCredits: { amount: number; text: string; month?: number }[]): ApInvoice[] {
+  const pool = payableCredits.map((c) => ({ amount: round2(Math.abs(c.amount)), text: foldVendor(c.text), month: c.month ?? 0, used: false }));
   const out: ApInvoice[] = [];
   for (const inv of invoices) {
     const v = foldVendor(inv.vendor).split(" ")[0] ?? "";
-    const hit = pool.find((p) => !p.used && Math.abs(p.amount - Math.abs(inv.amount)) < 0.01 && (!v || p.text.includes(v)))
-      ?? pool.find((p) => !p.used && Math.abs(p.amount - Math.abs(inv.amount)) < 0.01);
+    // A bill cannot have been posted before the month it is dated — a utility
+    // billing the same amount every month would otherwise stand in for it.
+    const invMonth = inv.date ? Number(inv.date.slice(5, 7)) : 0;
+    const fits = (p: { amount: number; month: number; used: boolean }) => !p.used && Math.abs(p.amount - Math.abs(inv.amount)) < 0.01 && (!p.month || !invMonth || p.month >= invMonth);
+    const hit = pool.find((p) => fits(p) && (!v || p.text.includes(v))) ?? pool.find(fits);
     if (hit) hit.used = true; else out.push(inv);
   }
   return out;

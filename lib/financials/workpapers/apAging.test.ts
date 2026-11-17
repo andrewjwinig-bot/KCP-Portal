@@ -110,6 +110,19 @@ describe("the workpaper's AP tie-out", () => {
     expect(ap.flags[0]).toMatchObject({ level: "info" });
     expect(ap.status).toBe("ok");
   });
+  it("a same-amount bill posted in an EARLIER month is not the late one", () => {
+    const inv = [{ vendor: "City Gas Co", vendorCode: "GASC1", description: "", voucher: "1", invoice: "A-2", date: "2025-12-06", amount: 150.17, bucket: "current" as const }];
+    expect(invoicesNotInBooks(inv, [{ amount: -150.17, text: "City Gas Co", month: 11 }]).length).toBe(1);
+    expect(invoicesNotInBooks(inv, [{ amount: -150.17, text: "City Gas Co", month: 12 }]).length).toBe(0);
+  });
+  it("the gap made up of SOME of the unmatched bills is still timing", () => {
+    const notInBooks = [{ vendor: "City Gas Co", date: "2025-12-06", amount: 150.17 }, { vendor: "Widget Repairs Inc", date: "2025-11-02", amount: 75 }];
+    const wp = computeWorkpapers({ ...base, sources: { apAging: { asOf: "2025-12-31", total: 650.17, invoices: 2, notInBooks } } });
+    const ap = wp.schedules.find((s) => s.code === "2110-0000")!;
+    expect(ap.status).toBe("ok");
+    expect(ap.flags[0].text).toContain("City Gas Co");
+    expect(ap.flags[0].text).not.toContain("Widget");
+  });
   it("an unexplained gap is for review", () => {
     const wp = computeWorkpapers({ ...base, sources: { apAging: { asOf: "2025-12-31", total: 900, invoices: 2, notInBooks: [] } } });
     expect(wp.schedules.find((s) => s.code === "2110-0000")!.status).toBe("review");

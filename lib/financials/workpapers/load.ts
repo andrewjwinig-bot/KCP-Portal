@@ -56,7 +56,7 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
     const invoices = apSections.flatMap((s) => s.invoices);
     const credits = Object.entries(transactions ?? {})
       .filter(([code]) => /^211\d-/.test(code))
-      .flatMap(([, list]) => list.filter((t) => t.month <= asOfMonth && t.amount < 0).map((t) => ({ amount: t.amount, text: `${t.vendor ?? ""} ${t.description}` })));
+      .flatMap(([, list]) => list.filter((t) => t.month <= asOfMonth && t.amount < 0).map((t) => ({ amount: t.amount, text: `${t.vendor ?? ""} ${t.description}`, month: t.month })));
     apAging = {
       asOf: aging.asOf,
       total: Math.round(apSections.reduce((t, s) => t + s.total, 0) * 100) / 100,
