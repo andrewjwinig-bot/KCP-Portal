@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { GL_PULL, RENT_ROLL_PULL, CREDIT_BALANCE_PULL, monthPrefix } from "./pullSpecs";
+import { GL_PULL, RENT_ROLL_PULL, CREDIT_BALANCE_PULL, LASER_STATEMENT_PULL, monthFoldersNewestFirst, monthPrefix } from "./pullSpecs";
 const f = (names: string[]) => names.map((name, i) => ({ name, modified: i }));
 
 describe("pulling the newest report from the share drive", () => {
@@ -20,5 +20,11 @@ describe("pulling the newest report from the share drive", () => {
   it("the Credit Balance Report: the one saved most recently, whatever its name", () => {
     const files = [{ name: "12 Credits.xls", modified: 100 }, { name: "01 Credits.xls", modified: 200 }, { name: "~$01 Credits.xls", modified: 300 }];
     expect(CREDIT_BALANCE_PULL.pick(files)).toEqual(["01 Credits.xls"]);
+  });
+  it("the Laser Statements: the newest month folder, groups before single-tenant re-runs, PDFs over Excel", () => {
+    expect(monthFoldersNewestFirst(["1 January", "10 October", "11 November", "9 September", "Archive"])).toEqual(["11 November", "10 October", "9 September", "1 January"]);
+    expect(LASER_STATEMENT_PULL.pick(f(["3620-104.pdf", "jviii.pdf", "SC.xls", "Shopping Centers.pdf", "nillc.pdf", "40A0-A.pdf"])))
+      .toEqual(["jviii.pdf", "Shopping Centers.pdf", "nillc.pdf", "3620-104.pdf", "40A0-A.pdf"]);
+    expect(LASER_STATEMENT_PULL.pick(f(["SC.xls"]))).toEqual(["SC.xls"]);
   });
 });

@@ -108,6 +108,8 @@ export const SHARE_ID = "share-drive";
 /** Files to import for `spec`, read from the connected share drive. Tries
  *  `year`, then the year before (early January, before the new folder fills).
  *  Throws a plain-English Error when the folder or a file can't be found. */
+import { monthFoldersNewestFirst } from "@/lib/shareDrive/pullSpecs";
+
 export async function pullFromShare(spec: import("@/lib/shareDrive/pullSpecs").PullSpec, year = new Date().getFullYear()): Promise<{ files: File[]; folder: string } | null> {
   const root = (await connectedFolder(SHARE_ID)) ?? (await connectFolder(SHARE_ID));
   if (!root) return null;
@@ -116,13 +118,25 @@ export async function pullFromShare(spec: import("@/lib/shareDrive/pullSpecs").P
     const dir = await resolvePath(root, spec.segments(y));
     if (!dir) continue;
     sawFolder = true;
-    const all: FileHandle[] = [];
-    for await (const e of dir.values()) if (e.kind === "file") all.push(e);
-    const got = await Promise.all(all.map((f) => f.getFile()));
-    const want = new Set(spec.pick(got.map((g) => ({ name: g.name, modified: g.lastModified }))));
-    if (!want.size) continue;
-    const files = got.filter((g) => want.has(g.name));
-    return { files, folder: spec.segments(y).join("\\") };
+    // A folder per month: the newest one that has the files.
+    const places: { dir: DirHandle; path: string }[] = [];
+    if (spec.monthFolders) {
+      const months: DirHandle[] = [];
+      for await (const e of dir.values()) if (e.kind === "directory") months.push(e);
+      for (const name of monthFoldersNewestFirst(months.map((m) => m.name))) {
+        const inner = await resolvePath(months.find((m) => m.name === name)!, [name, ...spec.monthFolders.inner]);
+        if (inner) places.push({ dir: inner, path: [...spec.segments(y), name, ...spec.monthFolders.inner].join("\\") });
+      }
+    } else places.push({ dir, path: spec.segments(y).join("\\") });
+    for (const place of places) {
+      const all: FileHandle[] = [];
+      for await (const e of place.dir.values()) if (e.kind === "file") all.push(e);
+      const got = await Promise.all(all.map((f) => f.getFile()));
+      const order = spec.pick(got.map((g) => ({ name: g.name, modified: g.lastModified })));
+      if (!order.length) continue;
+      const files = order.map((n) => got.find((g) => g.name === n)!).filter(Boolean);
+      return { files, folder: place.path };
+    }
   }
   if (!sawFolder) {
     await forgetFolder(SHARE_ID);
