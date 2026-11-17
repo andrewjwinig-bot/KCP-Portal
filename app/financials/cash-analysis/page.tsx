@@ -13,14 +13,12 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import Link from "next/link";
 import { StatPill, Pill, Badge, TONE_RED, TONE_AMBER, TONE_GREEN } from "@/app/components/Pill";
-import { useFileDrop, byExt } from "@/app/components/useFileDrop";
 import { LastImported } from "@/app/components/LastImported";
-import { bankAccountsForCodes, weekOfLabel, parseMonthKey, type BankAccount } from "@/lib/financials/cash-sheet/util";
+import { bankAccountsForCodes, weekOfLabel, type BankAccount } from "@/lib/financials/cash-sheet/util";
 import { ACCOUNT_CODE, PREFIX_CODE } from "@/lib/financials/cash-analysis/accountCodes";
 import { exportCashSheetXlsx, exportCashSheetPdf, type CashSheetExportInput, type ExportTotals } from "@/lib/financials/cash-sheet/export";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { AccountListCard } from "@/app/components/AccountListCard";
-import { useImport } from "@/app/components/import/ImportProvider";
 import BankBalancesView from "./BankBalancesView";
 
 type Bucket = { code: number; label: string };
@@ -175,11 +173,6 @@ function CashSheetPage() {
   const [bridgeModal, setBridgeModal] = useState<{ row: Row } | null>(null);
   // The properties whose deposit movement pooled into an SD account this month.
   const [sdModal, setSdModal] = useState<{ name: string; rows: { key: string; name: string; amount: number }[] } | null>(null);
-  // Weekly AvidXchange bills — the bridge that keeps the monthly GL position
-  // current between postings. Uploaded here, consumed by "Est. Cash Today".
-  const apRef = useRef<HTMLInputElement | null>(null);
-  const apDrop = useFileDrop((files) => processApFiles(files), { accept: byExt([".xls", ".xlsx", ".pdf"]) });
-  const { startImport } = useImport();
 
   const runDrill = useCallback((key: string, propName: string, code: number, label: string) => {
     setDrill({ key, propName, code, label });
@@ -245,53 +238,6 @@ function CashSheetPage() {
   // single current balance (endingOverride) — same store the Cash Sheet uses.
   const saveOpening = useCallback((row: Row, raw: string) => saveOverride(row.key, "startingOverride", raw), [saveOverride]);
   const saveManual = useCallback((row: Row, raw: string) => saveOverride(row.key, "endingOverride", raw), [saveOverride]);
-
-  // Upload the weekly AP AutoPay Selections Reports → auto-fills the week's bills
-  // (reused from the Cash Sheet), refreshing the "Est. Cash Today" bridge.
-  async function onApUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    if (apRef.current) apRef.current.value = "";
-    await processApFiles(files);
-  }
-
-  async function processApFiles(files: File[]) {
-    if (!files.length) return;
-    setError(null);
-    let pm: { year: number; month: number } | null = null;
-
-    await startImport({
-      kind: "ap",
-      title: (n) => `Importing ${n} AP selection report${n === 1 ? "" : "s"}`,
-      subtitle: "AP AutoPay Selections · .xls / .xlsx / .pdf",
-      files,
-      // One request handles all files; the report is aggregate (week + total).
-      uploadAll: async (fs) => {
-        const fd = new FormData();
-        for (const f of fs) fd.append("files", f);
-        const res = await fetch("/api/financials/cash-sheet/ap-upload", { method: "POST", body: fd });
-        const j = await res.json();
-        if (!res.ok) throw new Error(j?.error ?? "Upload failed");
-        pm = parseMonthKey(String(j.wednesday).slice(0, 7));
-        return { files: fs.map((f) => ({ status: "done" as const, entity: f.name.replace(/\.[^.]+$/, "") })), raw: j };
-      },
-      report: (rows, raw) => {
-        const j = raw as { wednesday: string; total: number; filled?: unknown[] };
-        const wed = j?.wednesday ? new Date(`${j.wednesday}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—";
-        return {
-          stats: [
-            { value: String(rows.filter((r) => r.status === "done").length), label: rows.length === 1 ? "file" : "files" },
-            { value: wed, label: "week of" },
-            { value: `$${Math.round(j?.total ?? 0).toLocaleString("en-US")}`, label: "AP total" },
-            { value: String((j?.filled ?? []).length), label: "bills filled" },
-          ],
-        };
-      },
-    });
-
-    // Jump to the imported report's month and refresh that month's snapshot.
-    if (pm && (pm.year !== year || pm.month !== period)) { setYear(pm.year); setPeriod(pm.month); }
-    await load(pm ? { year: pm.year, period: pm.month } : undefined);
-  }
 
   const buckets = data?.buckets ?? [];
   // The bank accounts a row surfaces (mirrors the chips), and the distinct banks
@@ -457,22 +403,9 @@ function CashSheetPage() {
       </div>
 
       {/* ── Controls card ─────────────────────────────────────────────────── */}
-      <div
-        className="card"
-        {...(data?.canEdit ? apDrop.dropHandlers : {})}
-        title={data?.canEdit ? "Import the AP Selection Report, or drag it onto this card" : undefined}
-        style={data?.canEdit && apDrop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" } : undefined}
-      >
+      <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {data?.canEdit && (
-              <>
-                <button className="btn" onClick={() => apRef.current?.click()} style={{ whiteSpace: "nowrap", fontSize: "var(--fs-13)", padding: "8px 16px" }} title="Import the weekly AP Selection Report (.xls, .xlsx, or .pdf) — or drag it onto this card">
-                  {apDrop.dragging ? "Drop to import" : "Import"}
-                </button>
-                <input ref={apRef} type="file" accept=".xls,.xlsx,.pdf" multiple style={{ display: "none" }} onChange={onApUpload} />
-              </>
-            )}
             {data && grouped.length > 0 && (
               <DownloadMenu
                 items={[
@@ -499,9 +432,7 @@ function CashSheetPage() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 8, flexWrap: "wrap" }}>
-          <p className="muted small" style={{ margin: 0 }}>
-            Import the weekly <b>AP Selection Report</b> (.xls, .xlsx, or .pdf) to fill bills paid.
-          </p>
+          <span />
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <div style={{ display: "inline-flex", border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.3))", borderRadius: 999, overflow: "hidden" }} title="How much detail to show for cash movement">
               {([["net", "Net"], ["io", "Cash In/Out"], ["detail", "Detail"]] as const).map(([v, label]) => (
