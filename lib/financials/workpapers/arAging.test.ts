@@ -66,3 +66,15 @@ describe("coversEveryBalance", () => {
     expect(coversEveryBalance([{ balanceDue: 300, lines: [{ amount: 300 }] }])).toBe(true);
   });
 });
+
+describe("the Laser Statement as an approximate A/R check", () => {
+  const m = (dec: number) => { const a = new Array(12).fill(0); a[11] = dec; return a; };
+  const base = { key: "4500", year: 2026, asOfMonth: 12, gl: { beginning: { "0420-0000": 0, "2110-0000": 0 }, monthly: { "0420-0000": m(5000), "2110-0000": m(-5000) } } };
+  it("never claims a tie, and says what it is", () => {
+    const wp = computeWorkpapers({ ...base, sources: { arAging: { asOf: "2027-01-05", total: 5000, charges: 6000, credits: -1000, tenants: 9, top: [], approximate: { period: "2027-01", runOn: "2027-01-05" } } } });
+    const ar = wp.schedules.find((s) => s.code === "0420-0000")!;
+    expect(ar.support?.ties).toBeNull();
+    expect(ar.support?.label).toContain("approximate");
+    expect(ar.flags.some((f) => f.level === "info" && f.text.startsWith("Approximate check only"))).toBe(true);
+  });
+});

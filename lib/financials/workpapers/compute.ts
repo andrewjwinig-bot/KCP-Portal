@@ -175,7 +175,11 @@ export interface WpInput {
     apAging?: { asOf: string; total: number; invoices: number; notInBooks: { vendor: string; date: string | null; amount: number }[] } | null;
     /** Skyline's tenant Aging Report at the quarter end: what tenants owe net
      *  of their credits, and the largest balances behind it. */
-    arAging?: { asOf: string; total: number; charges: number; credits: number; tenants: number; top: { unitRef: string; tenantName: string; balance: number; former: boolean }[]} | null;
+    arAging?: { asOf: string; total: number; charges: number; credits: number; tenants: number; top: { unitRef: string; tenantName: string; balance: number; former: boolean }[];
+      /** Read off the Laser Statement run just after the quarter end, not an
+       *  aging AS OF it: a check, never a tie (the month's billing and payments
+       *  to the run date are in it). */
+      approximate?: { period: string; runOn: string } } | null;
     /** Bank rec: Skyline register vs this GL's cash at month end. */
     bankRec?: { period: string; skyline: number; gl: number | null; difference: number | null; signedOff: boolean } | null;
   };
@@ -391,6 +395,12 @@ export function computeWorkpapers(input: WpInput): Workpapers {
     const ledger = round2(ar.reduce((t, s) => t + s.ending, 0));
     const diff = round2(ledger - ag.total);
     const ties = Math.abs(diff) < 1;
+    if (ag.approximate) {
+      const runOn = mdy(ag.approximate.runOn);
+      for (const s of ar) s.support = { label: `Laser Statement run ${runOn} — approximate`, amount: ag.total, ties: null, difference: diff,
+        note: `Owed by tenants per the books ${signed(ledger)} at the quarter end vs ${signed(ag.total)} open on the Laser Statement run ${runOn}.` };
+      ar[0].flags.push({ level: "info", text: `Approximate check only: the Laser Statement run ${runOn} shows tenants owing ${signed(ag.total)} net against ${signed(ledger)} on the books — ${fmt(diff)} apart, which includes the new month's billing and payments up to the run date. An exact tie needs the tenant aging as of the quarter end.` });
+    } else {
     const support: WpSupport = { label: `Tenant aging — ${ag.tenants} tenant${ag.tenants === 1 ? "" : "s"}`, amount: ag.total, ties, difference: diff,
       note: `Owed by tenants per the books ${signed(ledger)} vs Skyline's tenant aging ${signed(ag.total)} (charges ${fmt(ag.charges)}, credits ${fmt(ag.credits)}).` };
     for (const s of ar) s.support = support;
@@ -403,6 +413,7 @@ export function computeWorkpapers(input: WpInput): Workpapers {
     }
     // The 0420 credit flag is answered by the aging when it ties.
     if (ties) for (const s of ar) s.flags = s.flags.filter((f) => !f.text.startsWith("Tenants are net in credit"));
+    }
   }
 
   // Accounts payable against the vendor aging (the accountants' AP tab).
