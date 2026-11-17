@@ -425,10 +425,10 @@ function ReportChecklist({ items, quarter, busy, onImport, onPull }: { items: Wp
             </div>
             <span style={{ color: st.color, fontWeight: 600, fontSize: "var(--fs-14)", whiteSpace: "nowrap" }}>{st.word}</span>
             {i.status !== "na" && i.id === "bank" && canPull && (
-              <button className="btn sm" disabled={busy} onClick={onPull}><FolderSync size={16} strokeWidth={1.75} aria-hidden /> Pull from Share Drive</button>
+              <button className="btn sm icon-tip" disabled={busy} onClick={onPull} aria-label="Pull from Share Drive" data-tip="Pull from Share Drive"><FolderSync size={16} strokeWidth={1.75} aria-hidden /></button>
             )}
             {i.status !== "na" && (importable
-              ? <button className="btn sm" disabled={busy} onClick={onImport}><Upload size={16} strokeWidth={1.75} aria-hidden /> {i.status === "done" ? "Re-import" : "Import"}</button>
+              ? <button className="btn sm icon-tip" disabled={busy} onClick={onImport} aria-label={i.status === "done" ? "Re-import" : "Import"} data-tip={i.status === "done" ? "Re-import" : "Import"}><Upload size={16} strokeWidth={1.75} aria-hidden /></button>
               : i.href ? <a className="btn sm" href={i.href}>Open</a> : null)}
           </div>
         );
