@@ -157,15 +157,15 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
   const MONTH = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const checklist: WpSourceItem[] = [
     {
-      id: "gl", label: "General Ledger", href: "/financials/operating-statements",
+      id: "gl", label: "Detailed General Ledger", href: "/financials/operating-statements",
       status: coverageEnd >= asOfMonth ? "done" : "missing",
       detail: coverageEnd >= asOfMonth ? `Through ${MONTH[asOfMonth - 1]} ${year}` : `Only through ${MONTH[coverageEnd - 1]} — import through ${MONTH[asOfMonth - 1]}`,
     },
     {
-      id: "ar", label: "Tenant Aging (Skyline Credit Balance report)",
+      id: "ar", label: "Credit Balance",
       status: !has(/^042\d-/) ? "na" : arAging ? "done" : "missing",
       detail: !has(/^042\d-/) ? "No tenant receivables on this ledger"
-        : arLaser ? `Approximate — the Laser Statement run ${arLaser.runOn.slice(5, 7)}/${arLaser.runOn.slice(8)}/${arLaser.runOn.slice(0, 4)}; for an exact tie, the tenant aging as of ${asOfShort}`
+        : arLaser ? `Approximate — the Laser Statement run ${arLaser.runOn.slice(5, 7)}/${arLaser.runOn.slice(8)}/${arLaser.runOn.slice(0, 4)}; for an exact tie, the Credit Balance report as of ${asOfShort}`
         : arAging ? `As of ${asOfShort} · ${arAging.tenants} tenant${arAging.tenants === 1 ? "" : "s"}${arFrom === "receivables" ? " · from the Receivables import" : ""}`
         : arCreditsOnly ? `The ${asOfShort} report imported lists only tenants holding a credit — re-run it for every tenant with a balance`
         : `Not imported as of ${asOfShort} — every tenant with a balance`,
@@ -178,7 +178,7 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
         : `Not imported as of ${asOfShort}`,
     },
     {
-      id: "bank", label: "Bank Rec", href: "/bank-rec/reconcile",
+      id: "bank", label: "Statement Reconcile Report", href: "/bank-rec/reconcile",
       status: !wp.schedules.some((s) => s.kind === "cash") ? "na" : !bankRec ? "missing" : bankRec.signedOff ? "done" : "review",
       detail: !wp.schedules.some((s) => s.kind === "cash") ? "No cash accounts on this ledger"
         : !bankRec ? `${MONTH[asOfMonth - 1]} ${year} not reconciled in the portal`

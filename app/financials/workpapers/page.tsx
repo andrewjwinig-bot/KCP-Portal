@@ -83,7 +83,7 @@ export default function WorkpapersPage() {
         : ` · it proves ${quarterLabel(target)}, which has no General Ledger for this property`;
       setApResult({
         tone: problems.length ? "warning" : "success",
-        title: `${isAr ? "Tenant Aging" : "AP Aged Trial Balance"} as of ${asOf} imported`,
+        title: `${isAr ? "Credit Balance" : "AP Aged Trial Balance"} as of ${asOf} imported`,
         meta: `${count}${total}${showing}${problems.length ? ` · ${problems.join(" · ")}` : ""}`,
       });
       if (jump) setPeriod(target); else setReload((n) => n + 1);
@@ -157,7 +157,7 @@ export default function WorkpapersPage() {
             <div style={{ display: "grid", gap: 10, maxWidth: 480 }}>
               <div>Two Skyline reports, both for <b>PALL</b> and both <b>as of the quarter-end date</b> (3/31, 6/30, 9/30 or 12/31), not today. Import each here; the page tells them apart.</div>
               <div>
-                <div style={{ fontWeight: 700 }}>Tenant Aging: proves Trade Receivables (0420)</div>
+                <div style={{ fontWeight: 700 }}>Credit Balance: proves Trade Receivables (0420)</div>
                 <ol style={{ margin: "4px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
                   <li>Property Management, Reports, Financial Reports, <b>Credit Balance</b> (it prints &ldquo;Aging Report (Detailed)&rdquo;).</li>
                   <li>Set the as-of date to the quarter end, and <b>Occupants to Include</b> to every tenant with a balance (not &ldquo;Any With Open Credits&rdquo;), former occupants included.</li>
