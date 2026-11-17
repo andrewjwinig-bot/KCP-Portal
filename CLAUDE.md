@@ -4337,7 +4337,15 @@ Center (Financial), not the sidebar.
   still to import is amber, a rec not In Balance is red, items open over 90
   days are asked about. It wins over the portal's Bank Recs run. Labelled
   "Bank Recs: Statement Reconcile Report (PDF)" — the owner didn't know the
-  Skyline name. Pinned by `bankRecs.test.ts`.
+  Skyline name. Pinned by `bankRecs.test.ts`. **"Pull from Share Drive"**
+  on that row (Chrome / Edge; owner: "a lot to manually import each one")
+  reads the synced folder itself: connected ONCE (`app/components/
+  shareFolder.ts` — the handle kept in IndexedDB, `resolvePath` walks down
+  from whichever folder was picked, KCP - Documents or lower), then each click
+  reads `!<year> Year End\Bank Account Reconciliations\<NN Month YYYY>\<Bank>`
+  and imports one rec per account (`pickRecFiles`: Rec2B > Rec1&2 > Rec2 >
+  Rec1, never a statement) for EVERY property at once. A browser can't read a
+  folder without a click — truly hands-off needs the Microsoft Graph app.
 - NEXT: unbilled vs the CAM recon's year-end
   charges, partner contributions by name from the roster, sign-off per quarter
   on Month-End Close, then all entities. Checked against the 2025 package.
