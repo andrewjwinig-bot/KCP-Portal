@@ -7,6 +7,7 @@ import { saveApAging, listApAgings, type StoredApSection } from "@/lib/financial
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
 import { importArAging, isTenantAging } from "@/lib/financials/workpapers/arAgingStore";
+import { importBankRec, recText } from "@/lib/financials/workpapers/bankRecStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,6 +42,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, kind: "ar", ...r });
     } catch (e) {
       return NextResponse.json({ error: (e as Error).message || "Couldn't read that file." }, { status: 400 });
+    }
+  }
+
+  // Marie's Statement Reconcile Report (a bank rec) comes through it too.
+  if (buf.subarray(0, 4).toString() === "%PDF") {
+    const text = await recText(buf);
+    if (text) {
+      const user = await budgetUser().catch(() => null);
+      try {
+        const r = await importBankRec(text, file.name, user ? (USERS[user]?.label ?? user) : null);
+        return NextResponse.json({ ok: true, kind: "bank", ...r });
+      } catch (e) {
+        return NextResponse.json({ error: `${file.name}: ${(e as Error).message || "Couldn't read that report."}` }, { status: 400 });
+      }
     }
   }
 

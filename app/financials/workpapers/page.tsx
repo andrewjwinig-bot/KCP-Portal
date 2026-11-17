@@ -65,6 +65,12 @@ export default function WorkpapersPage() {
       const r = await fetch("/api/financials/workpapers/ap-aging", { method: "POST", body: fd });
       const j = await r.json().catch(() => ({}));
       if (!r.ok || j.error) throw new Error(j.error ?? `Import failed (${r.status}).`);
+      if (j.kind === "bank") {
+        const mon = new Date(j.month + "-15T12:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        setApResult({ tone: j.inBalance ? "success" : "warning", title: `Bank rec imported · ${j.last4}`, meta: `${mon} · book balance $${Math.round(j.bookBalance).toLocaleString("en-US")}${j.key ? ` · ${j.key}` : " · an account no single ledger owns"}${j.inBalance ? "" : " · not In Balance"}` });
+        if (j.month !== period && periods.includes(j.month)) setPeriod(j.month); else setReload((n) => n + 1);
+        return;
+      }
       const asOf = new Date(j.asOf + "T12:00:00").toLocaleDateString("en-US");
       const total = j.total != null ? ` · ${j.total < 0 ? "-" : ""}$${Math.abs(Math.round(j.total)).toLocaleString("en-US")}` : "";
       const isAr = j.kind === "ar";
@@ -88,8 +94,42 @@ export default function WorkpapersPage() {
       });
       if (jump) setPeriod(target); else setReload((n) => n + 1);
     } catch (e) {
-      setApResult({ tone: "danger", title: "Couldn't import the aging", meta: (e as Error).message });
+      setApResult({ tone: "danger", title: "Couldn't import the report", meta: (e as Error).message });
     } finally { setApBusy(false); }
+  };
+
+  // Several files at once (Marie's recs come a folder at a time): each posted
+  // in turn, the recs summed into one result.
+  const importFiles = async (files: File[]) => {
+    if (files.length === 1) return importAp(files[0]);
+    setApBusy(true); setApResult(null);
+    const recs: { month: string; last4: string; inBalance: boolean }[] = [];
+    const other: string[] = [], errors: string[] = [];
+    for (const f of files) {
+      try {
+        const fd = new FormData(); fd.append("file", f);
+        const r = await fetch("/api/financials/workpapers/ap-aging", { method: "POST", body: fd });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.error) throw new Error(j.error ?? `${f.name}: import failed (${r.status}).`);
+        if (j.kind === "bank") recs.push(j); else other.push(j.kind === "ar" ? "Credit Balance" : "AP Aged Trial Balance");
+      } catch (e) { errors.push((e as Error).message); }
+    }
+    const months = [...new Set(recs.map((r) => r.month))].sort();
+    const outOf = recs.filter((r) => !r.inBalance).map((r) => r.last4);
+    const parts = [
+      recs.length ? `${recs.length} account${recs.length === 1 ? "" : "s"} for ${months.map((m) => new Date(m + "-15T12:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })).join(", ")}` : "",
+      other.length ? `also ${other.join(", ")}` : "",
+      outOf.length ? `not In Balance: ${outOf.join(", ")}` : "",
+      errors.length ? `${errors.length} not imported — ${errors.slice(0, 3).join("; ")}${errors.length > 3 ? "…" : ""}` : "",
+    ].filter(Boolean);
+    setApResult({
+      tone: errors.length || outOf.length ? "warning" : "success",
+      title: recs.length ? `${recs.length} Statement Reconcile Report${recs.length === 1 ? "" : "s"} imported` : `${files.length - errors.length} of ${files.length} files imported`,
+      meta: parts.join(" · "),
+    });
+    const target = months[months.length - 1];
+    if (target && target !== period && periods.includes(target)) setPeriod(target); else setReload((n) => n + 1);
+    setApBusy(false);
   };
 
   useEffect(() => {
@@ -151,11 +191,11 @@ export default function WorkpapersPage() {
         </>}
         actions={<>
           <button className="btn import" disabled={apBusy} onClick={() => pickInto(apInput.current, "ap-aging")}>
-            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> {apBusy ? "Importing…" : "Import Aging Reports"}
+            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> {apBusy ? "Importing…" : "Import Reports"}
           </button>
-          <InfoPopover label="Aging report steps">
+          <InfoPopover label="Report steps">
             <div style={{ display: "grid", gap: 10, maxWidth: 480 }}>
-              <div>Two Skyline reports, both for <b>PALL</b> and both <b>as of the quarter-end date</b> (3/31, 6/30, 9/30 or 12/31), not today. Import each here; the page tells them apart.</div>
+              <div>Import each report here; the page tells them apart. The agings are run for <b>PALL</b> and <b>as of the quarter-end date</b> (3/31, 6/30, 9/30 or 12/31), not today.</div>
               <div>
                 <div style={{ fontWeight: 700 }}>Credit Balance: proves Trade Receivables (0420)</div>
                 <ol style={{ margin: "4px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
@@ -171,10 +211,17 @@ export default function WorkpapersPage() {
                   <li>Save as a <b>PDF</b> (it names every property). Excel works too.</li>
                 </ol>
               </div>
+              <div>
+                <div style={{ fontWeight: 700 }}>Bank Recs (Statement Reconcile Report): proves Cash (01xx, 02xx)</div>
+                <ol style={{ margin: "4px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
+                  <li>Marie&rsquo;s recs for the quarter-end month (Rec1&amp;2, Rec2 or Rec2B PDFs), in each bank&rsquo;s folder under Bank Account Reconciliations.</li>
+                  <li>Select them all at once. The account is read from the report, not the file name.</li>
+                </ol>
+              </div>
               <div className="small muted">Imported here, the tenant aging stays out of Open Credits and the monthly tenant notices.</div>
             </div>
           </InfoPopover>
-          <input ref={apInput} type="file" hidden accept=".pdf,.xls,.xlsx" onChange={(ev) => { const f = ev.target.files?.[0]; if (f) importAp(f); ev.target.value = ""; }} />
+          <input ref={apInput} type="file" hidden multiple accept=".pdf,.xls,.xlsx" onChange={(ev) => { const fs = Array.from(ev.target.files ?? []); if (fs.length) importFiles(fs); ev.target.value = ""; }} />
           {wp && <DownloadMenu label="Export" items={[{ label: "Excel workbook", description: "Summary, trial balance and a schedule per account", href: `/api/financials/workpapers?key=${encodeURIComponent(key)}&year=${y}&month=${m}&format=xlsx` }]} />}
         </>}
         meta={wp && <MetaLine>
@@ -319,7 +366,7 @@ function ReportChecklist({ items, quarter, busy, onImport }: { items: WpSourceIt
       </div>
       {items.map((i) => {
         const st = SOURCE_STATUS[i.status];
-        const importable = i.id === "ar" || i.id === "ap";
+        const importable = i.id === "ar" || i.id === "ap" || i.id === "bank";
         return (
           <div key={i.id} className="task-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 2px", borderBottom: "1px solid var(--hairline)", opacity: i.status === "na" ? 0.6 : 1 }}>
             <st.Icon size={20} strokeWidth={1.75} color={st.color} aria-hidden style={{ flexShrink: 0 }} />

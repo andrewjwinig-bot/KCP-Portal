@@ -4322,6 +4322,22 @@ Center (Financial), not the sidebar.
   and an info note (the new month's billing and payments to the run date are
   in it) — NEVER a tie, so the net-credit review stays. An aging as of the
   quarter end always wins. Pinned by `arAging.test.ts`.
+- **CASH IS PROVEN BY MARIE'S OWN SKYLINE RECS, NOT THE BANK RECS PAGE**
+  (owner: that page "is still a draft and not complete to be used by our
+  team"; `bankRecs.ts` pure, `bankRecStore.ts` — `workpaper-bank-recs`, one
+  record per month). Her Statement Reconcile Report PDFs (Rec1&2 / Rec2 /
+  Rec2B, under Bank Account Reconciliations\<NN Month YYYY>\<Bank>) import
+  through the same button, several at once, read by the bank-rec parser
+  (`parseSkylineRec`); the account comes from the report's checking key, a
+  later run replaces an earlier one, and a money market's 5th-of-the-month
+  statement files under the month before (`recMonth`). `REC_ACCOUNTS` maps
+  each account to its ledger as operating (01xx) or restricted (02xx); shared
+  accounts (TKD x6063, Eastwick x5303, Nockamixon x6127) are left out. The GL's
+  cash must equal her Adjusted Check Book Balance (red if not), an account
+  still to import is amber, a rec not In Balance is red, items open over 90
+  days are asked about. It wins over the portal's Bank Recs run. Labelled
+  "Bank Recs: Statement Reconcile Report (PDF)" — the owner didn't know the
+  Skyline name. Pinned by `bankRecs.test.ts`.
 - NEXT: unbilled vs the CAM recon's year-end
   charges, partner contributions by name from the roster, sign-off per quarter
   on Month-End Close, then all entities. Checked against the 2025 package.
