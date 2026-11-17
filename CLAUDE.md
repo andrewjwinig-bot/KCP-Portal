@@ -4290,6 +4290,18 @@ Center (Financial), not the sidebar.
   sums its buildings; a gap that is exactly one tenant's balance names them;
   when it ties, the "tenants net in credit" review is cleared. Pinned by
   `arAging.test.ts`.
+- **THE PAGE CARRIES A "REPORTS FOR Qn YYYY" CHECKLIST** (owner: "a checklist
+  of reports to import to make sure we have them all"; `checklist` from
+  `loadWorkpapers`, `WpSourceItem`, `ReportChecklist` on the page): General
+  Ledger through the quarter end, Tenant Aging (the Skyline Credit Balance
+  report — Skyline titles it "Aging Report (Detailed)", which is why the owner
+  looked for a "credit balance" button), AP Aged Trial Balance, the Bank Rec
+  for the quarter-end month (signed off), the Debt Tracker reaching the date,
+  and the Security Deposits register — each In / Finish / Needed / Not needed
+  (a ledger with no such account), judged by the SAME sources the tie-outs
+  read. The two agings import from their rows (one picker, the route tells
+  them apart); the rest Open their page. The header button reads "Import
+  Aging Reports".
 - NEXT: unbilled vs the CAM recon's year-end
   charges, partner contributions by name from the roster, sign-off per quarter
   on Month-End Close, then all entities. Checked against the 2025 package.

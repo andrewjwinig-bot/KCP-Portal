@@ -54,5 +54,5 @@ export async function GET(req: Request) {
       },
     });
   }
-  return NextResponse.json({ ok: true, wp: loaded.wp, meta: loaded.meta, coverageEnd: loaded.coverageEnd });
+  return NextResponse.json({ ok: true, wp: loaded.wp, meta: loaded.meta, coverageEnd: loaded.coverageEnd, checklist: loaded.checklist });
 }
