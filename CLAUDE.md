@@ -4226,6 +4226,42 @@ id / secret in Vercel; then a daily job lists each report folder and feeds
 every new file through its existing import door (`ingestFile` here; the GL,
 rent roll, laser statement and bank balance imports likewise).
 
+# Quarterly Workpapers — the balance sheet, proven (/financials/workpapers)
+
+Owner, 11/2026: the accountants' year-end workpapers (`Data\Accounting\<year>
+Year End\Workpapers`, e.g. "4500 Grays Ferry Partners LP Workpaper
+12.2025_Tax.xlsx") take a lot of billable time; "automate what we can … make
+that cleaner and easier and faster". A workpaper is one support schedule per
+BALANCE-SHEET account — opening, every entry, total, per trial balance,
+difference, TRUE — each proven by something independent (bank rec, tenant
+aging, vendor aging, lender schedule, deposit register, partner contributions).
+The portal builds it every QUARTER from the GL it holds, so problems surface
+while fresh — the balance sheet's Flags to Investigate. Reached from the Report
+Center (Financial), not the sidebar.
+- **Engine** `lib/financials/workpapers/compute.ts` (pure, pinned by
+  `compute.test.ts` on the 4500 shapes): `kindOf` (finer than the sheet's
+  groups — suspense, unbilled, U&O tax payable, clearing incl. P&L 9990),
+  schedules from `gl.beginning` + transactions ≤ the quarter end, `tbRows` (the
+  Trial Balance Detail Report). FLAGS: red — Suspense / clearing not $0, entries
+  that don't explain the balance, mortgage ≠ Debt Tracker, cash ≠ bank rec;
+  amber — unbilled CAM/RET credit ("were these billed?"), trade receivables net
+  in credit, an asset below zero / a payable reading as owed to us, a possible
+  duplicate (same amount + description twice within 120 days, not recurring),
+  deposits ≠ the Security Deposits register; info — no activity all year,
+  a duplicate already reversed.
+- **Sources** `load.ts`: `assembledGlConsolidated` + `assembledTransactions`,
+  Debt Tracker (`scheduleBalanceAt`, every loan or none), deposits (`heldAmount`
+  over the fund's members), the quarter-end bank-rec run's GL check.
+- **Excel** `export.ts`: the firm's layout cleaned up — Summary (every account,
+  proven by, status in one word, what to check), Trial Balance (live
+  `=C+D−E`, `SUM` totals), then a tab per section with an account block each
+  (live `SUM` Total, Per trial balance, live Difference, the findings in words
+  under it). No COA / raw GL tabs.
+- NEXT: Skyline's AP Aged Trial Balance import (ties 2110), the A/R tie to the
+  Laser Statement / Credit Balance report, unbilled vs the CAM recon's year-end
+  charges, partner contributions by name from the roster, sign-off per quarter
+  on Month-End Close, then all entities. Checked against the 2025 package.
+
 # T-12 — trailing twelve months of actuals
 
 `/financials/t12`, reached from the Report Center (Financial), NOT the
