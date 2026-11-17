@@ -13,6 +13,9 @@ export type PullSpec = {
   what: string;
   /** The folder, from the top of KCP - Documents, for a year. */
   segments: (year: number) => string[];
+  /** The folder holds a sub-folder per MONTH ("11 November"): the newest
+   *  with files is read, at this path inside it. */
+  monthFolders?: { inner: string[] };
   /** From the folder's files, the ones to import (empty = none yet). */
   pick: (files: ShareFile[]) => string[];
 };
@@ -70,4 +73,26 @@ export const CREDIT_BALANCE_PULL: PullSpec = {
   what: "the Credit Balance Report",
   segments: () => ["Data", "Shared", "Monthly Reports", "Credits"],
   pick: (files) => newestSaved(files, (n) => XLS.test(n) && !n.startsWith("~$")),
+};
+
+/** The newest month folder first: "11 November" before "9 September". */
+export function monthFoldersNewestFirst(names: string[]): string[] {
+  return names.filter((n) => monthPrefix(n + " ") != null).sort((a, b) => monthPrefix(b + " ")! - monthPrefix(a + " ")!);
+}
+
+/** Skyline's Laser Statement: every PDF in the newest month's Laser
+ *  Statements folder — the building groups first, then a single tenant's
+ *  re-run ("4500-3021.pdf"), which corrects that tenant only. The Excel export
+ *  only where no PDF was saved. */
+export const LASER_STATEMENT_PULL: PullSpec = {
+  what: "the Laser Statements",
+  segments: (y) => ["Data", "Shared", "Properties", "Billings and Statements", `${y} Billing and Statements`],
+  monthFolders: { inner: ["Laser Statements"] },
+  pick: (files) => {
+    const usable = files.filter((f) => !f.name.startsWith("~$"));
+    const pdfs = usable.filter((f) => /\.pdf$/i.test(f.name));
+    const chosen = pdfs.length ? pdfs : usable.filter((f) => XLS.test(f.name));
+    const single = (n: string) => /^[0-9A-Z]{4}[A-Z]?-[\w-]+\.(pdf|xlsx?)$/i.test(n);
+    return [...chosen.filter((f) => !single(f.name)), ...chosen.filter((f) => single(f.name))].map((f) => f.name);
+  },
 };

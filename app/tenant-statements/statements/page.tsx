@@ -1,4 +1,6 @@
 "use client";
+import { SharePullButton } from "@/app/components/SharePullButton";
+import { LASER_STATEMENT_PULL } from "@/lib/shareDrive/pullSpecs";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { useLaserStatementImport } from "../useLaserStatementImport";
 import { pickInto } from "@/app/components/pickFiles";
@@ -306,6 +308,7 @@ export default function TenantStatementsPage() {
             <button className="btn import" onClick={() => pickInto(fileRef.current, "laser-statement")}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import Laser Statement
             </button>
+          <SharePullButton input={fileRef} spec={LASER_STATEMENT_PULL} />
             {row && (
               <button className={row.published ? "btn" : "btn primary"} disabled={busy} onClick={togglePublish}>
                 {busy ? "Saving…" : row.published ? "Unpublish" : "Publish to Portal"}

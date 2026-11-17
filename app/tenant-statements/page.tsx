@@ -1,6 +1,6 @@
 "use client";
 import { SharePullButton } from "@/app/components/SharePullButton";
-import { CREDIT_BALANCE_PULL } from "@/lib/shareDrive/pullSpecs";
+import { CREDIT_BALANCE_PULL, LASER_STATEMENT_PULL } from "@/lib/shareDrive/pullSpecs";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { UnitSelect } from "@/app/components/UnitSelect";
@@ -319,6 +319,7 @@ export default function ReceiptReconciliationPage() {
         actions={<>
           <input ref={laserFileRef} type="file" accept=".pdf,.xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importLaser(f); }} />
           <button className="btn import" onClick={() => pickInto(laserFileRef.current, "laser-statement")}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Laser Statement</button>
+          <SharePullButton input={laserFileRef} spec={LASER_STATEMENT_PULL} />
           <InfoPopover><ImportInstructions variant="statements" /></InfoPopover>
           <input ref={creditFileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importCredits(f); }} />
           <button className="btn import" onClick={() => pickInto(creditFileRef.current, "credit-balance")}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Credit Balance Report</button>
