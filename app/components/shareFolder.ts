@@ -118,9 +118,10 @@ export async function pullFromShare(spec: import("@/lib/shareDrive/pullSpecs").P
     sawFolder = true;
     const all: FileHandle[] = [];
     for await (const e of dir.values()) if (e.kind === "file") all.push(e);
-    const want = new Set(spec.pick(all.map((f) => f.name)));
+    const got = await Promise.all(all.map((f) => f.getFile()));
+    const want = new Set(spec.pick(got.map((g) => ({ name: g.name, modified: g.lastModified }))));
     if (!want.size) continue;
-    const files = await Promise.all(all.filter((f) => want.has(f.name)).map((f) => f.getFile()));
+    const files = got.filter((g) => want.has(g.name));
     return { files, folder: spec.segments(y).join("\\") };
   }
   if (!sawFolder) {

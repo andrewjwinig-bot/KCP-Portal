@@ -6,13 +6,15 @@
 //
 // Pure: the browser side (`app/components/shareFolder.ts`) walks the folders.
 
+export type ShareFile = { name: string; modified: number };
+
 export type PullSpec = {
   /** What it pulls, for messages ("the General Ledger"). */
   what: string;
   /** The folder, from the top of KCP - Documents, for a year. */
   segments: (year: number) => string[];
-  /** From the folder's file names, the ones to import (empty = none yet). */
-  pick: (names: string[]) => string[];
+  /** From the folder's files, the ones to import (empty = none yet). */
+  pick: (files: ShareFile[]) => string[];
 };
 
 /** "10 PALL.xls" → 10; anything not led by a month number → null. */
@@ -44,12 +46,28 @@ const XLS = /\.xls[xm]?$/i;
 export const GL_PULL: PullSpec = {
   what: "the General Ledger (PALL / PFUNDS)",
   segments: (y) => ["Data", "Accounting", `!${y} Year End`, "Reports to Eisner", "Monthly GLs"],
-  pick: (names) => newestByKind(names, (n) => (!XLS.test(n) ? null : /\bPALL\b/i.test(n) ? "pall" : /\bPFUNDS\b/i.test(n) ? "pfunds" : null)),
+  pick: (files) => newestByKind(files.map((f) => f.name), (n) => (!XLS.test(n) ? null : /\bPALL\b/i.test(n) ? "pall" : /\bPFUNDS\b/i.test(n) ? "pfunds" : null)),
 };
 
 /** The month's rent roll: "NN YYYY RR.xls" in the year's folder. */
 export const RENT_ROLL_PULL: PullSpec = {
   what: "the Rent Roll",
   segments: (y) => ["Data", "Shared", "Properties", "Monthly Rent Rolls", String(y)],
-  pick: (names) => newestByKind(names, (n) => (XLS.test(n) && /\bRR\b/i.test(n) ? "rr" : null)),
+  pick: (files) => newestByKind(files.map((f) => f.name), (n) => (XLS.test(n) && /\bRR\b/i.test(n) ? "rr" : null)),
+};
+
+/** The file saved most recently, of those the test keeps. For a folder with
+ *  no year in its path, where a month number alone would read January as
+ *  older than December. */
+export function newestSaved(files: ShareFile[], keep: (name: string) => boolean): string[] {
+  const kept = files.filter((f) => keep(f.name)).sort((a, b) => b.modified - a.modified);
+  return kept.length ? [kept[0].name] : [];
+}
+
+/** Skyline's Credit Balance report, run on the 15th: the newest saved in
+ *  Monthly Reports\Credits (one folder, every year). */
+export const CREDIT_BALANCE_PULL: PullSpec = {
+  what: "the Credit Balance Report",
+  segments: () => ["Data", "Shared", "Monthly Reports", "Credits"],
+  pick: (files) => newestSaved(files, (n) => XLS.test(n) && !n.startsWith("~$")),
 };

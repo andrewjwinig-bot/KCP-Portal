@@ -555,7 +555,9 @@ for all reports") and the highest wins; the year folder is filled in, falling
 back to last year early in January. So far: the General Ledger (newest PALL +
 PFUNDS in `!{year} Year End\Reports to Eisner\Monthly GLs` — the
 single-property files there predate PALL and are never taken), the Rent Roll
-(`Shared\Properties\Monthly Rent Rolls\{year}`), and Marie's bank recs on
+(`Shared\Properties\Monthly Rent Rolls\{year}`), the Credit Balance Report
+(`Shared\Monthly Reports\Credits` — no year folder, so the MOST RECENTLY
+SAVED file, `newestSaved`), and Marie's bank recs on
 Workpapers. A new one is a spec there + the button beside the import.
 A browser cannot read a folder without a click; hands-off needs the Graph app.
 

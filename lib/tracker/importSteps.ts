@@ -68,9 +68,11 @@ export const IMPORT_STEPS: Record<string, ImportSteps> = {
     steps: [
       "Occupants to Include: Any With Open Credits. Preview.",
       "Export as Microsoft Excel (97-2003) (.xls).",
-      "In the portal: Open Credits (or Receivables), Import Credit Balance Report, and pick the file.",
+      "Save it in the Credits folder below (any name).",
+      "In the portal: Open Credits (or Receivables), the folder icon beside Import Credit Balance Report pulls the newest one.",
     ],
     importAt: { label: "Open Credits", href: "/tenant-statements/credits" },
+    path: { label: "Save to", value: "Data\\Shared\\Monthly Reports\\Credits" },
     note: "Anyone can import it. On or after the 15th the import builds the month's tenant notices and emails Greg to approve them.",
   },
   "imp-bank": {
