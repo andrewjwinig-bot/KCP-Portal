@@ -17,6 +17,8 @@ import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { computeWorkpapers, type Workpapers } from "./compute";
 import { getApAging } from "./apAgingStore";
 import { getArAging } from "./arAgingStore";
+import { arSections, coversEveryBalance } from "./arAging";
+import { allAgingSnapshots } from "@/lib/statements/agingStore";
 import { invoicesNotInBooks } from "./apAging";
 
 export type WpMeta = { key: string; name: string; entityName: string; ein: string | null };
@@ -81,10 +83,27 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
   }
 
   // Skyline's tenant aging at the quarter end (a fund sums its buildings).
+  // Its own import first; else a Credit Balance report already imported on
+  // Receivables / Open Credits for the same date, if it was run for every
+  // balance (a credits-only run cannot prove what tenants owe).
   const arRec = await getArAging(asOfDate).catch(() => null);
-  const arSecs = arRec ? [...members].map((k) => arRec.sections[k]).filter(Boolean) : [];
+  let arSecs = arRec ? [...members].map((k) => arRec.sections[k]).filter(Boolean) : [];
+  let arFrom: "workpapers" | "receivables" | null = arSecs.length ? "workpapers" : null;
+  let arCreditsOnly = false;
+  if (!arSecs.length) {
+    const snap = (await allAgingSnapshots().catch(() => []))
+      .filter((sn) => sn.asOf === asOfDate && sn.propertyCodes.some((c) => members.has(c)))
+      .sort((a, b) => b.importedAt.localeCompare(a.importedAt))[0];
+    if (snap && coversEveryBalance(snap.tenants)) {
+      const mine = snap.tenants.filter((t) => members.has(t.propertyCode));
+      const secs = arSections(mine);
+      // A property on the report with no tenant owing anything is a real $0.
+      arSecs = snap.propertyCodes.filter((c) => members.has(c)).map((c) => secs[c] ?? { code: c, total: 0, charges: 0, credits: 0, tenants: [] });
+      arFrom = "receivables";
+    } else if (snap) arCreditsOnly = true;
+  }
   const arAging = arSecs.length ? {
-    asOf: arRec!.asOf,
+    asOf: asOfDate,
     total: Math.round(arSecs.reduce((t, s) => t + s.total, 0) * 100) / 100,
     charges: Math.round(arSecs.reduce((t, s) => t + s.charges, 0) * 100) / 100,
     credits: Math.round(arSecs.reduce((t, s) => t + s.credits, 0) * 100) / 100,
@@ -117,7 +136,8 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
       id: "ar", label: "Tenant Aging (Skyline Credit Balance report)",
       status: !has(/^042\d-/) ? "na" : arAging ? "done" : "missing",
       detail: !has(/^042\d-/) ? "No tenant receivables on this ledger"
-        : arAging ? `As of ${asOfShort} · ${arAging.tenants} tenant${arAging.tenants === 1 ? "" : "s"}`
+        : arAging ? `As of ${asOfShort} · ${arAging.tenants} tenant${arAging.tenants === 1 ? "" : "s"}${arFrom === "receivables" ? " · from the Receivables import" : ""}`
+        : arCreditsOnly ? `The ${asOfShort} report on Receivables lists credits only — re-run it for every tenant with a balance`
         : `Not imported as of ${asOfShort} — every tenant with a balance`,
     },
     {

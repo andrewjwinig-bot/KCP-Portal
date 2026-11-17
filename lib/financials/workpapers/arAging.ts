@@ -36,3 +36,18 @@ export function arSections(tenants: (AgingTenant & { unitRef: string; propertyCo
 export function tenantsMatchingGap(tenants: ArTenant[], gap: number): ArTenant[] {
   return tenants.filter((t) => Math.abs(Math.abs(t.balance) - Math.abs(gap)) < 0.01);
 }
+
+/** Was this aging run for EVERY tenant with a balance, or only those holding a
+ *  credit (Open Credits' usual "Any With Open Credits" run)? A tenant who owes
+ *  and carries no credit line can only be on the full run. */
+export function coversEveryBalance(tenants: { balanceDue: number; lines: { amount: number }[] }[]): boolean {
+  return tenants.some((t) => t.balanceDue > 0.005 && !t.lines.some((l) => l.amount < 0));
+}
+
+/** A group of tenants the names could not place goes to the ONE property whose
+ *  trade receivables (042x) equal the group's total to the cent — the same
+ *  evidence the AP aging uses. Ambiguous or no match → left unplaced. */
+export function placeByBalance(groupTotal: number, owed: { key: string; owed: number | null }[], taken: Set<string>): string | null {
+  const hits = owed.filter((c) => c.owed != null && !taken.has(c.key) && Math.abs(c.owed - groupTotal) < 0.01);
+  return hits.length === 1 ? hits[0].key : null;
+}
