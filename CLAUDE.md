@@ -4302,6 +4302,16 @@ Center (Financial), not the sidebar.
   read. The two agings import from their rows (one picker, the route tells
   them apart); the rest Open their page. The header button reads "Import
   Aging Reports".
+- **THE TENANT AGING IS READ FROM WHEREVER IT WAS IMPORTED** (owner: "pull
+  as much as possible from existing imports on other pages"): the
+  workpaper's own import first, else a Credit Balance report imported on
+  Receivables / Open Credits dated EXACTLY the quarter end — but only when it
+  was run for every balance (`coversEveryBalance`: some tenant owes with no
+  credit line; a credits-only run cannot prove what tenants owe, and the
+  checklist row says so). A group of tenants the names cannot place goes to
+  the ONE property whose 042x balance equals its total to the cent
+  (`placeByBalance`), as the AP aging does; the import banner names the
+  tenants still unmatched and warns on a credits-only report.
 - NEXT: unbilled vs the CAM recon's year-end
   charges, partner contributions by name from the roster, sign-off per quarter
   on Month-End Close, then all entities. Checked against the 2025 package.

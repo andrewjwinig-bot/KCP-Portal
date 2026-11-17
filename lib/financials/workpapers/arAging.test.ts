@@ -44,3 +44,25 @@ describe("the workpaper's A/R tie-out", () => {
     expect(wp.schedules.find((s) => s.code === "0420-0000")!.status).toBe("review");
   });
 });
+
+import { placeByBalance, coversEveryBalance } from "./arAging";
+
+describe("placing a group the names can't", () => {
+  const owed = [{ key: "4500", owed: -79336 }, { key: "2300", owed: 1200 }, { key: "9510", owed: 1200 }, { key: "1100", owed: null }];
+  it("goes to the one property whose receivables equal its total", () => {
+    expect(placeByBalance(-79336, owed, new Set())).toBe("4500");
+  });
+  it("two properties at the same figure is no evidence", () => {
+    expect(placeByBalance(1200, owed, new Set())).toBeNull();
+  });
+  it("a property already placed is not offered twice", () => {
+    expect(placeByBalance(-79336, owed, new Set(["4500"]))).toBeNull();
+  });
+});
+
+describe("coversEveryBalance", () => {
+  it("a credits-only run has no tenant who simply owes", () => {
+    expect(coversEveryBalance([{ balanceDue: -50, lines: [{ amount: -50 }] }, { balanceDue: 20, lines: [{ amount: 70 }, { amount: -50 }] }])).toBe(false);
+    expect(coversEveryBalance([{ balanceDue: 300, lines: [{ amount: 300 }] }])).toBe(true);
+  });
+});

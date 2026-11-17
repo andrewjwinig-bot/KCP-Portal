@@ -69,7 +69,8 @@ export default function WorkpapersPage() {
       const total = j.total != null ? ` · ${j.total < 0 ? "-" : ""}$${Math.abs(Math.round(j.total)).toLocaleString("en-US")}` : "";
       const isAr = j.kind === "ar";
       const problems = isAr
-        ? (j.unresolved?.length ? [`${j.unresolved.length} tenant${j.unresolved.length === 1 ? "" : "s"} couldn't be matched to a property`] : [])
+        ? (j.creditsOnly ? ["it lists only tenants holding a credit — re-run it for every tenant with a balance"] : [])
+            .concat(j.unresolved?.length ? [`${j.unresolved.length} tenant${j.unresolved.length === 1 ? "" : "s"} couldn't be matched to a property (${j.unresolved.slice(0, 3).map((t: { tenantName: string; suite: string }) => `${t.tenantName}, suite ${t.suite}`).join("; ")}${j.unresolved.length > 3 ? "…" : ""})`] : [])
             .concat(j.untied?.length ? [`${j.untied.length} tenant${j.untied.length === 1 ? "" : "s"} don't add up to Skyline's balance`] : [])
         : (j.unplaced?.length ? [`${j.unplaced.length} section${j.unplaced.length === 1 ? "" : "s"} couldn't be matched to a property`] : [])
             .concat(j.untied?.length ? [`${j.untied.length} section${j.untied.length === 1 ? "" : "s"} don't add up to Skyline's total`] : []);
