@@ -21,6 +21,8 @@ import { arSections, coversEveryBalance } from "./arAging";
 import { allAgingSnapshots } from "@/lib/statements/agingStore";
 import { getRun } from "@/lib/statements/store";
 import { invoicesNotInBooks } from "./apAging";
+import { getBankRecs } from "./bankRecStore";
+import { recsForLedger } from "./bankRecs";
 
 type ComputeArAging = NonNullable<NonNullable<Parameters<typeof computeWorkpapers>[0]["sources"]>["arAging"]> | null;
 
@@ -64,6 +66,8 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
   const run = await runFor(period).catch(() => null);
   const check = run?.gl.find((g) => g.glKey === key);
   const bankRec = check ? { period, skyline: check.skyline, gl: check.gl, difference: check.difference, signedOff: !!run?.signedOff } : null;
+  // Marie's own Skyline recs for the month — the bank proof the team uses.
+  const marieRecs = recsForLedger(key, period, (await getBankRecs(period).catch(() => null))?.accounts ?? {});
 
   // Skyline's vendor aging at the quarter end, for this property (a fund sums
   // its buildings' sections, as its General Ledger does).
@@ -145,7 +149,7 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
     gl: { beginning: gl.beginning, monthly: gl.monthly, names, coverageStartMonth: gl.coverageStartMonth },
     transactions,
     overrides: await getBsOverrides(key),
-    sources: { debtPrincipal, depositsHeld, bankRec, apAging, arAging },
+    sources: { debtPrincipal, depositsHeld, bankRec, apAging, arAging, marieRecs },
   });
   const def = PROPERTY_DEFS.find((d) => d.id === key);
   const entityName = (await availableStatements()).find((p) => p.key === key)?.entityName ?? def?.name ?? key;
@@ -178,11 +182,19 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
         : `Not imported as of ${asOfShort}`,
     },
     {
-      id: "bank", label: "Statement Reconcile Report (PDF)", href: "/bank-rec/reconcile",
-      status: !wp.schedules.some((s) => s.kind === "cash") ? "na" : !bankRec ? "missing" : bankRec.signedOff ? "done" : "review",
-      detail: !wp.schedules.some((s) => s.kind === "cash") ? "No cash accounts on this ledger"
-        : !bankRec ? `${MONTH[asOfMonth - 1]} ${year} not reconciled in the portal`
-        : bankRec.signedOff ? `${MONTH[asOfMonth - 1]} ${year} signed off` : `${MONTH[asOfMonth - 1]} ${year} run, not signed off`,
+      id: "bank", label: "Bank Recs: Statement Reconcile Report (PDF)",
+      ...(() => {
+        const hasCash = wp.schedules.some((s) => s.kind === "cash" || s.kind === "restricted");
+        const mon = `${MONTH[asOfMonth - 1]} ${year}`;
+        if (!hasCash) return { status: "na" as const, detail: "No cash accounts on this ledger" };
+        if (!marieRecs) return { status: "na" as const, detail: "This ledger's cash is in an account another ledger reconciles" };
+        const missing = marieRecs.roles.flatMap((r) => r.missing);
+        const got = marieRecs.accounts.length, want = got + missing.length;
+        if (!got) return { status: "missing" as const, detail: `${mon} not imported — ${missing.join(", ")}` };
+        if (missing.length) return { status: "review" as const, detail: `${got} of ${want} accounts for ${mon} · still to import ${missing.join(", ")}` };
+        const ties = wp.schedules.filter((s) => s.kind === "cash" || s.kind === "restricted").every((s) => s.support?.ties !== false);
+        return { status: ties ? "done" as const : "review" as const, detail: `${mon} · ${got} account${got === 1 ? "" : "s"} · ${ties ? "ties to the General Ledger" : "doesn't tie to the General Ledger"}` };
+      })(),
     },
     {
       id: "debt", label: "Debt Tracker", href: "/debt",

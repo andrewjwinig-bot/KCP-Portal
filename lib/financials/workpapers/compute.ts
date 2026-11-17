@@ -20,6 +20,8 @@
 // testable without storage.
 
 import { classifyAccount, splitAccount, isProfitAndLoss, type BsGroupDef } from "@/lib/financials/balance-sheet/classify";
+import type { LedgerRecs } from "./bankRecs";
+import { staleItems } from "./bankRecs";
 import type { GlTransaction } from "@/lib/financials/operating-statements/glParser";
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -182,6 +184,9 @@ export interface WpInput {
       approximate?: { period: string; runOn: string } } | null;
     /** Bank rec: Skyline register vs this GL's cash at month end. */
     bankRec?: { period: string; skyline: number; gl: number | null; difference: number | null; signedOff: boolean } | null;
+    /** Marie's Skyline Statement Reconcile Reports for the quarter-end month:
+     *  each account's reconciled book balance. Wins over `bankRec`. */
+    marieRecs?: LedgerRecs | null;
   };
 }
 
@@ -377,7 +382,38 @@ export function computeWorkpapers(input: WpInput): Workpapers {
       else schedules.push({ code: "2130-0000", name: "Security Deposit Payable", kind: "sdPayable", section: "Payables & Accruals", opening: 0, activity: 0, ending: 0, debits: 0, credits: 0, lines: [], detail: detailAvailable ? "full" : "none", unexplained: 0, support, flags: [flag], status: "ok" });
     }
   }
-  if (sources?.bankRec) {
+  if (sources?.marieRecs) {
+    const mr = sources.marieRecs;
+    const [y, m] = mr.month.split("-").map(Number);
+    const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    const mdy = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8))}/${iso.slice(0, 4)}`;
+    for (const rc of mr.roles) {
+      const accts = schedules.filter((s) => s.kind === (rc.role === "operating" ? "cash" : "restricted"));
+      const these = mr.accounts.filter((a) => a.role === rc.role);
+      const ledger = round2(accts.reduce((t, s) => t + s.ending, 0));
+      const complete = !rc.missing.length && !rc.offCycle.length && these.length > 0;
+      const diff = round2(ledger - rc.recs);
+      const ties = complete ? Math.abs(diff) < 1 : null;
+      const names = these.map((a) => a.last4).join(", ");
+      const support: WpSupport = {
+        label: `Statement Reconcile Report${these.length === 1 ? "" : "s"} ${mdy(monthEnd)}${names ? ` (${names})` : ""}`,
+        amount: these.length ? rc.recs : null, ties, difference: complete ? diff : null,
+        note: !these.length ? `No rec imported for ${rc.missing.join(", ")}.`
+          : `Marie's reconciled book balance ${fmt0(rc.recs)} vs the General Ledger's ${rc.role === "operating" ? "cash" : "restricted cash"} ${fmt0(ledger)}.`,
+      };
+      for (const s of accts) s.support = support;
+      const target = accts[0];
+      if (!target) continue;
+      if (rc.missing.length) target.flags.push({ level: "amber", text: `No Statement Reconcile Report imported for ${rc.missing.join(", ")} — import Marie's ${mdy(monthEnd)} rec to prove this cash.` });
+      if (rc.offCycle.length) target.flags.push({ level: "info", text: `${rc.offCycle.join(", ")} is reconciled to a statement not dated ${mdy(monthEnd)}, so its book balance can't be compared to the quarter end.` });
+      if (ties === false) target.flags.push({ level: "red", text: `Cash on the General Ledger doesn't match Marie's reconciled book balance — off by ${fmt0(diff)}. An entry may be posted to cash in the GL but not in Skyline's checkbook, or dated in another month.` });
+      for (const a of these) {
+        if (!a.inBalance) target.flags.push({ level: "red", text: `Marie's rec for ${a.last4} is not In Balance — the bank and the book don't reconcile.` });
+        const stale = staleItems(a, monthEnd);
+        if (stale.length) target.flags.push({ level: "amber", text: `${stale.length} item${stale.length === 1 ? "" : "s"} open over 90 days on ${a.last4} (${fmt0(round2(stale.reduce((t, i) => t + i.amount, 0)))}), oldest ${mdy(stale.map((i) => i.dateISO).sort()[0])}: ${stale.slice(0, 3).map((i) => `${i.description || i.ref} ${fmt0(i.amount)}`).join("; ")}${stale.length > 3 ? "; …" : ""}.` });
+      }
+    }
+  } else if (sources?.bankRec) {
     const br = sources.bankRec;
     const cash = schedules.filter((s) => s.kind === "cash" || s.kind === "restricted");
     const ties = br.difference != null && Math.abs(br.difference) < 1;
