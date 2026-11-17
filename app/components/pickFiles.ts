@@ -62,3 +62,13 @@ export async function pickInto(input: HTMLInputElement | null | undefined, id: s
   input.files = dt.files;
   input.dispatchEvent(new Event("change", { bubbles: true }));
 }
+
+/** Hand files to an import's hidden <input> as if they were picked, so the
+ *  page's own onChange runs unchanged (the share-drive pull uses it). */
+export function feedInput(input: HTMLInputElement | null | undefined, files: File[]): void {
+  if (!input || !files.length) return;
+  const dt = new DataTransfer();
+  for (const f of files) dt.items.add(f);
+  input.files = dt.files;
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}

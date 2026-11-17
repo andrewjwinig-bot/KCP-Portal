@@ -101,3 +101,31 @@ export async function resolvePath(root: DirHandle, segments: string[]): Promise<
   }
   return dir;
 }
+
+/** The one share-drive folder every page uses (KCP - Documents, or lower). */
+export const SHARE_ID = "share-drive";
+
+/** Files to import for `spec`, read from the connected share drive. Tries
+ *  `year`, then the year before (early January, before the new folder fills).
+ *  Throws a plain-English Error when the folder or a file can't be found. */
+export async function pullFromShare(spec: import("@/lib/shareDrive/pullSpecs").PullSpec, year = new Date().getFullYear()): Promise<{ files: File[]; folder: string } | null> {
+  const root = (await connectedFolder(SHARE_ID)) ?? (await connectFolder(SHARE_ID));
+  if (!root) return null;
+  let sawFolder = false;
+  for (const y of [year, year - 1]) {
+    const dir = await resolvePath(root, spec.segments(y));
+    if (!dir) continue;
+    sawFolder = true;
+    const all: FileHandle[] = [];
+    for await (const e of dir.values()) if (e.kind === "file") all.push(e);
+    const want = new Set(spec.pick(all.map((f) => f.name)));
+    if (!want.size) continue;
+    const files = await Promise.all(all.filter((f) => want.has(f.name)).map((f) => f.getFile()));
+    return { files, folder: spec.segments(y).join("\\") };
+  }
+  if (!sawFolder) {
+    await forgetFolder(SHARE_ID);
+    throw new Error(`Couldn't find ${spec.segments(year).join("\\")} in "${root.name}". Click again and choose your KCP - Documents folder.`);
+  }
+  throw new Error(`No ${spec.what} in ${spec.segments(year).join("\\")} yet — files saved with the month number in front, like "11 …".`);
+}

@@ -1,4 +1,6 @@
 "use client";
+import { SharePullButton } from "@/app/components/SharePullButton";
+import { GL_PULL } from "@/lib/shareDrive/pullSpecs";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { FilePath } from "@/app/components/FilePath";
@@ -860,6 +862,7 @@ export default function OperatingStatementsPage() {
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
               {glDrop.dragging ? "Drop to import" : "Import GL"}
             </button>
+            <SharePullButton input={fileRef} spec={GL_PULL} />
             {cur && (
               <ViewMenu
                 leanImport={leanImport} setLeanImport={setLeanImport}
@@ -1796,7 +1799,7 @@ function ImportInstructionsModal({ onClose, year, nextPeriod }: { onClose: () =>
             })()}</li>
             <li>From the Detailed General Ledger report, select <b>Export</b> in the upper left.</li>
             <li>Select <b>Microsoft Excel (97-2003) (.xls)</b> — the third selection from the top.</li>
-            <li>Hit <b>Save</b> and save it here (the file name is not important):<div style={{ marginTop: 6 }}><FilePath path={`Data\\Accounting\\${year} Year End\\Reports to Eisner\\Monthly GLs`} /></div></li>
+            <li>Hit <b>Save</b> and save it here as <b>NN PALL</b> or <b>NN PFUNDS</b> (the month number in front, e.g. 11 PALL), so the folder button finds the newest:<div style={{ marginTop: 6 }}><FilePath path={`Data\\Accounting\\!${year} Year End\\Reports to Eisner\\Monthly GLs`} /></div></li>
           </ol>
         </div>
 

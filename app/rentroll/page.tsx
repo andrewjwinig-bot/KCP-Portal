@@ -1,4 +1,6 @@
 "use client";
+import { SharePullButton } from "@/app/components/SharePullButton";
+import { RENT_ROLL_PULL } from "@/lib/shareDrive/pullSpecs";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { ChevronDown, ChevronUp, CircleCheck, FileText, Info, X, Upload } from "lucide-react";
@@ -1842,6 +1844,7 @@ export default function RentRollPage() {
             >
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{uploading ? "Importing" : "Import Rent Roll"}
             </button>
+            <SharePullButton input={fileInputRef} spec={RENT_ROLL_PULL} disabled={uploading} />
           {((filteredRentroll && categoryRentroll) || snapshotList.length > 0) && (
             <button
               className="btn"
