@@ -19,7 +19,10 @@ import { getApAging } from "./apAgingStore";
 import { getArAging } from "./arAgingStore";
 import { arSections, coversEveryBalance } from "./arAging";
 import { allAgingSnapshots } from "@/lib/statements/agingStore";
+import { getRun } from "@/lib/statements/store";
 import { invoicesNotInBooks } from "./apAging";
+
+type ComputeArAging = NonNullable<NonNullable<Parameters<typeof computeWorkpapers>[0]["sources"]>["arAging"]> | null;
 
 export type WpMeta = { key: string; name: string; entityName: string; ein: string | null };
 
@@ -103,7 +106,7 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
       arFrom = "receivables";
     } else if (snap) arCreditsOnly = true;
   }
-  const arAging = arSecs.length ? {
+  let arAging: ComputeArAging = arSecs.length ? {
     asOf: asOfDate,
     total: Math.round(arSecs.reduce((t, s) => t + s.total, 0) * 100) / 100,
     charges: Math.round(arSecs.reduce((t, s) => t + s.charges, 0) * 100) / 100,
@@ -111,6 +114,31 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
     tenants: arSecs.reduce((t, s) => t + s.tenants.length, 0),
     top: arSecs.flatMap((s) => s.tenants).sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)).slice(0, 25),
   } : null;
+  // No aging as of the quarter end: the Laser Statement for the month after it
+  // (run in its first days) is every tenant's open items — an approximate check.
+  let arLaser: { period: string; runOn: string } | null = null;
+  if (!arAging) {
+    const next = asOfMonth === 12 ? `${year + 1}-01` : `${year}-${String(asOfMonth + 1).padStart(2, "0")}`;
+    const run = await getRun(next).catch(() => null);
+    const mine = (run?.statements ?? []).filter((t) => members.has(t.propertyCode));
+    const runOn = mine.map((t) => (t.exportedAt ?? t.importedAt ?? "").slice(0, 10)).filter(Boolean).sort().pop() ?? null;
+    const windowEnd = new Date(Date.UTC(year, asOfMonth, 0) + 31 * 86400000).toISOString().slice(0, 10);
+    if (mine.length && runOn && runOn > asOfDate && runOn <= windowEnd) {
+      const bal = (t: { reportedBalance: number; noOpenItems?: boolean }) => (t.noOpenItems ? 0 : t.reportedBalance);
+      const r2 = (n: number) => Math.round(n * 100) / 100;
+      arLaser = { period: next, runOn };
+      arAging = {
+        asOf: runOn,
+        total: r2(mine.reduce((a, t) => a + bal(t), 0)),
+        charges: r2(mine.filter((t) => bal(t) > 0).reduce((a, t) => a + bal(t), 0)),
+        credits: r2(mine.filter((t) => bal(t) < 0).reduce((a, t) => a + bal(t), 0)),
+        tenants: mine.length,
+        top: mine.map((t) => ({ unitRef: t.unitRef, tenantName: t.tenantName, balance: r2(bal(t)), former: /-FO$/i.test(t.skylineUnitRef ?? "") }))
+          .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)).slice(0, 25),
+        approximate: arLaser,
+      };
+    }
+  }
 
   const wp = computeWorkpapers({
     key, year, asOfMonth,
@@ -137,6 +165,7 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
       id: "ar", label: "Tenant Aging (Skyline Credit Balance report)",
       status: !has(/^042\d-/) ? "na" : arAging ? "done" : "missing",
       detail: !has(/^042\d-/) ? "No tenant receivables on this ledger"
+        : arLaser ? `Approximate — the Laser Statement run ${arLaser.runOn.slice(5, 7)}/${arLaser.runOn.slice(8)}/${arLaser.runOn.slice(0, 4)}; for an exact tie, the tenant aging as of ${asOfShort}`
         : arAging ? `As of ${asOfShort} · ${arAging.tenants} tenant${arAging.tenants === 1 ? "" : "s"}${arFrom === "receivables" ? " · from the Receivables import" : ""}`
         : arCreditsOnly ? `The ${asOfShort} report imported lists only tenants holding a credit — re-run it for every tenant with a balance`
         : `Not imported as of ${asOfShort} — every tenant with a balance`,

@@ -4312,6 +4312,16 @@ Center (Financial), not the sidebar.
   the ONE property whose 042x balance equals its total to the cent
   (`placeByBalance`), as the AP aging does; the import banner names the
   tenants still unmatched and warns on a credits-only report.
+- **WITH NO AGING, THE LASER STATEMENT IS AN APPROXIMATE A/R CHECK** (owner,
+  11/2026: the Credit Balance report offers only "Any With Open Credits" /
+  "Credit Balances Only", so it can never prove 0420; "focus on getting
+  accurate info going forward" — past years are the accountants' and are not
+  rebuilt). The month AFTER the quarter end's Laser Statement, run within 31
+  days of it, sums every tenant's open items for the property; the 0420 row
+  shows it as "Laser Statement run <date> — approximate" with `ties: null`
+  and an info note (the new month's billing and payments to the run date are
+  in it) — NEVER a tie, so the net-credit review stays. An aging as of the
+  quarter end always wins. Pinned by `arAging.test.ts`.
 - NEXT: unbilled vs the CAM recon's year-end
   charges, partner contributions by name from the roster, sign-off per quarter
   on Month-End Close, then all entities. Checked against the 2025 package.
