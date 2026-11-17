@@ -26,15 +26,6 @@ import { openBucketOf, parseDueDate, priorityOf, type Priority, type Repeat, typ
 import type { MonthClose, CloseItem } from "@/lib/close/monthClose";
 import type { CloseDetail } from "@/lib/close/monthCloseMath";
 
-/** How far back an unticked monthly / quarterly / annual task stays on the
- *  queue as Overdue. */
-const CARRY_BACK_DAYS = 75;
-/** The carry-forward starts here: a task due before it was never asked to be
- *  ticked to stay off the queue, so the September / October backlog (done,
- *  never ticked) is not dug up (owner, 11/17/26: "why all of a sudden are my
- *  overdue tasks from september showing up?"). Anything missed from now on
- *  stays Overdue until ticked. */
-const CARRY_FROM = new Date(2026, 10, 16);
 
 type QuarterDue = {
   key: string; name: string; year: number; quarter: string; due: string; overdue: boolean;
@@ -120,20 +111,22 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
   // ── Tasks: this week + next week's (Later), ticked as the tracker ticks them ──
   // PLUS anything earlier still not ticked, as Overdue (owner, 11/16/26: "we
   // cannot have things forgotten like this" — Wawa's Q3 CAM, due Oct 31, fell
-  // off the list the week after it was due and never showed again). Monthly,
-  // quarterly and annual tasks carry back CARRY_BACK_DAYS; a daily or weekly
-  // one only its last week, since next week brings another.
+  // off the list the week after it was due and never showed again). Only THIS
+  // MONTH'S missed tasks carry (owner, 11/17/26: "it could show overdue this
+  // month but not like that far back"); a daily or weekly one only from last
+  // week, since next week brings another. A quarter's CAM has its own overdue
+  // row, so it does not depend on this.
   const monday = useMemo(() => {
     const sinceMon = (now.getDay() + 6) % 7;
     return new Date(now.getFullYear(), now.getMonth(), now.getDate() - sinceMon);
   }, [now]);
   const occ = useMemo(() => {
-    const back = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - CARRY_BACK_DAYS);
-    const from = back > CARRY_FROM ? back : CARRY_FROM < monday ? CARRY_FROM : monday;
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const from = monthStart < monday ? monthStart : monday;
     const lastWeek = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7);
     const end = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 13, 23, 59, 59);
     return taskOccurrencesBetween(from, end, now)
-      .filter((o) => o.date >= monday || o.date >= CARRY_FROM && (!(o.category === "daily" || o.category === "weekly") || o.date >= lastWeek));
+      .filter((o) => o.date >= monday || o.date >= monthStart && (!(o.category === "daily" || o.category === "weekly") || o.date >= lastWeek));
   }, [now, monday]);
   const [checked, setChecked] = useState<Record<string, Record<string, boolean>>>({});
   useEffect(() => {
