@@ -50,6 +50,8 @@ type Q = {
   dueText: string;
   href?: string;
   action?: string;
+  /** A second way out: the page a tracker task's work happens on. */
+  pageHref?: string;
   /** Whose move it is: "me" or a person / "Automatic" / "GL". */
   who: string;
   done?: boolean;
@@ -76,6 +78,7 @@ const when = (iso: string) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 };
 const monthKey = (d: Date) => `tracker-v2-${d.getFullYear()}-${d.getMonth()}`;
+const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
 function bucketOf(d: Date | null, now: Date): Bucket {
@@ -107,6 +110,17 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
   useEffect(() => setMounted(true), []);
   const [tab, setTab] = useState<"me" | "waiting" | "everyone" | "done">("me");
   const [sel, setSel] = useState<string | null>(null);
+  // A row just ticked stays a beat, reads Done, then slides away (owner,
+  // 11/17/26: "a little animation … so its more acknowledged").
+  const [completing, setCompleting] = useState<Set<string>>(new Set());
+  function complete(q: Q) {
+    if (!q.toggle) return;
+    if (!q.done) {
+      setCompleting((s) => new Set(s).add(q.id));
+      setTimeout(() => setCompleting((s) => { const n = new Set(s); n.delete(q.id); return n; }), 1150);
+    }
+    q.toggle();
+  }
 
   // ── Tasks: this week + next week's (Later), ticked as the tracker ticks them ──
   // PLUS anything earlier still not ticked, as Overdue (owner, 11/16/26: "we
@@ -228,7 +242,11 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
       out.push({
         id: `occ-${o.id}-${o.date.toISOString().slice(0, 10)}`, kind: "Task", icon: CircleCheck, tone: "neutral",
         title: o.label, meta: "Recurring", source: mine ? "Task Tracker" : `${o.owner[0].toUpperCase()}${o.owner.slice(1)}'s task`,
-        bucket: bucketOf(startOfDay(o.date), now), dueText: dueOf(startOfDay(o.date), now), href: o.link ?? "/tracker",
+        bucket: bucketOf(startOfDay(o.date), now), dueText: dueOf(startOfDay(o.date), now),
+        // Open lands on THIS task in the Task Tracker (owner, 11/17/26); the
+        // page its work happens on is the second button.
+        href: `/tracker?task=${encodeURIComponent(o.id)}&date=${isoDay(o.date)}&owner=${o.owner}`, action: "Open in Task Tracker",
+        pageHref: o.link,
         who: mine ? "me" : `${o.owner[0].toUpperCase()}${o.owner.slice(1)}`, done, toggle: mine ? () => toggleOcc(o) : undefined,
         steps: TASK_IMPORT[o.id],
       });
@@ -321,7 +339,7 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
   const isWaiting = (q: Q) => !isMine(q) && !q.id.startsWith("occ-");
   const shown = items.filter((q) =>
     tab === "done" ? q.done && (isMine(q) || q.id.startsWith("imp-"))
-    : q.done ? false
+    : q.done && !completing.has(q.id) ? false
     : tab === "me" ? isMine(q) : tab === "waiting" ? isWaiting(q) : true);
   const counts = {
     me: items.filter((q) => !q.done && isMine(q)).length,
@@ -391,10 +409,10 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
                 const t = TONE[q.tone];
                 const Icon = q.icon;
                 return (
-                  <div key={q.id} className="task-row queue-row" onClick={() => setSel(q.id)}
-                    style={{ padding: "11px 10px", margin: "0 -10px", borderBottom: "1px solid var(--hairline)", borderRadius: 8, cursor: "pointer", background: on ? "var(--tint-brand-bg, #EEF3F8)" : undefined, opacity: q.done ? 0.6 : 1 }}>
+                  <div key={q.id} className={`task-row queue-row${completing.has(q.id) ? " completing" : ""}`} onClick={() => setSel(q.id)}
+                    style={{ padding: "11px 10px", margin: "0 -10px", borderBottom: "1px solid var(--hairline)", borderRadius: 8, cursor: "pointer", background: on ? "var(--tint-brand-bg, #EEF3F8)" : undefined, opacity: q.done && !completing.has(q.id) ? 0.6 : 1 }}>
                     {q.toggle
-                      ? <span style={{ display: "flex", justifyContent: "center" }}><RoundCheck done={!!q.done} onToggle={q.toggle} label={`Mark ${q.title} done`} /></span>
+                      ? <span style={{ display: "flex", justifyContent: "center" }}><RoundCheck done={!!q.done} onToggle={() => complete(q)} label={`Mark ${q.title} done`} /></span>
                       : <span style={{ width: 34, height: 34, borderRadius: 999, background: t.bg, color: t.fg, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={16} strokeWidth={1.75} /></span>}
                     <div style={{ minWidth: 0, display: "grid", gap: 1 }}>
                       <span style={{ display: "flex", alignItems: "center", gap: 4, fontWeight: 600, fontSize: "var(--fs-14)" }}>
@@ -431,7 +449,8 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {selected.href && <Link href={selected.href} className="btn primary" style={{ textDecoration: "none" }}>{selected.action ?? "Open"}</Link>}
-                {selected.toggle && <button className="btn" onClick={selected.toggle}>{selected.done ? "Mark not done" : "Mark done"}</button>}
+                {selected.pageHref && <Link href={selected.pageHref} className="btn" style={{ textDecoration: "none" }}>Go to page</Link>}
+                {selected.toggle && <button className="btn" onClick={() => complete(selected)}>{selected.done ? "Mark not done" : "Mark done"}</button>}
               </div>
               {selected.left && selected.left.length > 0 && (
                 <div style={{ display: "grid" }}>
