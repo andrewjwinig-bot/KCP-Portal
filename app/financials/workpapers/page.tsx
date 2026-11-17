@@ -67,12 +67,18 @@ export default function WorkpapersPage() {
       const total = j.total != null ? ` · $${Math.round(j.total).toLocaleString("en-US")}` : "";
       const problems = (j.unplaced?.length ? [`${j.unplaced.length} section${j.unplaced.length === 1 ? "" : "s"} couldn't be matched to a property`] : [])
         .concat(j.untied?.length ? [`${j.untied.length} section${j.untied.length === 1 ? "" : "s"} don't add up to Skyline's total`] : []);
+      // Show the quarter the aging proves — it says nothing about any other.
+      const target = String(j.asOf).slice(0, 7);
+      const jump = target !== period && periods.includes(target);
+      const showing = jump || target === period
+        ? ` · showing ${quarterLabel(target)}, the quarter it proves`
+        : ` · it proves ${quarterLabel(target)}, which has no General Ledger for this property`;
       setApResult({
         tone: problems.length ? "warning" : "success",
         title: `AP Aged Trial Balance as of ${asOf} imported`,
-        meta: `${j.properties} properties${total}${problems.length ? ` · ${problems.join(" · ")}` : ""}`,
+        meta: `${j.properties} properties${total}${showing}${problems.length ? ` · ${problems.join(" · ")}` : ""}`,
       });
-      setReload((n) => n + 1);
+      if (jump) setPeriod(target); else setReload((n) => n + 1);
     } catch (e) {
       setApResult({ tone: "danger", title: "Couldn't import the AP Aged Trial Balance", meta: (e as Error).message });
     } finally { setApBusy(false); }
