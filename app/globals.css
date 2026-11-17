@@ -1656,3 +1656,24 @@ select.header-select-native { position: absolute; inset: 0; width: 100%; height:
 .status-banner.compact .stb-meta { margin-top: 2px; }
 @media (max-width: 720px) { .status-banner { flex-wrap: wrap; } .status-banner .stb-title { font-size: 18px; } }
 .status-banner .stb-link { padding: 0; border: 0; background: none; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+
+/* A tick is ACKNOWLEDGED (owner, 11/17/26): RoundCheck's circle pops with a
+   green ring and the tick draws in; a completed Work Queue row holds a beat
+   as Done, then slides away. */
+@keyframes rcPop { 0% { transform: scale(0.7); } 55% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@keyframes rcRing { 0% { box-shadow: 0 0 0 0 rgba(6, 118, 71, 0.45); } 100% { box-shadow: 0 0 0 10px rgba(6, 118, 71, 0); } }
+@keyframes rcDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.round-check-pop { animation: rcPop 0.38s cubic-bezier(.2,.8,.3,1.2), rcRing 0.6s ease-out; }
+.round-check-pop .round-check-tick { stroke-dasharray: 1; stroke-dashoffset: 1; animation: rcDraw 0.32s 0.08s ease-out forwards; }
+@keyframes queueRowOut {
+  0%, 55% { opacity: 1; transform: none; max-height: 140px; }
+  80% { opacity: 0; transform: translateX(14px); max-height: 140px; padding-top: 11px; padding-bottom: 11px; }
+  100% { opacity: 0; transform: translateX(14px); max-height: 0; padding-top: 0; padding-bottom: 0; border-bottom-width: 0; }
+}
+.queue-row.completing { overflow: hidden; animation: queueRowOut 1.1s ease-in forwards; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) {
+  .round-check-pop, .round-check-pop .round-check-tick, .queue-row.completing { animation-duration: 0.01s; animation-delay: 0s; }
+}
+/* A task opened from the dashboard is marked on the Task Tracker. */
+@keyframes taskFocus { 0%, 60% { box-shadow: inset 0 0 0 1px var(--c-0b4a7d); } 100% { box-shadow: inset 0 0 0 1px transparent; } }
+.task-focus { animation: taskFocus 2.4s ease-out; }

@@ -112,6 +112,27 @@ export default function TrackerPage() {
     setOwnerFilter(defaultOwner(user.id));
   }, [user.id]);
 
+  // A link to ONE task (the dashboard's "Open in Task Tracker" — owner,
+  // 11/17/26: "take me to that specific task in the task tracker not just the
+  // page"): /tracker?task=<id>&date=YYYY-MM-DD&owner=<who> opens its month and
+  // day, on its owner's list, and marks and scrolls to its row.
+  const [focusId, setFocusId] = useState<string | null>(null);
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const id = q.get("task");
+    if (!id) return;
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(q.get("date") ?? "");
+    if (m) { setViewYear(Number(m[1])); setViewMonth(Number(m[2]) - 1); setSelDay(Number(m[3])); }
+    const owner = q.get("owner");
+    if (owner && OWNER_FILTERS.some((f) => f.id === owner)) setOwnerFilter(owner as OwnerFilter);
+    setFocusId(id);
+  }, [user.id]);
+  useEffect(() => {
+    if (!focusId) return;
+    const t = setTimeout(() => document.getElementById(`task-${focusId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 150);
+    return () => clearTimeout(t);
+  }, [focusId, viewYear, viewMonth, selDay]);
+
   // ── Marie task state (period-bucketed, synced to /api/marie-tasks) ──
   const [marieChecked, setMarieChecked] = useState<Record<string, boolean>>({});
   const [marieLoading, setMarieLoading] = useState(true);
@@ -630,11 +651,13 @@ export default function TrackerPage() {
                 return (
                   <div
                     key={task.id}
+                    id={`task-${task.id}`}
+                    className={focusId === task.id ? "task-focus" : undefined}
                     style={{
                       display: "flex", alignItems: "flex-start", gap: 12,
                       padding: "13px 16px",
                       borderBottom: idx < sortedVisible.length - 1 ? "1px solid var(--border)" : "none",
-                      background: isDone ? "var(--tint-green-faint, rgba(22,163,74,0.025))" : isOver ? "var(--tint-red-faint, rgba(220,38,38,0.025))" : "transparent",
+                      background: focusId === task.id ? "var(--tint-brand-bg, #EEF3F8)" : isDone ? "var(--tint-green-faint, rgba(22,163,74,0.025))" : isOver ? "var(--tint-red-faint, rgba(220,38,38,0.025))" : "transparent",
                     }}
                   >
                     <input
