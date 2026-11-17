@@ -4257,8 +4257,24 @@ Center (Financial), not the sidebar.
   `=C+D−E`, `SUM` totals), then a tab per section with an account block each
   (live `SUM` Total, Per trial balance, live Difference, the findings in words
   under it). No COA / raw GL tabs.
-- NEXT: Skyline's AP Aged Trial Balance import (ties 2110), the A/R tie to the
-  Laser Statement / Credit Balance report, unbilled vs the CAM recon's year-end
+- **ACCOUNTS PAYABLE TIES TO SKYLINE'S AP AGED TRIAL BALANCE** (`apAging.ts`
+  pure, `apAgingStore.ts` — `workpaper-ap-aging`, one record per as-of date, a
+  re-import merges by property; `POST /api/financials/workpapers/ap-aging`, the
+  page's **Import AP Aging**). Run for PALL, AS OF the quarter end. **Prefer the
+  PDF**: it prints the property under the title on EVERY page
+  (`apAgingFromPdfPages`, items by position), so each section is named. The
+  Excel export prints only the FIRST property, so `placeApSections` places the
+  rest by evidence — the exact 2110 balance at the as-of date, else the
+  vendors on the property's 2110 account weighted by rarity, else unplaced and
+  reported. Every section must add to its printed Company Total. The tie is on
+  2110-* only; a fund sums its buildings' sections. **A re-run picks up bills
+  DATED before the quarter end but ENTERED after it** (the aging buckets by
+  invoice date): 4500's 12/31/2025 aging run 11/2026 read $109,509.80 against
+  the books' $109,359.63 — two PGW bills dated 12/6/25 entered in 2026.
+  `invoicesNotInBooks` finds the aging's invoices the year's 2110 credits never
+  carried; a gap that equals them exactly is info ("Timing, not an error"),
+  anything else is amber. Pinned by `apAging.test.ts` (synthetic files).
+- NEXT: the A/R tie to the Laser Statement / Credit Balance report, unbilled vs the CAM recon's year-end
   charges, partner contributions by name from the roster, sign-off per quarter
   on Month-End Close, then all entities. Checked against the 2025 package.
 

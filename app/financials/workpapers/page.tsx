@@ -10,8 +10,10 @@
 // the balance sheet's Flags to Investigate. The Excel is their layout,
 // cleaned up (lib/financials/workpapers/export.ts).
 
-import { Fragment, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, CircleCheck, CircleX, Info, TriangleAlert } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, CircleCheck, CircleX, Info, TriangleAlert, Upload } from "lucide-react";
+import { InfoPopover } from "@/app/components/InfoPopover";
+import { pickInto } from "@/app/components/pickFiles";
 import { PageHeader } from "@/app/components/PageHeader";
 import { HeaderSelect } from "@/app/components/HeaderSelect";
 import { MetaLine } from "@/app/components/LastImported";
@@ -49,6 +51,32 @@ export default function WorkpapersPage() {
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [onlyAttention, setOnlyAttention] = useState(true);
+  const [reload, setReload] = useState(0);
+  const apInput = useRef<HTMLInputElement | null>(null);
+  const [apBusy, setApBusy] = useState(false);
+  const [apResult, setApResult] = useState<{ tone: "success" | "warning" | "danger"; title: string; meta: string } | null>(null);
+
+  const importAp = async (file: File) => {
+    setApBusy(true); setApResult(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const r = await fetch("/api/financials/workpapers/ap-aging", { method: "POST", body: fd });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) throw new Error(j.error ?? `Import failed (${r.status}).`);
+      const asOf = new Date(j.asOf + "T12:00:00").toLocaleDateString("en-US");
+      const total = j.total != null ? ` · $${Math.round(j.total).toLocaleString("en-US")}` : "";
+      const problems = (j.unplaced?.length ? [`${j.unplaced.length} section${j.unplaced.length === 1 ? "" : "s"} couldn't be matched to a property`] : [])
+        .concat(j.untied?.length ? [`${j.untied.length} section${j.untied.length === 1 ? "" : "s"} don't add up to Skyline's total`] : []);
+      setApResult({
+        tone: problems.length ? "warning" : "success",
+        title: `AP Aged Trial Balance as of ${asOf} imported`,
+        meta: `${j.properties} properties${total}${problems.length ? ` · ${problems.join(" · ")}` : ""}`,
+      });
+      setReload((n) => n + 1);
+    } catch (e) {
+      setApResult({ tone: "danger", title: "Couldn't import the AP Aged Trial Balance", meta: (e as Error).message });
+    } finally { setApBusy(false); }
+  };
 
   useEffect(() => {
     fetch("/api/financials/workpapers").then((r) => r.json()).then((j) => {
@@ -76,7 +104,7 @@ export default function WorkpapersPage() {
       })
       .catch((e) => setError(e?.message ?? "Couldn't build the workpapers."))
       .finally(() => setLoading(false));
-  }, [key, period]);
+  }, [key, period, reload]);
 
   const pickProperty = (k: string) => {
     setKey(k);
@@ -107,7 +135,24 @@ export default function WorkpapersPage() {
             {periods.map((p) => <option key={p} value={p}>{quarterLabel(p)}</option>)}
           </HeaderSelect>
         </>}
-        actions={wp && <DownloadMenu label="Export" items={[{ label: "Excel workbook", description: "Summary, trial balance and a schedule per account", href: `/api/financials/workpapers?key=${encodeURIComponent(key)}&year=${y}&month=${m}&format=xlsx` }]} />}
+        actions={<>
+          <button className="btn import" disabled={apBusy} onClick={() => pickInto(apInput.current, "ap-aging")}>
+            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> {apBusy ? "Importing…" : "Import AP Aging"}
+          </button>
+          <InfoPopover label="AP Aged Trial Balance steps">
+            <div style={{ display: "grid", gap: 8, maxWidth: 460 }}>
+              <div style={{ fontWeight: 700 }}>Skyline&rsquo;s AP Aged Trial Balance</div>
+              <ol style={{ margin: 0, paddingLeft: 18, display: "grid", gap: 4 }}>
+                <li>Run it for <b>PALL</b>, as of the quarter-end date (3/31, 6/30, 9/30 or 12/31), not today.</li>
+                <li>All vendors, unpaid only.</li>
+                <li>Save it as a <b>PDF</b> (it names every property) and import it here. Excel works too.</li>
+              </ol>
+              <div className="small muted">It proves Accounts Payable (2110) for every property that quarter.</div>
+            </div>
+          </InfoPopover>
+          <input ref={apInput} type="file" hidden accept=".pdf,.xls,.xlsx" onChange={(ev) => { const f = ev.target.files?.[0]; if (f) importAp(f); ev.target.value = ""; }} />
+          {wp && <DownloadMenu label="Export" items={[{ label: "Excel workbook", description: "Summary, trial balance and a schedule per account", href: `/api/financials/workpapers?key=${encodeURIComponent(key)}&year=${y}&month=${m}&format=xlsx` }]} />}
+        </>}
         meta={wp && <MetaLine>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: wp.trialBalance.balances ? "var(--c-067647)" : "var(--c-b42318)" }}>
             {wp.trialBalance.balances ? <CircleCheck size={16} strokeWidth={1.75} aria-hidden /> : <CircleX size={16} strokeWidth={1.75} aria-hidden />}
@@ -118,6 +163,7 @@ export default function WorkpapersPage() {
         </MetaLine>}
       />
 
+      {apResult && <StatusBanner tone={apResult.tone} title={apResult.title}>{apResult.meta}</StatusBanner>}
       {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
       {props && props.length === 0 && <StatusBanner tone="info" title="No General Ledgers imported yet">Import a property&rsquo;s General Ledger on Operating Statements and its workpapers build here.</StatusBanner>}
       {loading && <LoadingState status="Building the workpapers…" />}

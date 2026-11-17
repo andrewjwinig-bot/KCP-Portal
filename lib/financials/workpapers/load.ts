@@ -15,6 +15,8 @@ import { heldAmount } from "@/lib/deposits/deposits";
 import { runFor } from "@/lib/bank-rec/store";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { computeWorkpapers, type Workpapers } from "./compute";
+import { getApAging } from "./apAgingStore";
+import { invoicesNotInBooks } from "./apAging";
 
 export type WpMeta = { key: string; name: string; entityName: string; ein: string | null };
 
@@ -45,12 +47,32 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
   const check = run?.gl.find((g) => g.glKey === key);
   const bankRec = check ? { period, skyline: check.skyline, gl: check.gl, difference: check.difference, signedOff: !!run?.signedOff } : null;
 
+  // Skyline's vendor aging at the quarter end, for this property (a fund sums
+  // its buildings' sections, as its General Ledger does).
+  const aging = await getApAging(asOfDate).catch(() => null);
+  const apSections = aging ? [...members].map((k) => aging.sections[k]).filter(Boolean) : [];
+  let apAging: { asOf: string; total: number; invoices: number; notInBooks: { vendor: string; date: string | null; amount: number }[] } | null = null;
+  if (aging && apSections.length) {
+    const invoices = apSections.flatMap((s) => s.invoices);
+    const credits = Object.entries(transactions ?? {})
+      .filter(([code]) => /^211\d-/.test(code))
+      .flatMap(([, list]) => list.filter((t) => t.month <= asOfMonth && t.amount < 0).map((t) => ({ amount: t.amount, text: `${t.vendor ?? ""} ${t.description}` })));
+    apAging = {
+      asOf: aging.asOf,
+      total: Math.round(apSections.reduce((t, s) => t + s.total, 0) * 100) / 100,
+      invoices: invoices.length,
+      // Only this year's invoices can be looked for in this year's postings —
+      // an older one sits in the opening balance.
+      notInBooks: transactions ? invoicesNotInBooks(invoices.filter((i) => !i.date || i.date >= `${year}-01-01`), credits).map((i) => ({ vendor: i.vendor, date: i.date, amount: i.amount })) : [],
+    };
+  }
+
   const wp = computeWorkpapers({
     key, year, asOfMonth,
     gl: { beginning: gl.beginning, monthly: gl.monthly, names, coverageStartMonth: gl.coverageStartMonth },
     transactions,
     overrides: await getBsOverrides(key),
-    sources: { debtPrincipal, depositsHeld, bankRec },
+    sources: { debtPrincipal, depositsHeld, bankRec, apAging },
   });
   const def = PROPERTY_DEFS.find((d) => d.id === key);
   const entityName = (await availableStatements()).find((p) => p.key === key)?.entityName ?? def?.name ?? key;
