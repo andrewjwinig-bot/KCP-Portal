@@ -87,14 +87,15 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
   // Receivables / Open Credits for the same date, if it was run for every
   // balance (a credits-only run cannot prove what tenants owe).
   const arRec = await getArAging(asOfDate).catch(() => null);
-  let arSecs = arRec ? [...members].map((k) => arRec.sections[k]).filter(Boolean) : [];
+  let arCreditsOnly = !!arRec?.creditsOnly;
+  let arSecs = arRec && !arRec.creditsOnly ? [...members].map((k) => arRec.sections[k]).filter(Boolean) : [];
   let arFrom: "workpapers" | "receivables" | null = arSecs.length ? "workpapers" : null;
-  let arCreditsOnly = false;
   if (!arSecs.length) {
     const snap = (await allAgingSnapshots().catch(() => []))
       .filter((sn) => sn.asOf === asOfDate && sn.propertyCodes.some((c) => members.has(c)))
       .sort((a, b) => b.importedAt.localeCompare(a.importedAt))[0];
     if (snap && coversEveryBalance(snap.tenants)) {
+      arCreditsOnly = false;
       const mine = snap.tenants.filter((t) => members.has(t.propertyCode));
       const secs = arSections(mine);
       // A property on the report with no tenant owing anything is a real $0.
@@ -137,7 +138,7 @@ export async function loadWorkpapers(key: string, year: number, asOfMonth: numbe
       status: !has(/^042\d-/) ? "na" : arAging ? "done" : "missing",
       detail: !has(/^042\d-/) ? "No tenant receivables on this ledger"
         : arAging ? `As of ${asOfShort} · ${arAging.tenants} tenant${arAging.tenants === 1 ? "" : "s"}${arFrom === "receivables" ? " · from the Receivables import" : ""}`
-        : arCreditsOnly ? `The ${asOfShort} report on Receivables lists credits only — re-run it for every tenant with a balance`
+        : arCreditsOnly ? `The ${asOfShort} report imported lists only tenants holding a credit — re-run it for every tenant with a balance`
         : `Not imported as of ${asOfShort} — every tenant with a balance`,
     },
     {

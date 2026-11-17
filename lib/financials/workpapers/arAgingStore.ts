@@ -19,6 +19,9 @@ export interface StoredArAging {
   by: string | null;
   file: string;
   sections: Record<string, ArSection>;
+  /** Run for "Any With Open Credits": lists only tenants holding a credit, so
+   *  it cannot prove what tenants owe. Kept, never tied. */
+  creditsOnly?: boolean;
 }
 
 const store = createMapStore<StoredArAging>({ prefix: "workpaper-ar-aging" });
@@ -99,10 +102,13 @@ export async function importArAging(buf: Buffer, file: string, by: string | null
   const tenants = blocks.flatMap((b) => b.tenants).filter((t): t is AgingTenant & { unitRef: string; propertyCode: string } => !!t.unitRef && !!t.propertyCode);
   if (!tenants.length) throw new Error("No tenant on this report could be matched to a property.");
   const sections = arSections(tenants);
+  const creditsOnly = !coversEveryBalance(blocks.flatMap((b) => b.tenants));
   const prior = await store.get(parsed.asOfISO);
   await store.set(parsed.asOfISO, {
     asOf: parsed.asOfISO, importedAt: new Date().toISOString(), by, file,
-    sections: { ...(prior?.sections ?? {}), ...sections },
+    // A credits-only run replaces nothing a full run already gave.
+    sections: creditsOnly && prior && !prior.creditsOnly ? prior.sections : { ...(prior?.sections ?? {}), ...sections },
+    creditsOnly: creditsOnly && !(prior && !prior.creditsOnly),
   });
   return {
     asOf: parsed.asOfISO,
@@ -111,7 +117,7 @@ export async function importArAging(buf: Buffer, file: string, by: string | null
     total: Math.round(tenants.reduce((a, t) => a + t.balanceDue, 0) * 100) / 100,
     unresolved: unresolved.map((t) => ({ suite: t.suite, tenantName: t.tenantName, balance: t.balanceDue })),
     untied: tenants.filter((t) => !t.tiesOut).map((t) => ({ unitRef: t.unitRef, tenantName: t.tenantName })),
-    creditsOnly: !coversEveryBalance(blocks.flatMap((b) => b.tenants)),
+    creditsOnly,
     placedByBalance,
   };
 }
