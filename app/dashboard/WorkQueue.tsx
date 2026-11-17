@@ -29,6 +29,12 @@ import type { CloseDetail } from "@/lib/close/monthCloseMath";
 /** How far back an unticked monthly / quarterly / annual task stays on the
  *  queue as Overdue. */
 const CARRY_BACK_DAYS = 75;
+/** The carry-forward starts here: a task due before it was never asked to be
+ *  ticked to stay off the queue, so the September / October backlog (done,
+ *  never ticked) is not dug up (owner, 11/17/26: "why all of a sudden are my
+ *  overdue tasks from september showing up?"). Anything missed from now on
+ *  stays Overdue until ticked. */
+const CARRY_FROM = new Date(2026, 10, 16);
 
 type QuarterDue = {
   key: string; name: string; year: number; quarter: string; due: string; overdue: boolean;
@@ -122,11 +128,12 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
     return new Date(now.getFullYear(), now.getMonth(), now.getDate() - sinceMon);
   }, [now]);
   const occ = useMemo(() => {
-    const from = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - CARRY_BACK_DAYS);
+    const back = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - CARRY_BACK_DAYS);
+    const from = back > CARRY_FROM ? back : CARRY_FROM < monday ? CARRY_FROM : monday;
     const lastWeek = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - 7);
     const end = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 13, 23, 59, 59);
     return taskOccurrencesBetween(from, end, now)
-      .filter((o) => o.date >= monday || !(o.category === "daily" || o.category === "weekly") || o.date >= lastWeek);
+      .filter((o) => o.date >= monday || o.date >= CARRY_FROM && (!(o.category === "daily" || o.category === "weekly") || o.date >= lastWeek));
   }, [now, monday]);
   const [checked, setChecked] = useState<Record<string, Record<string, boolean>>>({});
   useEffect(() => {
