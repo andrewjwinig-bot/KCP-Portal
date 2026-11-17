@@ -1,4 +1,6 @@
 "use client";
+import { SharePullButton } from "@/app/components/SharePullButton";
+import { CREDIT_BALANCE_PULL } from "@/lib/shareDrive/pullSpecs";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { UnitSelect } from "@/app/components/UnitSelect";
@@ -320,6 +322,7 @@ export default function ReceiptReconciliationPage() {
           <InfoPopover><ImportInstructions variant="statements" /></InfoPopover>
           <input ref={creditFileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importCredits(f); }} />
           <button className="btn import" onClick={() => pickInto(creditFileRef.current, "credit-balance")}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Credit Balance Report</button>
+          <SharePullButton input={creditFileRef} spec={CREDIT_BALANCE_PULL} />
           <InfoPopover><ImportInstructions variant="credit-balance" /></InfoPopover>
           <DownloadMenu label="Open" items={[
             { label: "Statements & Tenant Portal", description: "Every tenant's statement, A/R aging, portal links, payment instructions", href: "/tenant-statements/statements" },

@@ -7,6 +7,8 @@
 // each credit itemized with its description, date and how long it has been
 // open, the last time we asked, and a one-click email that asks.
 
+import { SharePullButton } from "@/app/components/SharePullButton";
+import { CREDIT_BALANCE_PULL } from "@/lib/shareDrive/pullSpecs";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -122,6 +124,7 @@ export default function OpenCreditsPage() {
         actions={canWork ? <>
           <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
           <button className="btn import" onClick={() => pickInto(fileRef.current, "credit-balance")}><Upload {...ICON} /> Import Credit Balance Report</button>
+          <SharePullButton input={fileRef} spec={CREDIT_BALANCE_PULL} />
           <InfoPopover><ImportInstructions variant="credit-balance" /></InfoPopover>
         </> : undefined} />
 
