@@ -110,7 +110,6 @@ export const USERS: Record<UserId, UserDef> = {
       "investors",
       "debt",
       "base-years",
-      "leasing-activity",
       "task-tracker",
       "tracker",
       "allocated",

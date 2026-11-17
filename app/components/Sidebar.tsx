@@ -78,6 +78,9 @@ const NAV_ROLE_KEY: Record<string, string> = {
 // A sub-page is listed straight after its parent (it only shows while you are
 // in that parent — see `showFor`).
 const GROUP_CHILD_ORDER: Record<string, string[]> = {
+  // Tenant info lives with the property, unit and investor info (owner,
+  // 11/2026): the Tenancy group was folded into Directory.
+  directory: ["Property Info", "Unit Info", "Rent Roll", "Occ. Trends", "Leasing Activity", "Investor Info"],
   // Bank Balances leads Banking (owner).
   banking: ["Bank Balances", "Bank Transfers", "Debt Tracker", "Security Deposits", "Bank Recs", "Bank Acc Tracker"],
   financials: [
@@ -130,21 +133,6 @@ const GROUPS: Record<string, { label: string; icon: React.ReactNode }> = {
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
-      </svg>
-    ),
-  },
-  tenancy: {
-    label: "Tenancy",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 21h18" />
-        <path d="M5 21V7l7-4 7 4v14" />
-        <path d="M9 9h1" />
-        <path d="M14 9h1" />
-        <path d="M9 13h1" />
-        <path d="M14 13h1" />
-        <path d="M9 17h1" />
-        <path d="M14 17h1" />
       </svg>
     ),
   },
@@ -311,7 +299,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
-    groupId: "tenancy",
+    groupId: "directory",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -327,7 +315,7 @@ const NAV = [
     external: false,
     indent: true,
     showFor: "/rentroll",
-    groupId: "tenancy",
+    groupId: "directory",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="3 17 9 11 13 15 21 7" />
@@ -341,7 +329,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
-    groupId: "tenancy",
+    groupId: "directory",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -1150,7 +1138,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
           // the Service group (Requests + Reservations) since that's their job.
           const groupOrder: string[] | null =
             user.id === "drew"
-              ? ["financials", "banking", "tenancy", "directory", "cam", "invoicing"]
+              ? ["financials", "banking", "directory", "cam", "invoicing"]
               : accessGroup(user.id) === "service"
                 ? ["service"]
                 : null;
