@@ -390,7 +390,12 @@ export function computeWorkpapers(input: WpInput): Workpapers {
       note: `Owed to vendors per the books ${fmt(ledger)} vs Skyline's vendor aging ${fmt(ag.total)}.` };
     for (const s of ap) s.support = support;
     if (!ties) {
-      const late = ag.notInBooks;
+      // Bills the books never carried. When only SOME of them make up the gap
+      // (the rest were posted in a batch the per-bill match can't see), those
+      // that do are still the timing.
+      const late = Math.abs(round2(-diff) - round2(ag.notInBooks.reduce((a, i) => a + i.amount, 0))) < 1
+        ? ag.notInBooks
+        : subsetSumming(ag.notInBooks, round2(-diff)) ?? ag.notInBooks;
       const lateSum = round2(late.reduce((a, i) => a + i.amount, 0));
       const list = late.slice(0, 4).map((i) => `${i.vendor} ${fmt(i.amount)}${i.date ? ` (${mdy(i.date)})` : ""}`).join(", ") + (late.length > 4 ? ` and ${late.length - 4} more` : "");
       if (late.length && Math.abs(round2(-diff) - lateSum) < 1) {
@@ -422,4 +427,28 @@ export function computeWorkpapers(input: WpInput): Workpapers {
     detailAvailable,
     warnings,
   };
+}
+
+/** The fewest of `items` whose amounts add to `target` (to the cent), or null.
+ *  Breadth-first over running sums, bounded so a long aging cannot stall. */
+export function subsetSumming<T extends { amount: number }>(items: T[], target: number): T[] | null {
+  const goal = Math.round(target * 100);
+  if (!goal || items.length > 200) return null;
+  const cents = items.map((i) => Math.round(i.amount * 100));
+  const from = new Map<number, { prev: number; idx: number }>([[0, { prev: 0, idx: -1 }]]);
+  for (let i = 0; i < cents.length; i++) {
+    for (const sum of [...from.keys()]) {
+      const next = sum + cents[i];
+      if (from.has(next) || Math.abs(next) > Math.abs(goal) * 4 + 100_000) continue;
+      from.set(next, { prev: sum, idx: i });
+      if (next === goal) {
+        const out: T[] = [];
+        let cur = next;
+        while (cur !== 0 || out.length === 0) { const step = from.get(cur)!; if (step.idx < 0) break; out.unshift(items[step.idx]); cur = step.prev; }
+        return out;
+      }
+      if (from.size > 200_000) return null;
+    }
+  }
+  return null;
 }
