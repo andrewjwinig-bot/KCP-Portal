@@ -5130,7 +5130,7 @@ The user has repeatedly flagged data living in the wrong place / pages drifting.
   & fence = $533,565.54 over 15 years, $35,571/yr; billed $8,152 in 2023 and
   $35,571 in 2024, $489,842.54 left at the start of 2025, the last $27,419.54
   in 2038 — the team's schedule; Wawa's lease excludes it) and 2300's **Cap Ex
-  Amortization (2021 Project)** ($46,353.44/yr, 2026–2031). **Only tenants in
+  Amortization (2021 Project)** — parking lot paving completed 12/10/2021 ($46,353.44/yr, 2026–2031; a lease beginning after 12/10/2021 does not share it). **Only tenants in
   their space during the project share it**: `sharesCapex` reads the rent
   roll's ORIGINAL lease-from date (owner: the roll shows original start
   dates) against `occupiedBy`, so a lease that began after it — and every
