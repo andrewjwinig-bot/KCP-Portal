@@ -34,6 +34,7 @@ export const CAM_LINE_ITEMS = [
   "Parking Lot Maintenance",
   "Parking Lot Cleaning",
   "Parking Lot Cap Ex",
+  "Cap Ex Amortization (2021 Project)",
   "Security",
   "Snow Removal",
   "Landscaping",

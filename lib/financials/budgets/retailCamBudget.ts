@@ -29,7 +29,7 @@ export type BudgetLineRef = {
   subLines?: { account: string; total: number; basisTotal: number }[];
 };
 
-export type CamLineSource = "account" | "label" | "liability" | "ratio";
+export type CamLineSource = "account" | "label" | "liability" | "ratio" | "capex";
 export type CamLineBudget = { budget: number; projected: number; from: CamLineSource };
 
 export type RetailCamLineOut = {

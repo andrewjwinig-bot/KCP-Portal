@@ -18,6 +18,8 @@ import { emptyCamConfig } from "../config";
 import { getSuiteContactsMap } from "@/lib/suites/contactsStorage";
 import { camRecipientEmails } from "@/lib/suites/contacts";
 import { DEFAULT_CC } from "../office/contacts";
+import { capexFor, capexAmountIn, sharesCapex } from "./capex";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { assembledGl, type StoredGl } from "@/lib/financials/operating-statements/statementStore";
 import { accountMatchesMask } from "@/lib/financials/operating-statements/mask";
 
@@ -70,7 +72,22 @@ export async function loadRetailRecon(property: string, year: number): Promise<L
   const saved = new Map(
     await Promise.all(reconYear.roster.map(async (u) => [u.unitRef, await getCamConfig(u.unitRef)] as const)),
   );
-  const configFor = (unitRef: string) => saved.get(unitRef) ?? seedCamConfig(unitRef) ?? emptyCamConfig(unitRef);
+  const baseConfig = (unitRef: string) => saved.get(unitRef) ?? seedCamConfig(unitRef) ?? emptyCamConfig(unitRef);
+
+  // Amortized capital projects billed this year (capex.ts). A tenant whose
+  // lease began after the project is excluded from the line, read off the
+  // rent roll's original lease-from date.
+  const capex = capexFor(property).filter((c) => capexAmountIn(c, year) > 0);
+  const leaseFrom = new Map<string, string | null>();
+  if (capex.some((c) => c.occupiedBy)) {
+    const roll = await resolveCurrentRentroll().catch(() => null);
+    for (const p of roll?.properties ?? []) for (const u of p.units ?? []) leaseFrom.set(u.unitRef, u.leaseFrom ?? null);
+  }
+  const configFor = (unitRef: string) => {
+    const cfg = baseConfig(unitRef);
+    const out = capex.filter((c) => !sharesCapex(c, unitRef, leaseFrom.get(unitRef)) && !cfg.camExcludedLines.includes(c.label)).map((c) => c.label);
+    return out.length ? { ...cfg, camExcludedLines: [...cfg.camExcludedLines, ...out] } : cfg;
+  };
 
   const escrowOverrides = await getEscrowOverrides(property, year);
   const roster = reconYear.roster.map((u) => {
@@ -96,9 +113,15 @@ export async function loadRetailRecon(property: string, year: number): Promise<L
     return v == null ? seed : v;
   };
 
+  // A capital project billed this year that the seeded pool doesn't carry yet.
+  const seededLines = [
+    ...fixture.pool.camLines,
+    ...capex.filter((c) => !fixture.pool.camLines.some((l) => l.label === c.label))
+      .map((c) => ({ glAccount: "—", label: c.label, amount: capexAmountIn(c, year), nonControllable: true })),
+  ];
   const pool = {
     ...fixture.pool,
-    camLines: fixture.pool.camLines.map((l) =>
+    camLines: seededLines.map((l) =>
       finals[l.label] != null ? { ...l, amount: finals[l.label] } : { ...l, amount: glBase(l.glAccount, l.amount) },
     ),
     // Insurance stays seed → override (reconcile-and-finalize on the recon page):
@@ -116,7 +139,7 @@ export async function loadRetailRecon(property: string, year: number): Promise<L
     historyYears: histYears,
     fromGl: !!gl,
     glImport: gl ? { at: gl.uploadedAt, by: gl.uploadedBy ?? null } : null,
-    lines: fixture.pool.camLines.map((l) => {
+    lines: seededLines.map((l) => {
       const base = glBase(l.glAccount, l.amount);
       return {
         account: l.glAccount, label: l.label,

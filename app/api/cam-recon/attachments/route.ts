@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, isPathAllowed, USERS, type UserId } from "@/lib/users";
-import { camAttachments, toMeta, type CamAttachment } from "@/lib/cam/attachments/store";
+import { camAttachments, attachmentsFor, toMeta, type CamAttachment } from "@/lib/cam/attachments/store";
 import { putAttachmentFile, removeAttachmentFile } from "@/lib/cam/attachments/files";
 
 export const runtime = "nodejs";
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
   const year = Number(req.nextUrl.searchParams.get("year"));
   if (!property || !year) return NextResponse.json({ error: "property and year are required" }, { status: 400 });
   try {
-    const all = await camAttachments(property, year).all();
+    const all = await attachmentsFor(property, year);
     return NextResponse.json({ attachments: all.map(toMeta), blob: !!process.env.BLOB_READ_WRITE_TOKEN });
   } catch (err: any) {
     console.error("[GET /api/cam-recon/attachments]", err?.message ?? err);
