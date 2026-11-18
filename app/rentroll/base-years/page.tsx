@@ -15,7 +15,7 @@ import { RETAIL_EXPENSE_HISTORY } from "@/lib/cam/retail/expenseHistory";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { pickBudgetYear, preferredWorkbooks } from "@/lib/financials/budgets/inForce";
 import { HoverCard } from "@/app/components/HoverCard";
-import { LineRecoveryCard } from "./LineRecoveryCard";
+import { RecoveriesCard } from "@/app/components/RecoveriesCard";
 
 const RETAIL_NAME = new Map(PROPERTY_DEFS.map((p) => [p.id.toUpperCase(), p.name]));
 const RETAIL_HISTORY_CODES = Object.keys(RETAIL_EXPENSE_HISTORY).sort();
@@ -266,7 +266,10 @@ export default function BaseYearExpensesPage() {
       </div>
 
       {retailHist ? (
-        <RetailHistoryCard property={propCode} hist={retailHist} recon={retailRecon} />
+        <>
+          <RetailHistoryCard property={propCode} hist={retailHist} recon={retailRecon} />
+          <RecoveriesCard statementKey={propCode} scopePicker />
+        </>
       ) : !expenses ? (
         <div className="card" style={{ marginTop: 16 }}>
           <p style={{ fontWeight: 700 }}>
@@ -281,7 +284,7 @@ export default function BaseYearExpensesPage() {
         <>
           <SummaryTable expenses={expenses} budget2026={budget2026} />
 
-          <LineRecoveryCard propCode={propCode} fund={meta?.fund} />
+          <RecoveriesCard statementKey={propCode} scopePicker />
 
           <ExpenseHistory expenses={expenses} years={years} currentOccPct={currentOccPct} />
 

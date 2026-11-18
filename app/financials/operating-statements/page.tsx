@@ -1,4 +1,5 @@
 "use client";
+import { RecoveriesCard } from "@/app/components/RecoveriesCard";
 import { SharePullButton } from "@/app/components/SharePullButton";
 import { GL_PULL } from "@/lib/shareDrive/pullSpecs";
 import { StatusBanner } from "@/app/components/StatusBanner";
@@ -1025,6 +1026,9 @@ export default function OperatingStatementsPage() {
       )}
       {!loading && statement && isFullYear && fullYear && (
         <FullYearTable fy={fullYear} year={year} viewKey={key} propertyCode={cur?.propertyCode ?? ""} view={{ hideEmpty, showGL, varMode }} budgetYear={budgetYear} budgetFallback={budgetFallback} />
+      )}
+      {!loading && statement && isFullYear && fullYear && (
+        <RecoveriesCard statementKey={key} year={year} />
       )}
       {!loading && statement && !isFullYear && <StatementTable s={statement} viewKey={key} budgetYear={budgetYear} budgetFallback={budgetFallback} notes={notes} noteSources={noteSources} noteMeta={noteMeta} editorLabel={user.label} onSaveNote={saveNote} dismissedFlags={dismissedFlags} onDismissFlag={onDismissFlag} view={{ psf, sqft, hideEmpty, showGL, varMode }} thresh={thresh} flagFilter={flagFilter} onClearFilter={() => setFlagFilter(null)} />}
 
