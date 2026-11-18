@@ -475,6 +475,9 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   ["/api/tenant-notices", ["/tenant-statements", TENANT_NOTICES_PAGE]],
   ["/api/tenant-statements/correspondence", ["/tenant-statements", OPEN_CREDITS_PAGE]],
   ["/api/tenant-statements", "/tenant-statements"],
+  // Recoveries by line: the CAM recon's figures, shown on Operating
+  // Statements' Full Year view and the Operating Expense History page too.
+  ["/api/cam-recon/recoveries", ["/cam-recon", "/financials/operating-statements", "/rentroll/base-years"]],
   ["/api/cam-recon", "/cam-recon"],
   ["/api/cam-config", "/cam-recon"],
   ["/api/reports", "/reports"],

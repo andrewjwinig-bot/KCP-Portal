@@ -5,6 +5,7 @@
 
 import "server-only";
 import { reconcileRetailBuilding } from "./compute";
+import type { RetailExpensePool } from "./types";
 import { assembleRetail } from "./assemble";
 import { RETAIL_RECON_FIXTURES } from "./registry";
 import { allocationFor } from "./allocation";
@@ -60,6 +61,8 @@ export type LoadedRetailRecon = {
   contacts: Record<string, { email: string; cc: string }>;
   allocation: ReturnType<typeof allocationFor>;
   expenseFinal: RetailExpenseFinal;
+  /** The pool the result was computed on (FINALs and GL applied). */
+  pool: RetailExpensePool;
 };
 
 /** Reconcile one retail property/year. Returns null when there's no fixture for
@@ -169,5 +172,5 @@ export async function loadRetailRecon(property: string, year: number): Promise<L
     contacts[u.unitRef] = { email: camRecipientEmails(suiteContacts[u.unitRef] ?? []), cc: DEFAULT_CC };
   }
 
-  return { result, contacts, allocation: allocationFor(fixture.pool.propertyCode), expenseFinal };
+  return { result, contacts, allocation: allocationFor(fixture.pool.propertyCode), expenseFinal, pool };
 }
