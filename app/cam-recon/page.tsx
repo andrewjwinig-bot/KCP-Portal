@@ -23,6 +23,7 @@ import type { RetailBuildingResult, RetailTenantResult } from "@/lib/cam/retail/
 import type { PropertyAllocation } from "@/lib/cam/retail/allocation";
 import { retailYearEndRows } from "@/lib/cam/retail/exports";
 import { InfoPopover } from "@/app/components/InfoPopover";
+import { CapexInfo } from "./CapexInfo";
 import {
   QUARTERS,
   QUARTERLY_BILLINGS,
@@ -1122,6 +1123,7 @@ function RetailFinalExpenseSummary({ data, property, year, onEdit, historyHref }
       <td style={{ ...std, textAlign: "left" }}>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
           <span>{r.label}</span>
+          <CapexInfo label={r.label} year={year} />
           {(r.amount !== 0 || (backup.countByAccount[acctKey] ?? 0) > 0) && (
             <BackupTrigger count={backup.countByAccount[acctKey] ?? 0} onClick={() => setOpenBackup({ account: acctKey, label: r.label })} />
           )}
@@ -1325,7 +1327,7 @@ function ColumnSchedule({ rows, reconYear, total, footRows }: {
           return (
             <tr key={i} style={{ borderBottom: "1px solid var(--border)" }}>
               <td style={{ ...std, textAlign: "left", whiteSpace: "nowrap", color: "var(--muted)", fontVariantNumeric: "tabular-nums", ...struck }}>{l.acct}</td>
-              <td style={{ ...std, textAlign: "left", ...struck }}>{l.label}</td>
+              <td style={{ ...std, textAlign: "left", ...struck }}>{l.label} <CapexInfo label={l.label} year={reconYear} /></td>
               <td style={{ ...std, ...struck }}>{money0(l.amount)}</td>
             </tr>
           );

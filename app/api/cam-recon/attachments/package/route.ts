@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import archiver from "archiver";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, isPathAllowed, type UserId } from "@/lib/users";
-import { camAttachments } from "@/lib/cam/attachments/store";
+import { camAttachments, attachmentsFor } from "@/lib/cam/attachments/store";
 import { readAttachmentBytes } from "@/lib/cam/attachments/files";
 import { backupCategory, safeSegment } from "@/lib/cam/attachments/category";
 
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   if (!property || !year) return NextResponse.json({ error: "property and year are required" }, { status: 400 });
 
   try {
-    const recs = (await camAttachments(property, year).all()).filter((a) => all || a.includeInPackage);
+    const recs = (await attachmentsFor(property, year)).filter((a) => all || a.includeInPackage);
     if (recs.length === 0) return NextResponse.json({ error: "No backup files to package for this property/year." }, { status: 404 });
 
     const archive = archiver("zip", { zlib: { level: 9 } });

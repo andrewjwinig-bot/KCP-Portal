@@ -6,6 +6,7 @@
 
 import "server-only";
 import { scopedCollection } from "@/lib/collectionStore";
+import { capexFor } from "@/lib/cam/retail/capex";
 
 export type CamAttachment = {
   id: string;
@@ -41,4 +42,23 @@ const scoped = scopedCollection<CamAttachment>({ prefix: "cam-attachments", keyO
 /** The attachment collection for one property + year. */
 export function camAttachments(property: string, year: number) {
   return scoped.forScope(`${property}-${year}`);
+}
+
+/** A property/year's backup PLUS the backup filed against an amortized
+ *  capital project (capex.ts) in any earlier year of its term (owner: "can
+ *  that attachment stay with that line item until its done … so i dont need
+ *  to reattach it each year"). A carried file keeps its own `year`, so it is
+ *  viewed, downloaded and deleted where it was filed. */
+export async function attachmentsFor(property: string, year: number): Promise<CamAttachment[]> {
+  const own = await camAttachments(property, year).all();
+  const carried: CamAttachment[] = [];
+  for (const c of capexFor(property)) {
+    if (c.lastYear != null && year > c.lastYear) continue;
+    const from = c.firstYear ?? year - 15;
+    for (let y = from; y < year; y++) {
+      const recs = await camAttachments(property, y).all().catch(() => [] as CamAttachment[]);
+      carried.push(...recs.filter((a) => a.account === c.label));
+    }
+  }
+  return [...own, ...carried];
 }

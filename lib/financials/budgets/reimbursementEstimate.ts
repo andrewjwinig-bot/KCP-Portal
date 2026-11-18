@@ -25,6 +25,7 @@ import { OFFICE_RECON_FIXTURES } from "@/lib/cam/office/registry";
 import { loadRetailRecon } from "@/lib/cam/retail/loadResult";
 import { loadOfficeRecon } from "@/lib/cam/office/loadResult";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
+import { capexFor, capexAmountIn, capexByLabel, sharesCapex } from "@/lib/cam/retail/capex";
 import type { LeaseAssumption } from "./leasingAssumptions";
 import {
   retailRecovery, officeRecovery, retailLeaseUp, retailProRata, monthsBetween, totalRecoveries,
@@ -297,11 +298,11 @@ export async function estimateReimbursements(
   const roll = pr ? await resolveCurrentRentroll().catch(() => null) : null;
   // The office part of a mixed centre ("7010O") is on the roll as the building.
   const rollCode = String((retail as { pool?: { propertyCode?: string } } | undefined)?.pool?.propertyCode ?? code).toUpperCase();
-  const rollUnits = new Map<string, { isVacant: boolean; leaseTo: string | null; sqft: number }>();
+  const rollUnits = new Map<string, { isVacant: boolean; leaseTo: string | null; leaseFrom: string | null; sqft: number }>();
   for (const p of roll?.properties ?? []) {
     if (String(p.propertyCode).toUpperCase() !== rollCode) continue;
     for (const u of p.units ?? []) {
-      rollUnits.set(canon(u.unitRef), { isVacant: !!u.isVacant || !u.occupantName, leaseTo: u.leaseTo ?? null, sqft: u.sqft || 0 });
+      rollUnits.set(canon(u.unitRef), { isVacant: !!u.isVacant || !u.occupantName, leaseTo: u.leaseTo ?? null, leaseFrom: u.leaseFrom ?? null, sqft: u.sqft || 0 });
     }
   }
   const rows = new Map<string, SuiteTenancy>();
@@ -376,7 +377,25 @@ export async function estimateReimbursements(
       const direct = retRatio(opts.retBudgetPool, ts.find((t) => t.retPool > 0)?.retPool);
       if (direct != null) ratios.ret = direct;
     }
-    const resolveCam = opts.camLines?.length ? camLineBudgetResolver(opts.camLines) : null;
+    const resolveLine = opts.camLines?.length ? camLineBudgetResolver(opts.camLines) : null;
+    // An amortized capital project (capex.ts) is a FIXED amount in the budget
+    // year — never grown, never read off a budget line.
+    const resolveCam = resolveLine
+      ? (rl: { glAccount: string; label: string }) => {
+          const c = capexByLabel(code, rl.label);
+          return c ? { budget: Math.round(capexAmountIn(c, budgetYear)), projected: Math.round(capexAmountIn(c, budgetYear - 1)), from: "capex" as const } : resolveLine(rl);
+        }
+      : null;
+    // A project the reconciliation year did not bill yet joins each tenant's
+    // schedule — billed only for a tenant in its space during the project.
+    const capexDue = capexFor(code).filter((c) => capexAmountIn(c, budgetYear) > 0);
+    const withCapex = <T extends { unitRef: string; grossLease?: boolean; camSchedule?: { glAccount: string; label: string; amount: number; billed: boolean; nonControllable: boolean }[] }>(t: T): T => {
+      if (!t.camSchedule?.length) return t;
+      const add = capexDue.filter((c) => !t.camSchedule!.some((l) => l.label === c.label))
+        .map((c) => ({ glAccount: "—", label: c.label, amount: 0, nonControllable: true,
+          billed: !t.grossLease && sharesCapex(c, t.unitRef, rollUnits.get(canon(t.unitRef))?.leaseFrom) }));
+      return add.length ? { ...t, camSchedule: [...t.camSchedule, ...add] } : t;
+    };
     // INS off the budget's PROPERTY insurance (the pool tenants recover —
     // liability is a CAM line), not the whole Insurance line's change. A
     // tenant whose INS is the LIABILITY line (Wawa at 2300) reads that bucket.
@@ -394,7 +413,8 @@ export async function estimateReimbursements(
       if (liab && Math.abs(liab.amount - t.insPool) <= 1) return insLiability;
       return null;
     };
-    for (const t of ts) {
+    for (const t0 of ts) {
+      const t = withCapex(t0);
       // A tenant who left during the recon year is not in the budget year.
       if (t.vacatedISO && Number(String(t.vacatedISO).slice(0, 4)) <= reconYear) continue;
       const { months, assumed, note } = tenancy(t.unitRef);
@@ -440,7 +460,7 @@ export async function estimateReimbursements(
       const first = ts.find((t) => t.camDenom > 0) ?? ts[0];
       const pools = {
         cam: resolveCam && first?.camSchedule?.length
-          ? retailCamBudget({ ...first, camSchedule: first.camSchedule.map((l) => ({ ...l, billed: true })), camCap: undefined, grossLease: false },
+          ? retailCamBudget({ ...first, camSchedule: first.camSchedule.filter((l) => !capexByLabel(code, l.label)).map((l) => ({ ...l, billed: true })), camCap: undefined, grossLease: false },
               resolveCam, { cam: ratios.cam, ins: ratios.ins }, 1).pool
           : (first?.camPoolFull ?? 0) * ratios.cam,
         ins: insProperty ? insProperty.budget : (first?.insPool ?? 0) * ratios.ins,
