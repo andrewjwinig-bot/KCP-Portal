@@ -3,7 +3,7 @@ import { SharePullButton } from "@/app/components/SharePullButton";
 import { RENT_ROLL_PULL } from "@/lib/shareDrive/pullSpecs";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
-import { ChevronDown, ChevronUp, CircleCheck, FileText, Info, X, Upload } from "lucide-react";
+import { ChevronDown, ChevronUp, CircleCheck, FileText, Info, X, Upload, Trash2 } from "lucide-react";
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
@@ -1458,6 +1458,22 @@ export default function RentRollPage() {
   // earlier month's roll (code → "YYYY-MM").
   const [carriedFrom, setCarriedFrom] = useState<Record<string, string>>({});
   const [monthLoading, setMonthLoading] = useState(false);
+  // Deleting a month's import (it lived on Rent Roll Trends, removed — owner:
+  // "nobody uses it"). The whole month (?all=1), then a reload.
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  async function deleteMonth(month: string) {
+    setDeleting(true); setDeleteError(null);
+    try {
+      const res = await fetch(`/api/rentroll/history/${month}?all=1`, { method: "DELETE" });
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? `Delete failed (${res.status})`);
+      window.location.href = "/rentroll";
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : "Delete failed");
+      setDeleting(false);
+    }
+  }
   // When we've just imported a month, the fresh roll lives in this ref so the
   // per-month effect shows it straight from the upload response instead of
   // re-reading storage (which can briefly lag and flash all-$0 right after an
@@ -1691,7 +1707,7 @@ export default function RentRollPage() {
       const importedMonth: string | undefined = data.imported?.month;
       const later: string[] = data.imported?.laterMonths ?? [];
       const laterNote = later.length
-        ? ` A roll dated ${later.join(", ")} was imported earlier; this import is now the current roll, but ${later.length === 1 ? "that month still shows" : "those months still show"} the older file — delete ${later.length === 1 ? "it" : "them"} on Rent Roll Trends if ${later.length === 1 ? "it was" : "they were"} imported by mistake.`
+        ? ` A roll dated ${later.join(", ")} was imported earlier; this import is now the current roll, but ${later.length === 1 ? "that month still shows" : "those months still show"} the older file — pick ${later.length === 1 ? "it" : "each"} in the month list and delete ${later.length === 1 ? "it" : "them"} if ${later.length === 1 ? "it was" : "they were"} imported by mistake.`
         : "";
       const successMsg = (data.imported && data.imported.becameCurrent === false)
         ? `Imported ${data.imported.month} into history. ${data.currentMonth} remains the current rent roll.`
@@ -1826,6 +1842,22 @@ export default function RentRollPage() {
                   return <option key={s.month} value={s.month}>{label}</option>;
                 })}
               </HeaderSelect>
+            )}
+            {reportMonth && !confirmDelete && (
+              <button type="button" className="btn sm icon-tip" data-tip="Delete this month's import" aria-label="Delete this month's import"
+                onClick={() => { setConfirmDelete(true); setDeleteError(null); }}>
+                <Trash2 size={16} strokeWidth={1.75} aria-hidden />
+              </button>
+            )}
+            {reportMonth && confirmDelete && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: "var(--fs-14)" }}>
+                <span>Delete every property imported for {(() => { const [yy, mm] = reportMonth.split("-"); return `${new Date(2000, parseInt(mm) - 1, 1).toLocaleString("en-US", { month: "long" })} ${yy}`; })()}?</span>
+                <button type="button" className="btn sm" onClick={() => deleteMonth(reportMonth)} disabled={deleting} style={{ color: "var(--c-b42318, #B42318)" }}>
+                  {deleting ? "Deleting" : "Delete month"}
+                </button>
+                <button type="button" className="btn sm" onClick={() => setConfirmDelete(false)} disabled={deleting}>Cancel</button>
+                {deleteError && <span style={{ color: "var(--c-b42318, #B42318)" }}>{deleteError}</span>}
+              </span>
             )}
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>

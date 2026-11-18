@@ -71,12 +71,12 @@ export const CAPEX_AMORTIZATIONS: CapexAmortization[] = [
   {
     property: "2300",
     label: "Cap Ex Amortization (2021 Project)",
-    project: "2021 capital project",
+    project: "Parking lot paving, completed 12/10/2021",
     projectYear: 2021,
     annual: 46353.44,
     firstYear: 2026,
     lastYear: 2031,
-    occupiedBy: "2021-12-31",
+    occupiedBy: "2021-12-10",
     note: "Tenants in their space during the 2021 project share it; a lease that began after it does not.",
   },
 ];

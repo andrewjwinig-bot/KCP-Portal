@@ -26,5 +26,7 @@ describe("amortized capital projects", () => {
     expect(sharesCapex(bw, "2300-1877", "10/20/20")).toBe(true);
     expect(sharesCapex(bw, "2300-1879", "03/01/27")).toBe(false);
     expect(sharesCapex(bw, "2300-1817", "01/01/66")).toBe(true);
+    expect(sharesCapex(bw, "2300-1877", "12/10/21")).toBe(true); // in place the day it finished
+    expect(sharesCapex(bw, "2300-1877", "12/15/21")).toBe(false);
   });
 });

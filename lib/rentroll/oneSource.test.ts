@@ -14,7 +14,6 @@ import path from "node:path";
 const ALLOWED = new Set([
   "app/api/rentroll/route.ts",             // writes it (import + self-heal)
   "app/api/rentroll/history/route.ts",     // backfills history from it when empty
-  "app/api/rentroll/trends/export/route.ts",
   "lib/rentroll/current.ts",
   "lib/financials/operating-statements/rentCheckRun.ts",
   "lib/reports/monthly.ts",
