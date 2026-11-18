@@ -7,6 +7,7 @@
 
 import "server-only";
 import { reconcileBuilding } from "./compute";
+import type { OfficeExpensePool } from "./types";
 import { assembleTenantInputs, type OfficeLeaseConfig, type ResetInfo, type SnowExclusionInfo } from "./assemble";
 import { OFFICE_RECON_FIXTURES } from "./registry";
 import { getOverrides, mergeConfig } from "./configStore";
@@ -39,7 +40,12 @@ async function loadSnowExclusions(): Promise<Record<string, SnowExclusionInfo>> 
   } catch { return {}; }
 }
 
-export type LoadedOfficeRecon = { result: ReturnType<typeof reconcileBuilding> };
+export type LoadedOfficeRecon = {
+  result: ReturnType<typeof reconcileBuilding>;
+  /** The pool and FINALs the result was computed on. */
+  pool: OfficeExpensePool;
+  finals?: Record<string, number>;
+};
 
 /** Reconcile one office property/year. Returns null when there's no fixture for
  *  that property/year (the caller maps that to a 404). */
@@ -80,5 +86,5 @@ export async function loadOfficeRecon(property: string, year: number): Promise<L
   }
 
   const result = reconcileBuilding(pool, tenants, year, finals);
-  return { result };
+  return { result, pool, finals };
 }
