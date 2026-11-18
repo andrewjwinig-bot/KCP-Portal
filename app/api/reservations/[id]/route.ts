@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isMailConfigured, sendMail } from "@/lib/mail";
-import { reservationDecisionEmail } from "@/lib/reservations/emails";
+import { reservationDecisionEmail, reservationModifiedEmail, prettyTime } from "@/lib/reservations/emails";
+import { applyReschedule, slotConflicts, slotError, type Slot } from "@/lib/reservations/reschedule";
+import { roomByUnitRef } from "@/lib/reservations/rooms";
 import {
   getReservation,
+  listReservations,
   newNoteId,
   RESERVATION_STATUSES,
   removeReservation,
@@ -28,6 +31,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     decidedBy?: string;
     tenantCompany?: string;
     addNote?: { author: string; text: string };
+    /** Staff modify & book: move it to this room / date / time, approve it,
+     *  and email the tenant the new time (with `message`, optional). */
+    reschedule?: Slot & { message?: string; notify?: boolean };
   };
   try {
     body = await req.json();
@@ -37,6 +43,43 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const now = new Date().toISOString();
   let next: Reservation = { ...r, updatedAt: now };
+
+  if (body.reschedule) {
+    const s = body.reschedule;
+    const slot: Slot = { roomUnitRef: String(s.roomUnitRef ?? ""), date: String(s.date ?? ""), startTime: String(s.startTime ?? ""), endTime: String(s.endTime ?? "") };
+    const room = roomByUnitRef(slot.roomUnitRef);
+    if (!room) return NextResponse.json({ error: "Pick a valid room." }, { status: 400 });
+    const bad = slotError(slot);
+    if (bad) return NextResponse.json({ error: bad }, { status: 400 });
+    const clash = slotConflicts(await listReservations(), slot, r.id);
+    if (clash.length) {
+      const taken = clash.map((c) => `${prettyTime(c.startTime)}–${prettyTime(c.endTime)} (${c.tenantCompany})`).join(", ");
+      return NextResponse.json({ error: `That time is already booked: ${taken}.` }, { status: 409 });
+    }
+    const by = String(body.decidedBy ?? "").trim() || "Staff";
+    const moved = applyReschedule(r, slot, room, by, now);
+    const message = String(s.message ?? "").trim();
+    const notify = s.notify !== false && !!moved.contactEmail && isMailConfigured();
+    let emailed = false;
+    if (notify) {
+      try {
+        const m = reservationModifiedEmail(moved, message, by);
+        emailed = await sendMail({ to: moved.contactEmail, subject: m.subject, htmlBody: m.html, textBody: m.text });
+      } catch { emailed = false; }
+    }
+    const from = `${r.roomLabel !== moved.roomLabel || r.propertyName !== moved.propertyName ? `${r.roomLabel} (${r.propertyName}) ` : ""}${r.date} ${prettyTime(r.startTime)}–${prettyTime(r.endTime)}`;
+    const to = `${moved.roomLabel !== r.roomLabel || r.propertyName !== moved.propertyName ? `${moved.roomLabel} (${moved.propertyName}) ` : ""}${moved.date} ${prettyTime(moved.startTime)}–${prettyTime(moved.endTime)}`;
+    moved.notes = [...moved.notes, {
+      id: newNoteId(), author: by, createdAt: now,
+      text: `Modified and booked: ${from} → ${to}. ${emailed ? `Emailed ${moved.contactEmail}.` : "Tenant NOT emailed."}${message ? `\n\n${message}` : ""}`,
+    }];
+    try {
+      await saveReservation(moved);
+    } catch (e) {
+      return NextResponse.json({ error: e instanceof Error ? e.message : "Failed to save" }, { status: 500 });
+    }
+    return NextResponse.json({ reservation: moved, emailed });
+  }
 
   if (body.status && (RESERVATION_STATUSES as readonly string[]).includes(body.status)) {
     next.status = body.status as ReservationStatus;

@@ -64,4 +64,26 @@ export function reservationDecisionEmail(r: Reservation) {
     }, first);
 }
 
+/** Staff moved the booking to a time (or room) that works and confirmed it
+ *  (reschedule.ts). Says what they asked for and what they are booked for,
+ *  with staff's own note when one was written. */
+export function reservationModifiedEmail(r: Reservation, message?: string, signedBy?: string) {
+  const first = r.contactFirstName?.trim() ?? "";
+  const o = r.original;
+  const asked = o
+    ? `${o.roomUnitRef !== r.roomUnitRef ? `${o.roomLabel}, ${o.propertyName} · ` : ""}${prettyDate(o.date)}, ${prettyTime(o.startTime)} – ${prettyTime(o.endTime)}`
+    : "";
+  const note = (message ?? "").trim();
+  return render({
+    propertyCode: r.propertyCode,
+    subject: `Your reservation is confirmed for a new time — ${r.roomLabel}, ${prettyDate(r.date)}`,
+    eyebrow: "Reservation Updated",
+    hello: first ? `You’re booked, ${first}.` : "You’re booked.", accent: "At a new time.",
+    sub: "The time you asked for wasn’t available, so we’ve booked you for the time below. Reply to this email if it doesn’t work.",
+    details: [...detailsOf(r), ...(asked ? [["You asked for", asked] as [string, string]] : [])],
+    boxLabel: "", boxText: "", emergency: false,
+    ...(note ? { letter: { body: note, signedBy: signedBy?.trim() || "KCP Property Management" } } : {}),
+  }, first);
+}
+
 export { SUBMIT_URL };

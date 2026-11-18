@@ -15,6 +15,7 @@ import { useUser } from "@/app/components/UserProvider";
 import { Pill, Badge, reservationStatusTone } from "@/app/components/Pill";
 import { bestTenantMatch, isResolvedTenant } from "@/lib/tenants/match";
 import WeekCalendar from "./WeekCalendar";
+import { ModifyBooking } from "./ModifyBooking";
 
 type Filter = "Pending" | "Approved" | "Declined" | "All";
 
@@ -268,6 +269,7 @@ function ReservationsPageInner() {
         <ReservationModal
           reservation={selected}
           sameDay={otherSameDay(selected)}
+          all={reservations ?? []}
           currentUser={user.label}
           onClose={() => setSelected(null)}
           onChange={(updated) => {
@@ -287,10 +289,11 @@ function ReservationsPageInner() {
 // ── modal ──────────────────────────────────────────────────────────────
 
 function ReservationModal({
-  reservation, sameDay, currentUser, onClose, onChange, onDelete,
+  reservation, sameDay, all, currentUser, onClose, onChange, onDelete,
 }: {
   reservation: Reservation;
   sameDay: Reservation[];
+  all: Reservation[];
   currentUser: string;
   onClose: () => void;
   onChange: (r: Reservation) => void;
@@ -298,7 +301,8 @@ function ReservationModal({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [composer, setComposer] = useState<null | "modify" | "custom">(null);
+  const [composer, setComposer] = useState<null | "modify" | "custom" | "book">(null);
+  const [booked, setBooked] = useState<string | null>(null);
   // Bring the composer (and its Send button) into view when it opens.
   const composerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -518,6 +522,13 @@ function ReservationModal({
             <MetaCell label="Phone" value={reservation.contactPhone} />
             <MetaCell label="Date" value={prettyDate(reservation.date)} />
             <MetaCell label="Time" value={`${prettyTime(reservation.startTime)} – ${prettyTime(reservation.endTime)}`} />
+            {reservation.original && (
+              <MetaCell
+                label="Tenant Asked For"
+                value={`${prettyDate(reservation.original.date)}, ${prettyTime(reservation.original.startTime)} – ${prettyTime(reservation.original.endTime)}`}
+                sub={`${reservation.original.roomUnitRef !== reservation.roomUnitRef ? `${reservation.original.roomLabel} · ${reservation.original.propertyName} · ` : ""}modified by ${reservation.modifiedBy ?? "staff"}`}
+              />
+            )}
           </div>
 
           {reservation.purpose && (
@@ -555,7 +566,26 @@ function ReservationModal({
             </div>
           </Section>
 
-          {composer && (
+          {booked && <StatusBanner compact tone="success" title={booked} />}
+
+          {composer === "book" && (
+            <div ref={composerRef}>
+              <ModifyBooking
+                reservation={reservation}
+                all={all}
+                currentUser={currentUser}
+                onCancel={() => setComposer(null)}
+                onSuggestInstead={() => setComposer("modify")}
+                onBooked={(r, emailed) => {
+                  setComposer(null);
+                  setBooked(`Booked ${prettyDate(r.date)}, ${prettyTime(r.startTime)} – ${prettyTime(r.endTime)}${emailed ? ` · emailed ${r.contactEmail}` : " · tenant not emailed"}`);
+                  onChange(r);
+                }}
+              />
+            </div>
+          )}
+
+          {composer && composer !== "book" && (
             <div ref={composerRef}>
             <EmailComposer
               reservation={reservation}
@@ -596,8 +626,8 @@ function ReservationModal({
             </button>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={() => setComposer("modify")} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}>
-              Modify (suggest alternates)
+            <button onClick={() => { setBooked(null); setComposer("book"); }} disabled={busy} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}>
+              Modify &amp; Book
             </button>
             {reservation.status !== "Approved" && (
               <button onClick={approve} disabled={busy} className="btn primary" style={{ fontSize: "var(--fs-14)", padding: "10px 22px", fontWeight: 700 }}>
