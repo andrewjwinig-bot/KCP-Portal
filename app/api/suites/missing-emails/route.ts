@@ -8,7 +8,9 @@
 //   POST { unitRef, emails, name? }      → add one tenant's email(s)
 
 import { NextRequest, NextResponse } from "next/server";
-import { addSuiteEmails, splitEmails, tenantsWithoutEmail, type ContactGroup } from "@/lib/suites/missingEmails";
+import { addSuiteEmails, hasRecipient, splitEmails, tenantsWithoutEmail, type ContactGroup } from "@/lib/suites/missingEmails";
+import { isSkylineEmailList, parseSkylineEmailList } from "@/lib/suites/skylineEmailList";
+import * as XLSX from "xlsx";
 import { buildFillSheet, readFillSheet } from "@/lib/suites/missingEmailsXlsx";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
@@ -61,8 +63,40 @@ export async function POST(req: NextRequest) {
   if ((req.headers.get("content-type") ?? "").includes("multipart/form-data")) {
     const file = (await req.formData()).get("file");
     if (!(file instanceof File)) return NextResponse.json({ error: "No file." }, { status: 400 });
+    const bytes = Buffer.from(await file.arrayBuffer());
+
+    // Skyline's occupant Email List (.xls) — every tenant's addresses at once.
+    // A suite nobody sends to yet gets them as its statement recipients; a
+    // suite that already sends somewhere keeps its recipients and gains the
+    // new addresses as contacts only (tick them on the unit page to use them).
+    let skyRows: unknown[][] | null = null;
+    try {
+      const wb = XLSX.read(bytes, { type: "buffer" });
+      const rows = XLSX.utils.sheet_to_json<unknown[]>(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: "" });
+      if (isSkylineEmailList(rows)) skyRows = rows;
+    } catch { /* not a sheet SheetJS reads — try our own below */ }
+    if (skyRows) {
+      const list = parseSkylineEmailList(skyRows);
+      let tenants = 0, added = 0, asContacts = 0, unchanged = 0;
+      const problems: { row: number; unitRef: string; problem: string }[] = [];
+      for (const e of list) {
+        const ref = known.get(e.unitRef.toUpperCase());
+        if (!ref) { problems.push({ row: 0, unitRef: e.unitRef, problem: "Not a suite on the current rent roll" }); continue; }
+        if (e.bad.length) problems.push({ row: 0, unitRef: ref, problem: `Not an email address: ${e.bad.join(", ")}` });
+        if (!e.emails.length) continue;
+        const sends = await hasRecipient(ref);
+        const n = await addSuiteEmails(ref, e.emails, null, { recipient: !sends });
+        added += n;
+        if (!n) unchanged++;
+        else if (sends) asContacts++;
+        else tenants++;
+      }
+      await logAudit({ event: "suites.emails-import", user: by, ip: auditIp(req), detail: `${file.name} · Skyline Email List · ${tenants} tenants given recipients · ${asContacts} more with contacts added · ${added} new addresses` });
+      return NextResponse.json({ ok: true, source: "skyline", tenants, added, asContacts, unchanged, problems });
+    }
+
     let entries;
-    try { entries = await readFillSheet(Buffer.from(await file.arrayBuffer())); }
+    try { entries = await readFillSheet(bytes); }
     catch { return NextResponse.json({ error: "Could not read that file — use the Excel downloaded from this page." }, { status: 400 }); }
     if (!entries.length) return NextResponse.json({ error: "No emails found — fill the Email column of the downloaded sheet, then import it." }, { status: 400 });
     let tenants = 0, added = 0;

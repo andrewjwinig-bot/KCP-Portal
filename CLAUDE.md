@@ -1889,6 +1889,21 @@ are ADDED as statement recipients (`addSuiteEmails`); nothing on file is
 removed or overwritten; a unit not on the current rent roll or a bad address is
 reported by row. Pinned by `missingEmailsXlsx.test.ts`.
 
+**SKYLINE'S OCCUPANT EMAIL LIST IMPORTS THE SAME WAY** (owner, 11/2026: "i
+was able to pull this email list for all our tenants … review and populate").
+The same Import button takes Skyline's Email List .xls as it comes out
+(`lib/suites/skylineEmailList.ts`, read by SheetJS — ExcelJS cannot open a
+BIFF .xls; pinned by `skylineEmailList.test.ts` on synthetic rows, never the
+real file): unit ref in column A, `<address>;` along the row, one row per
+address kind (main / correspondence / other billing). Every distinct address
+per suite, lower-cased (Skyline Proper-Cases the main one), a cell's several
+addresses split, phones and "See Main Record" dropped, a malformed address
+reported; 2000's intercompany entities are skipped. **A suite nobody sends to
+yet gets them as its statement recipients; a suite that already sends
+somewhere keeps its recipients and gains the new addresses as CONTACTS only**
+(`addSuiteEmails(…, { recipient: false })`, `hasRecipient`) — tick them on the
+unit page to use them. Units not on the current rent roll are reported.
+
 # Open credits — Skyline's Credit Balance report, itemized
 
 **The laser statement prints credits as ONE undated "Open Credits" total; the

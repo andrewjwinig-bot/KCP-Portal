@@ -69,16 +69,27 @@ export function splitEmails(raw: string): { emails: string[]; bad: string[] } {
 /** Add the addresses to the suite's contacts as statement recipients. Never
  *  removes or overwrites anyone already there; an address already on file is
  *  only marked a recipient. Returns how many were new. */
-export async function addSuiteEmails(unitRef: string, emails: string[], name?: string | null): Promise<number> {
+export async function addSuiteEmails(
+  unitRef: string, emails: string[], name?: string | null,
+  opts: { recipient?: boolean } = {},
+): Promise<number> {
+  const recipient = opts.recipient !== false;
   const rec = await getOrEmptySuiteContacts(unitRef);
   const contacts = [...rec.contacts];
   let added = 0;
   for (const e of emails) {
     const hit = contacts.findIndex((c) => c.email.trim().toLowerCase() === e.toLowerCase());
-    if (hit >= 0) { contacts[hit] = { ...contacts[hit], camRecipient: true }; continue; }
-    contacts.push({ ...emptyContact(), email: e, name: (name ?? "").trim().slice(0, 120), camRecipient: true, source: "staff" });
+    if (hit >= 0) { if (recipient) contacts[hit] = { ...contacts[hit], camRecipient: true }; continue; }
+    contacts.push({ ...emptyContact(), email: e, name: (name ?? "").trim().slice(0, 120), camRecipient: recipient, source: "staff" });
     added++;
   }
-  await saveSuiteContacts(unitRef, contacts);
+  if (added || recipient) await saveSuiteContacts(unitRef, contacts);
   return added;
+}
+
+/** Does the suite already send to someone? (Skyline's list then only ADDS
+ *  its addresses as contacts — the recipients someone chose stay as chosen.) */
+export async function hasRecipient(unitRef: string): Promise<boolean> {
+  const rec = await getOrEmptySuiteContacts(unitRef);
+  return !!camRecipientEmails(rec.contacts);
 }
