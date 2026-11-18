@@ -39,6 +39,14 @@ export type Reservation = {
   decidedAt: string | null;  // ISO timestamp
   decidedBy: string | null;  // staff name
   notes: ReservationNote[];
+  /** What the tenant first asked for, kept when staff modify the booking
+   *  (lib/reservations/reschedule.ts) — set once, never overwritten. */
+  original?: {
+    roomUnitRef: string; roomLabel: string; propertyCode: string; propertyName: string;
+    date: string; startTime: string; endTime: string;
+  };
+  modifiedAt?: string;
+  modifiedBy?: string;
   createdAt: string;
   updatedAt: string;
 };

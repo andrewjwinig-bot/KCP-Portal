@@ -4420,6 +4420,23 @@ only, nothing from the budget**.
   (`buildT12Xlsx`): the trailing month headings, a live `=SUM` T-12 column,
   no Ann Bud / Var. Pinned by `t12/export.test.ts` reading the file back.
 
+# Conference room reservations — staff MODIFY & BOOK
+
+**A request can be moved and confirmed in one step** (owner, 11/2026: "let
+her select a time … on the calendar to send back to tenant and actually
+override their booking"). **Modify & Book** in a reservation's modal
+(`app/reservations/ModifyBooking.tsx`) picks the room, the day (`Calendar`,
+weekdays) and the time (15-minute steps, 8–6, the tenant form's own rules);
+the day's timeline shows what else that room holds (approved grey, pending
+dashed — click an open spot to move there) and a clash with an APPROVED
+booking blocks the button. Saving (`PATCH /api/reservations/[id]
+{ reschedule }`) REPLACES the room / date / time, approves it, keeps the
+tenant's first request on `original` (set once), notes the change, and emails
+the tenant `reservationModifiedEmail` — the new time, "You asked for", and
+staff's optional note. The server re-runs `slotError` / `slotConflicts`
+(`lib/reservations/reschedule.ts`, pinned by `reschedule.test.ts`). The old
+"suggest alternates" email is still there ("Email alternates instead").
+
 # Tenant Communications — Greg's Interplex tenant emails (/communications)
 
 **The portal does NOT send them — it builds an OUTLOOK DRAFT** (owner,
