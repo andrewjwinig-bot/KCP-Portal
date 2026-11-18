@@ -1397,8 +1397,12 @@ month, then the import time; `composeCurrentRoll` picks each property by it
 never dethrones the current roll. The Rent Roll page opens on
 `currentSnapshotMonth` (`/api/rentroll/history`'s `currentMonth`), and an import
 that leaves a later-dated month behind SAYS so (`laterMonths`) — delete it on
-Rent Roll Trends (whose Delete sends `?all=1`; the bare DELETE had been
-refusing since months began merging). **Every rent-roll read of history is
+the Rent Roll page itself (the trash icon beside the month picker, an inline
+confirm, `?all=1`; the bare DELETE had been refusing since months began
+merging). **Rent Roll Trends (`/rentroll/trends`) was REMOVED** (owner: "nobody
+uses it") — page, its export route, the sidebar's Occ. Trends, the search
+entry and the Report Center row; the status report's occupancy line is
+`occupancyTrend`, which never read it. **Every rent-roll read of history is
 FRESH** (`listJSON(…, { fresh: true })`) and the import composes "current" from
 the month it just WROTE, not a re-read: the CDN serves a snapshot's old body
 for a minute, and composing from it wrote the pre-import roll back over

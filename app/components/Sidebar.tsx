@@ -80,7 +80,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
 const GROUP_CHILD_ORDER: Record<string, string[]> = {
   // Tenant info lives with the property, unit and investor info (owner,
   // 11/2026): the Tenancy group was folded into Directory.
-  directory: ["Property Info", "Unit Info", "Rent Roll", "Occ. Trends", "Leasing Activity", "Investor Info"],
+  directory: ["Property Info", "Unit Info", "Rent Roll", "Leasing Activity", "Investor Info"],
   // Bank Balances leads Banking (owner).
   banking: ["Bank Balances", "Bank Transfers", "Debt Tracker", "Security Deposits", "Bank Recs", "Bank Acc Tracker"],
   financials: [
@@ -309,20 +309,7 @@ const NAV = [
       </svg>
     ),
   },
-  {
-    label: "Occ. Trends",
-    href: "/rentroll/trends",
-    external: false,
-    indent: true,
-    showFor: "/rentroll",
-    groupId: "directory",
-    icon: (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="3 17 9 11 13 15 21 7" />
-        <polyline points="14 7 21 7 21 14" />
-      </svg>
-    ),
-  },
+
   {
     label: "Leasing Activity",
     href: "/rentroll/leasing",
@@ -1206,15 +1193,6 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                 {open && (
                   <span className="sb-label">
                     {item.label}
-                    {item.href === "/rentroll/trends" && (
-                      <span style={{
-                        color: "var(--c-f87171)",
-                        fontWeight: 800,
-                        fontSize: "var(--fs-10)",
-                        marginLeft: 6,
-                        letterSpacing: "0.06em",
-                      }}>DRAFT</span>
-                    )}
                   </span>
                 )}
                 {open && badge > 0 && (() => {
