@@ -579,10 +579,8 @@ export default function OfficeCamReconPage() {
           : isRetail
             ? <span>{activeRetail?.tenants.length ?? 0} tenants reconciled · {isMixed ? "retail + office · " : ""}CAM / INS / RET pro-rata share, year-end true-up</span>
             : <span>{tenants.length} tenants reconciled · base-year expense recovery, year-end true-up</span>}</MetaLine>}
-      />
-
-      {(selected || rSelected || unitInfoHref || hasSel) && (
-      <div className="card">
+      >
+        {(selected || rSelected || unitInfoHref || hasSel) && (<>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {selected ? (
             <>
@@ -624,9 +622,10 @@ export default function OfficeCamReconPage() {
 
         {/* For a selected tenant the balance tiles sit in the header; for the
             building view they move to the bottom of the Building Summary card. */}
-        {hasSel && kpiTiles}
-      </div>
-      )}
+        </>)}
+      </PageHeader>
+      {hasSel && kpiTiles}
+
 
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
 

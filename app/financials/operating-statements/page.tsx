@@ -893,35 +893,7 @@ export default function OperatingStatementsPage() {
           />
         </div>}
       />
-
-      {error && (
-        <StatusBanner tone="danger" title="Error">{error}</StatusBanner>
-      )}
-
-      {behindPosting && (
-        <StatusBanner tone="warning" icon="clock" title={<>Time to post {MONTHS[expectedPost.period - 1]} {expectedPost.year}</>}
-          actions={<button className="btn import" onClick={() => pickInto(fileRef.current, "general-ledger")}>
-            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import GL
-          </button>}>
-          <b>{cur?.propertyCode} — {cur?.name}</b>{" "}
-          {latestPost
-            ? <>is posted through <b>{MONTHS[latestPost.period - 1]} {latestPost.year}</b>. </>
-            : <>has <b>no GL imported yet</b>. </>}
-          Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
-        </StatusBanner>
-      )}
-
-      {isGandA && pendingAlloc && !pendingAlloc.alreadyProcessed && (
-        <StatusBanner tone="warning" title={<>Allocated invoices for {pendingAlloc.statementMonth} are ready to process</>}
-          actions={<a href="/allocated-invoicer" className="btn primary" style={{ textDecoration: "none" }}>
-            Go to Allocated Invoicer<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
-          </a>}>
-          This is the same 2000 G&amp;A GL the Allocated Expense Invoicer runs on. Generate the property invoices there, then send.
-        </StatusBanner>
-      )}
-
-      {statement && !isFullYear && (
-      <div className="card">
+        {statement && !isFullYear && (<>
         {(() => {
           const noi = statement.rollups.netOperatingIncome;
           const mon = MONTHS[statement.period - 1];
@@ -977,8 +949,34 @@ export default function OperatingStatementsPage() {
             </>
           );
         })()}
-      </div>
+        </>)}
+
+      {error && (
+        <StatusBanner tone="danger" title="Error">{error}</StatusBanner>
       )}
+
+      {behindPosting && (
+        <StatusBanner tone="warning" icon="clock" title={<>Time to post {MONTHS[expectedPost.period - 1]} {expectedPost.year}</>}
+          actions={<button className="btn import" onClick={() => pickInto(fileRef.current, "general-ledger")}>
+            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import GL
+          </button>}>
+          <b>{cur?.propertyCode} — {cur?.name}</b>{" "}
+          {latestPost
+            ? <>is posted through <b>{MONTHS[latestPost.period - 1]} {latestPost.year}</b>. </>
+            : <>has <b>no GL imported yet</b>. </>}
+          Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
+        </StatusBanner>
+      )}
+
+      {isGandA && pendingAlloc && !pendingAlloc.alreadyProcessed && (
+        <StatusBanner tone="warning" title={<>Allocated invoices for {pendingAlloc.statementMonth} are ready to process</>}
+          actions={<a href="/allocated-invoicer" className="btn primary" style={{ textDecoration: "none" }}>
+            Go to Allocated Invoicer<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
+          </a>}>
+          This is the same 2000 G&amp;A GL the Allocated Expense Invoicer runs on. Generate the property invoices there, then send.
+        </StatusBanner>
+      )}
+
 
       {!loading && statement && brief && !isFullYear && (
         <div className="card" style={{ borderColor: "rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.05)" }}>

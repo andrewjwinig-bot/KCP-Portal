@@ -113,14 +113,12 @@ export default function T12Page() {
         </>}
         meta={<MetaLine>{data ? <span>Actuals only, {data.span} — every month off the GL, nothing from the budget.</span> : cur && !cur.latest ? <span>No GL uploaded for this property yet.</span> : null}</MetaLine>}
       />
-
-      {pills.length > 0 && (
-      <div className="card">
+        {pills.length > 0 && (<>
           <div className="pills">
             {pills.map((p) => <StatPill key={p.key} label={p.label} value={p.value} />)}
           </div>
-      </div>
-      )}
+        </>)}
+
 
       {/* A month no GL covers reads $0 — say which, so a short T-12 is never
           mistaken for a real one. */}

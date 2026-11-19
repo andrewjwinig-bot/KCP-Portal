@@ -230,14 +230,12 @@ export default function ReprojectionsPage() {
           </InfoPopover>
         </MetaLine>}
       />
-
-      {pills.length > 0 && (
-      <div className="card">
+        {pills.length > 0 && (<>
           <div className="pills">
             {pills.map((p) => <StatPill key={p.key} label={p.label} value={p.value} sub={p.sub} />)}
           </div>
-      </div>
-      )}
+        </>)}
+
 
       {loading && <LoadingState status="Loading full-year figures…" columns={4} rows={4} />}
       {!loading && !data && <div className="card"><div className="muted small">Select a property and year.</div></div>}

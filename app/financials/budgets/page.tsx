@@ -931,9 +931,7 @@ function BudgetTable({
               />
             ) : null}
         </>}
-      />
-      {/* Property summary tile */}
-      <div className="card">
+      >
         {/* Building switcher — flip between every building's budget for this year
             in one click (esp. while editing a draft). Scoped to this portfolio. */}
         {switcherGroups.length > 0 && (
@@ -980,17 +978,18 @@ function BudgetTable({
           </div>
         </div>
 
-        <div className="pills">
-          {headlinePills.map((p) => (
-            <StatPill
-              key={p.key}
-              label={p.label}
-              value={p.value}
-              accent={p.accent}
-            />
-          ))}
-        </div>
+      </PageHeader>
+      <div className="pills">
+        {headlinePills.map((p) => (
+          <StatPill
+            key={p.key}
+            label={p.label}
+            value={p.value}
+            accent={p.accent}
+          />
+        ))}
       </div>
+      {/* Property summary tile */}
 
       {/* Occupancy strip + expandable per-tenant breakdown */}
       {property.occupancyPct.some((p) => p > 0) && (

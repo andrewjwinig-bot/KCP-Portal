@@ -1879,9 +1879,7 @@ export default function RentRollPage() {
           })()} />
           {!rentroll?.uploadedAt && <span>Import the Commercial Rent Roll, or drop the file on this header.</span>}
         </MetaLine>}
-      />
-
-      <div className="card" style={{ marginBottom: 24, marginTop: 24 }}>
+      >
         {reportMonth && Object.keys(carriedFrom).length > 0 && (() => {
           const byMonth = new Map<string, string[]>();
           for (const [c, m] of Object.entries(carriedFrom)) byMonth.set(m, [...(byMonth.get(m) ?? []), c]);
@@ -1965,7 +1963,8 @@ export default function RentRollPage() {
             )}
           </>
         )}
-      </div>
+      </PageHeader>
+
 
       {/* ── Dashboard ─────────────────────────────────────────────────────── */}
       {filteredRentroll && categoryRentroll && (

@@ -33,7 +33,6 @@ const cents = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigi
 // and have the property name or tenant name be cut off"): the pickers take
 // the room, the figures stay narrow.
 const FIELD = (flex: string): React.CSSProperties => ({ display: "grid", gap: 6, minWidth: 0, flex });
-const HINT: React.CSSProperties = { fontSize: "var(--fs-12)", color: "var(--muted)", minHeight: 16 };
 const LABEL: React.CSSProperties = { whiteSpace: "nowrap", fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 export default function NnnQuotePage() {
@@ -90,8 +89,6 @@ export default function NnnQuotePage() {
     setRent(s && !s.vacant && s.baseRentPsf != null ? s.baseRentPsf.toFixed(2) : "");
     setAdmin(String(s && !s.vacant && s.adminPct != null ? s.adminPct : p.adminPct || 0));
   }
-  const rentIsCurrent = !!suite && !suite.vacant && suite.baseRentPsf != null && Number(rent) === suite.baseRentPsf;
-  const adminDefault = suite && !suite.vacant && suite.adminPct != null ? suite.adminPct : pot?.adminPct ?? 0;
 
   // The quote as a one-page PDF for the prospect (owner: "add a print/PDF
   // version of the quote for tenants") — drawn from the figures on screen.
@@ -148,33 +145,20 @@ export default function NnnQuotePage() {
             { label: "Print", description: "Opens the same PDF ready to print", onClick: () => void quotePdf("print") },
           ]} />
         </> : undefined}
-        meta={q && !q.gross && pot?.pools ? <MetaLine><span>{q.budgetYear} budget{mixed ? ` · ${suite?.pot === "office" ? "Office" : "Retail"} pool` : ""}{suite ? ` · ${suite.sqft.toLocaleString("en-US")} SF suite` : ""} · GLA {pot.gla.toLocaleString("en-US")} SF · NNN {psf((pot.pools.cam + pot.pools.ins + pot.pools.ret) / pot.gla)} / SF before admin fee</span></MetaLine> : undefined} />
-
-      {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
-
-      {/* The centre and suite are the header's pickers (the standard
-          PageHeader); the card holds what is typed for the quote. */}
-      {properties.length > 0 && (
-        <section className="card" style={{ display: "grid", gap: 14 }}>
+        meta={q && !q.gross && pot?.pools ? <MetaLine><span>{q.budgetYear} budget{mixed ? ` · ${suite?.pot === "office" ? "Office" : "Retail"} pool` : ""}{suite ? ` · ${suite.sqft.toLocaleString("en-US")} SF suite` : ""} · GLA {pot.gla.toLocaleString("en-US")} SF · NNN {psf((pot.pools.cam + pot.pools.ins + pot.pools.ret) / pot.gla)} / SF before admin fee</span></MetaLine> : undefined}>
+        {properties.length > 0 && (<div style={{ display: "grid", gap: 14, marginTop: 4 }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "start" }}>
             <label style={FIELD("1 1 120px")}>
               <span style={LABEL}>Square feet</span>
               <input inputMode="numeric" value={sfText} placeholder={suite ? suite.sqft.toLocaleString("en-US") : ""} onChange={(e) => setSfText(e.target.value)} style={{ width: "100%", minWidth: 0 }} />
-              <span style={HINT} />
             </label>
             <label style={FIELD("1 1 150px")}>
               <span style={LABEL}>Rent $/SF/yr</span>
               <input inputMode="decimal" value={rent} placeholder="e.g. 24.00" onChange={(e) => setRent(e.target.value)} autoFocus style={{ width: "100%", minWidth: 0 }} />
-              <span style={HINT}>{suite && !suite.vacant && suite.baseRentPsf != null
-                ? (rentIsCurrent ? "Current rent" : <button type="button" className="text-link" style={{ background: "none", border: 0, padding: 0, fontSize: "inherit", cursor: "pointer" }} onClick={() => setRent(suite.baseRentPsf!.toFixed(2))}>Current {psf(suite.baseRentPsf)}</button>)
-                : ""}</span>
             </label>
             <label style={FIELD("0 1 110px")}>
               <span style={LABEL}>Admin fee %</span>
               <input inputMode="decimal" value={admin} onChange={(e) => setAdmin(e.target.value)} style={{ width: "100%", minWidth: 0 }} />
-              <span style={HINT}>{Number(admin) === adminDefault
-                ? (suite && !suite.vacant && suite.adminPct != null ? "Their lease" : "Centre typical")
-                : <button type="button" className="text-link" style={{ background: "none", border: 0, padding: 0, fontSize: "inherit", cursor: "pointer" }} onClick={() => setAdmin(String(adminDefault))}>{suite && !suite.vacant && suite.adminPct != null ? "Lease" : "Typical"} {adminDefault}%</button>}</span>
             </label>
           </div>
 
@@ -182,40 +166,45 @@ export default function NnnQuotePage() {
           {q && q.gross && <StatusBanner compact tone="info" title={`${q.name} is leased gross`}>Tenants pay their own utilities and no CAM, insurance or tax estimates — quote the base rent alone.</StatusBanner>}
           {q && !q.gross && !pot?.pools && <StatusBanner compact tone="warning" title="No budget to quote from">The {q.budgetYear} budget draft for {q.name} could not be built, so there are no pools to estimate from.</StatusBanner>}
 
-          {quote && (
-            <>
-              <div className="pills">
-                <StatPill label="Base rent / SF" value={psf(Number(rent) || 0)} />
-                <StatPill label="NNN / SF" value={psf(quote.nnnPsf)} sub={`${cents(quote.nnnMonthly)} a month`} />
-                <StatPill label="All-in / SF" value={psf(quote.allInPsf)} total sub={`${cents(quote.allInMonthly)} a month · ${dollars(quote.allInAnnual)} a year`} />
-              </div>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
-                  <thead><tr><th style={thL}>Charge</th><th style={th}>$ / SF / yr</th><th style={th}>Monthly</th><th style={th}>Annual</th></tr></thead>
-                  <tbody>
-                    {quote.lines.map((l) => (
-                      <tr key={l.key} style={{ borderBottom: "1px solid var(--hairline)" }}>
-                        <td style={{ ...tdL, fontWeight: l.key === "base" ? 600 : 400 }}>{l.label}{l.key !== "base" ? <span className="muted"> · est.</span> : null}</td>
-                        <td style={td}>{l.psf.toFixed(2)}</td><td style={td}>{cents(l.monthly)}</td><td style={td}>{dollars(l.annual)}</td>
-                      </tr>
-                    ))}
-                    <tr><td style={{ ...tdL, fontWeight: 600 }}>NNN total</td><td style={td}>{quote.nnnPsf.toFixed(2)}</td><td style={td}>{cents(quote.nnnMonthly)}</td><td style={td}>{dollars(quote.nnnAnnual)}</td></tr>
-                    <tr style={{ borderTop: "2px solid var(--border)" }}>
-                      <td style={{ ...tdL, fontWeight: 700 }}>All-in</td>
-                      <td style={{ ...td, fontWeight: 700 }}>{quote.allInPsf.toFixed(2)}</td>
-                      <td style={{ ...td, fontWeight: 700 }}>{cents(quote.allInMonthly)}</td>
-                      <td style={{ ...td, fontWeight: 700 }}>{dollars(quote.allInAnnual)}</td>
+        </div>)}
+      </PageHeader>
+      {quote && q && (
+        <>
+          <section className="card" style={{ display: "grid", gap: 12 }}>
+            <div className="pills">
+              <StatPill label="Base rent / SF" value={psf(Number(rent) || 0)} />
+              <StatPill label="NNN / SF" value={psf(quote.nnnPsf)} sub={`${cents(quote.nnnMonthly)} a month`} />
+              <StatPill label="All-in / SF" value={psf(quote.allInPsf)} total sub={`${cents(quote.allInMonthly)} a month · ${dollars(quote.allInAnnual)} a year`} />
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
+                <thead><tr><th style={thL}>Charge</th><th style={th}>$ / SF / yr</th><th style={th}>Monthly</th><th style={th}>Annual</th></tr></thead>
+                <tbody>
+                  {quote.lines.map((l) => (
+                    <tr key={l.key} style={{ borderBottom: "1px solid var(--hairline)" }}>
+                      <td style={{ ...tdL, fontWeight: l.key === "base" ? 600 : 400 }}>{l.label}{l.key !== "base" ? <span className="muted"> · est.</span> : null}</td>
+                      <td style={td}>{l.psf.toFixed(2)}</td><td style={td}>{cents(l.monthly)}</td><td style={td}>{dollars(l.annual)}</td>
                     </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div className="muted" style={{ fontSize: "var(--fs-13)" }}>
-                {sqft.toLocaleString("en-US")} SF is {quote.sharePct.toFixed(2)}% of the {mixed ? (suite?.pot === "office" ? "office centre" : "retail") : "centre"}&apos;s {pot!.gla.toLocaleString("en-US")} SF. CAM, insurance and taxes are estimates from the {q.budgetYear} budget, billed monthly and reconciled to actual each year.
-              </div>
-            </>
-          )}
-        </section>
+                  ))}
+                  <tr><td style={{ ...tdL, fontWeight: 600 }}>NNN total</td><td style={td}>{quote.nnnPsf.toFixed(2)}</td><td style={td}>{cents(quote.nnnMonthly)}</td><td style={td}>{dollars(quote.nnnAnnual)}</td></tr>
+                  <tr style={{ borderTop: "2px solid var(--border)" }}>
+                    <td style={{ ...tdL, fontWeight: 700 }}>All-in</td>
+                    <td style={{ ...td, fontWeight: 700 }}>{quote.allInPsf.toFixed(2)}</td>
+                    <td style={{ ...td, fontWeight: 700 }}>{cents(quote.allInMonthly)}</td>
+                    <td style={{ ...td, fontWeight: 700 }}>{dollars(quote.allInAnnual)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div className="muted" style={{ fontSize: "var(--fs-13)" }}>
+              {sqft.toLocaleString("en-US")} SF is {quote.sharePct.toFixed(2)}% of the {mixed ? (suite?.pot === "office" ? "office centre" : "retail") : "centre"}&apos;s {pot!.gla.toLocaleString("en-US")} SF. CAM, insurance and taxes are estimates from the {q.budgetYear} budget, billed monthly and reconciled to actual each year.
+            </div>
+          </section>
+        </>
       )}
+
+      {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
+
 
       {q && !q.gross && pot && pot.trend.length > 0 && <TrendCard trend={pot.trend} title={mixed ? `${suite?.pot === "office" ? "Office" : "Retail"} NNN Over the Years` : undefined} />}
     </main>
