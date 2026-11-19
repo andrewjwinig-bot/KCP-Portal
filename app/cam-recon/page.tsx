@@ -1,6 +1,9 @@
 "use client";
 import { StatusBanner } from "@/app/components/StatusBanner";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { HeaderSelect, propertyLabel, tenantLabel } from "@/app/components/HeaderSelect";
+import { ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { PageHeader } from "@/app/components/PageHeader";
+import { MetaLine } from "@/app/components/LastImported";
 
 import QuarterlySend, { type QuarterSendRecord } from "./QuarterlySend";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -93,31 +96,6 @@ function downloadCSV(filename: string, csv: string) {
   URL.revokeObjectURL(url);
 }
 
-// Big-label dropdown matching the Budgets header (label + chevron with an
-// invisible native <select> overlaid).
-function HeaderSelect({
-  value, onChange, displayLabel, ariaLabel, muted = false, children,
-}: {
-  value: string; onChange: (next: string) => void; displayLabel: string;
-  ariaLabel: string; muted?: boolean; children: React.ReactNode;
-}) {
-  return (
-    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
-      <span style={{ fontSize: 22, fontWeight: 800, color: muted ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>
-        {displayLabel}
-      </span>
-      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={ariaLabel}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}
-      >
-        {children}
-      </select>
-    </span>
-  );
-}
 
 // Year-end office tenant statement — the shared branded layout with the
 // year-end title / column labels (interim move-out uses the same function).
@@ -419,8 +397,8 @@ export default function OfficeCamReconPage() {
   const unitInfoHref = unitInfoRef
     ? `/units/${encodeURIComponent(unitInfoRef)}?from=${encodeURIComponent(`/cam-recon?property=${property}&year=${year}${isQuarterly ? "" : `&unit=${unit}`}`)}`
     : null;
-  const selLabel = selected ? `${selected.suite} — ${selected.name}`
-    : rSelected ? `${rSelected.suite} — ${rSelected.name}` : "All Tenants";
+  const selLabel = selected ? tenantLabel(selected.suite, selected.name)
+    : rSelected ? tenantLabel(rSelected.suite, rSelected.name) : "All Tenants";
   const tenantIdx = hasSel ? dropdownTenants.findIndex((t) => t.unitRef === unit) : -1;
   // Selecting a tenant that is billed quarterly (e.g. Wawa @ 9510) redirects to
   // its dedicated quarterly CAM/RET page rather than opening the (empty) annual
@@ -528,89 +506,84 @@ export default function OfficeCamReconPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          <h1 style={{ margin: 0 }}>CAM / RET Reconciliation</h1>
-          <Link
-            href="/cam-recon/pro-rata-audit"
-            style={{ fontSize: "var(--fs-12)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none", padding: "5px 12px", borderRadius: 999, border: "1px solid var(--tint-brand-line, rgba(11,74,125,0.3))", background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", whiteSpace: "nowrap" }}
-            title="Audit stipulated pro-rata shares vs true SF share (office)"
-          >
-            Pro-rata Audit<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
-          </Link>
-        </div>
-        <KormanWordmark />
-      </header>
-
-      <div className="card">
-        {/* Year · Property · Tenant selectors styled as the section title */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
-            <HeaderSelect value={String(year)} onChange={(v) => setYear(Number(v))} displayLabel={String(year || "—")} ariaLabel="Year" muted>
-              {years.map((y) => <option key={y} value={y}>{y}</option>)}
-            </HeaderSelect>
-            <HeaderSelect value={property} onChange={selectProperty} displayLabel={property ? (isQuarterly ? propName : `${property} — ${propName}`) : "—"} ariaLabel="Property">
-              {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{a.quarterly ? a.name : `${a.propertyCode} — ${a.name}`}</option>)}
-            </HeaderSelect>
-            {!isQuarterly && (
+      {/* THE STANDARD HEADER (PageHeader): property first, then the year,
+          then the tenant; the actions on the right, the primary PDF last. */}
+      <PageHeader
+        title="CAM / RET Reconciliation"
+        info={<>Each building&apos;s year-end CAM / INS / RET reconciliation: the year&apos;s final expenses, every tenant&apos;s share, and the balance against what was billed. Pick a tenant for their statement.</>}
+        pickers={<>
+          <HeaderSelect value={property} onChange={selectProperty} maxWidth={460} displayLabel={property ? (isQuarterly ? propName : propertyLabel(property, propName)) : "Property"} ariaLabel="Property">
+            {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{a.quarterly ? a.name : propertyLabel(a.propertyCode, a.name)}</option>)}
+          </HeaderSelect>
+          <HeaderSelect value={String(year)} onChange={(v) => setYear(Number(v))} displayLabel={String(year || "Year")} ariaLabel="Year" muted>
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </HeaderSelect>
+          {!isQuarterly && (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
               {hasSel && (
-                <button type="button" onClick={() => goTenant(-1)} disabled={tenantIdx <= 0} aria-label="Previous tenant"
-                  title="Previous tenant"
-                  style={{ ...arrowBtn, opacity: tenantIdx <= 0 ? 0.35 : 1, cursor: tenantIdx <= 0 ? "default" : "pointer" }}>‹</button>
+                <button type="button" onClick={() => goTenant(-1)} disabled={tenantIdx <= 0} aria-label="Previous tenant" data-tip="Previous tenant" className="icon-tip"
+                  style={{ ...arrowBtn, opacity: tenantIdx <= 0 ? 0.35 : 1, cursor: tenantIdx <= 0 ? "default" : "pointer" }}><ChevronLeft size={20} strokeWidth={1.75} aria-hidden /></button>
               )}
               <HeaderSelect value={unit} onChange={pickUnit} displayLabel={selLabel} ariaLabel="Tenant" muted>
                 <option value="ALL">All Tenants</option>
-                {dropdownTenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{t.suite} — {t.name}</option>)}
+                {dropdownTenants.map((t) => <option key={t.unitRef} value={t.unitRef}>{tenantLabel(t.suite, t.name)}</option>)}
               </HeaderSelect>
               {hasSel && (
-                <button type="button" onClick={() => goTenant(1)} disabled={tenantIdx >= dropdownTenants.length - 1} aria-label="Next tenant"
-                  title="Next tenant"
-                  style={{ ...arrowBtn, opacity: tenantIdx >= dropdownTenants.length - 1 ? 0.35 : 1, cursor: tenantIdx >= dropdownTenants.length - 1 ? "default" : "pointer" }}>›</button>
+                <button type="button" onClick={() => goTenant(1)} disabled={tenantIdx >= dropdownTenants.length - 1} aria-label="Next tenant" data-tip="Next tenant" className="icon-tip"
+                  style={{ ...arrowBtn, opacity: tenantIdx >= dropdownTenants.length - 1 ? 0.35 : 1, cursor: tenantIdx >= dropdownTenants.length - 1 ? "default" : "pointer" }}><ChevronRight size={20} strokeWidth={1.75} aria-hidden /></button>
               )}
             </span>
+          )}
+        </>}
+        actions={<>
+          <Link href="/cam-recon/pro-rata-audit" className="btn">Pro-rata Audit</Link>
+            {isQuarterly ? null : isRetail ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <button onClick={downloadAllRetailYearEnd} disabled={compilingRetail} className="btn">{compilingRetail ? "Compiling…" : "SC Y/E Adjustments"}</button>
+                <InfoPopover><ImportInstructions /></InfoPopover>
+              </span>
+            ) : (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <button onClick={downloadAllYearEnd} disabled={compiling} className="btn">{compiling ? "Compiling…" : "BP Y/E Adjustments"}</button>
+                <InfoPopover><ImportInstructions /></InfoPopover>
+              </span>
             )}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+
             {/* Per-tenant / all-tenant PDFs, then the portfolio year-end export
                 (with an info popover for the Skyline import steps). */}
             {isQuarterly ? null : isRetail ? (
               rSelected ? (
                 <>
-                  <button onClick={() => downloadRetailTenantPdf(rSelected, year, `${property} — ${propName}`, contacts[rSelected.unitRef])} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+                  <button onClick={() => downloadRetailTenantPdf(rSelected, year, `${property} — ${propName}`, contacts[rSelected.unitRef])} className="btn primary">Download PDF</button>
                   {!isMixed && <TenantShareLink property={property} unitRef={rSelected.unitRef} year={year} kind="retail" tenantName={rSelected.name} />}
                 </>
               ) : (
-                <button onClick={() => activeRetail && downloadAllRetailPdfs(activeRetail.tenants, year, `${property} — ${propName}`, contacts)} disabled={!activeRetail} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
+                <button onClick={() => activeRetail && downloadAllRetailPdfs(activeRetail.tenants, year, `${property} — ${propName}`, contacts)} disabled={!activeRetail} className="btn primary">All Tenant PDFs</button>
               )
             ) : (
               <>
                 {selected && (
                   <>
-                    <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>Download PDF</button>
+                    <button onClick={() => downloadTenantPdf(selected, year, `${property} — ${propName}`, contacts[selected.unitRef])} className="btn primary">Download PDF</button>
                     <TenantShareLink property={property} unitRef={selected.unitRef} year={year} kind="office" tenantName={selected.name} />
                   </>
                 )}
                 {!selected && (
-                  <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>All Tenant PDFs</button>
+                  <button onClick={() => result && downloadAllTenantPdfs(result.tenants, year, `${property} — ${propName}`, contacts)} disabled={!result} className="btn primary">All Tenant PDFs</button>
                 )}
               </>
             )}
-            {isQuarterly ? null : isRetail ? (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <button onClick={downloadAllRetailYearEnd} disabled={compilingRetail} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>{compilingRetail ? "Compiling…" : "SC Y/E Adjustments"}</button>
-                <InfoPopover><ImportInstructions /></InfoPopover>
-              </span>
-            ) : (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <button onClick={downloadAllYearEnd} disabled={compiling} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>{compiling ? "Compiling…" : "BP Y/E Adjustments"}</button>
-                <InfoPopover><ImportInstructions /></InfoPopover>
-              </span>
-            )}
-          </div>
-        </div>
+        </>}
+        meta={<MetaLine>{isQuarterly
+          ? <span>Quarterly CAM / RET billing — enter each quarter&rsquo;s eligible expenses; the YTD balance backs out what&rsquo;s been billed / paid.</span>
+          : isRetail
+            ? <span>{activeRetail?.tenants.length ?? 0} tenants reconciled · {isMixed ? "retail + office · " : ""}CAM / INS / RET pro-rata share, year-end true-up</span>
+            : <span>{tenants.length} tenants reconciled · base-year expense recovery, year-end true-up</span>}</MetaLine>}
+      />
 
-        <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      {(selected || rSelected || unitInfoHref || hasSel) && (
+      <div className="card">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           {selected ? (
             <>
               <Pill tone={TONE_NEUTRAL}>{selected.noBaseStop ? "NNN — No Base Year" : `${selected.baseYear} Base Year`}</Pill>
@@ -633,13 +606,7 @@ export default function OfficeCamReconPage() {
               {rSelected.flatRet != null && <Pill tone={TONE_AMBER}>Own-Parcel RET</Pill>}
               {rSelected.grossLease && <Pill tone={TONE_AMBER}>Gross Lease</Pill>}
             </>
-          ) : isQuarterly ? (
-            <span className="muted small">Quarterly CAM / RET billing — enter each quarter&rsquo;s eligible expenses; the YTD balance backs out what&rsquo;s been billed / paid.</span>
-          ) : isRetail ? (
-            <span className="muted small">{activeRetail?.tenants.length ?? 0} tenants reconciled · {isMixed ? "retail + office · " : ""}CAM / INS / RET pro-rata share, year-end true-up</span>
-          ) : (
-            <span className="muted small">{tenants.length} tenants reconciled · base-year expense recovery, year-end true-up</span>
-          )}
+          ) : null}
           {/* Jump to the selected unit's detail page (where the CAM methodology
               inputs are edited), returning to this exact view. Sits with the
               per-tenant methodology pills, right-aligned. */}
@@ -659,6 +626,7 @@ export default function OfficeCamReconPage() {
             building view they move to the bottom of the Building Summary card. */}
         {hasSel && kpiTiles}
       </div>
+      )}
 
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
 

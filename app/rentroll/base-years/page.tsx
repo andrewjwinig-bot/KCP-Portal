@@ -1,6 +1,9 @@
 "use client";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import { HeaderSelect, propertyLabel, tenantLabel } from "@/app/components/HeaderSelect";
 import LoadingState from "@/app/components/LoadingState";
+import { PageHeader } from "@/app/components/PageHeader";
+import { MetaLine } from "@/app/components/LastImported";
 
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -67,21 +70,6 @@ const selectStyle: React.CSSProperties = {
   fontWeight: 700,
 };
 
-// Big-label dropdown matching the CAM Reconciliation / Budgets headers.
-function HeaderSelect({ value, onChange, displayLabel, ariaLabel, children }: {
-  value: string; onChange: (next: string) => void; displayLabel: string; ariaLabel: string; children: React.ReactNode;
-}) {
-  return (
-    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
-      <span style={{ fontSize: 22, fontWeight: 800, color: "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{displayLabel}</span>
-      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: "var(--text)", opacity: 0.6, flexShrink: 0 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={ariaLabel}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}>
-        {children}
-      </select>
-    </span>
-  );
-}
 
 const NOW_YEAR = new Date().getFullYear();
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -229,41 +217,32 @@ export default function BaseYearExpensesPage() {
 
   return (
     <main>
-      <h1>Operating Expense History</h1>
-      <p className="muted" style={{ marginTop: 8, fontSize: 15 }}>
-        Operating-expense history by year — office buildings (JV III &amp; NI LLC,
-        with base-year tools) and retail shopping centers.
-      </p>
-
-      {/* Building selector — big header dropdown (matches CAM Recon / Budgets) */}
-      <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <HeaderSelect
+      <PageHeader
+        title="Operating Expense History"
+        info={<>Operating-expense history by year — office buildings (JV III &amp; NI LLC, with base-year tools) and retail shopping centers.</>}
+        pickers={<HeaderSelect
           value={propCode}
           onChange={setPropCode}
-          displayLabel={`${propCode} — ${meta?.name ?? RETAIL_NAME.get(propCode.toUpperCase()) ?? propCode}`}
+          displayLabel={propertyLabel(propCode, meta?.name ?? RETAIL_NAME.get(propCode.toUpperCase()))}
           ariaLabel="Property"
         >
           <optgroup label="Office buildings">
             {OFFICE_BUILDINGS.map((b) => (
               <option key={b.code} value={b.code}>
-                {b.code} — {b.name}{SEED_EXPENSES[b.code] ? "" : " (no data)"}
+                {propertyLabel(b.code, b.name)}{SEED_EXPENSES[b.code] ? "" : " (no data)"}
               </option>
             ))}
           </optgroup>
           <optgroup label="Shopping centers">
             {RETAIL_HISTORY_CODES.map((c) => (
               <option key={c} value={c}>
-                {c} — {RETAIL_NAME.get(c.toUpperCase()) ?? c}
+                {propertyLabel(c, RETAIL_NAME.get(c.toUpperCase()))}
               </option>
             ))}
           </optgroup>
-        </HeaderSelect>
-        {expenses && (
-          <span className="small muted">
-            {meta?.fund} · {expenses.rentableSqft.toLocaleString()} SF · workbook updated {expenses.updatedAt}
-          </span>
-        )}
-      </div>
+        </HeaderSelect>}
+        meta={expenses ? <MetaLine><span>{meta?.fund} · {expenses.rentableSqft.toLocaleString()} SF · workbook updated {expenses.updatedAt}</span></MetaLine> : undefined}
+      />
 
       {retailHist ? (
         <>
@@ -337,7 +316,7 @@ function RetailHistoryCard({ property, hist, recon }: {
   const head: React.CSSProperties = { ...num, fontSize: "var(--fs-12)", fontWeight: 800, color: "var(--muted)", borderBottom: "1px solid var(--border)" };
   return (
     <div className="card" style={{ marginTop: 16, overflowX: "auto" }}>
-      <div style={{ fontSize: 15, fontWeight: 800 }}>{property} — {RETAIL_NAME.get(property.toUpperCase()) ?? ""}</div>
+      <div style={{ fontSize: 15, fontWeight: 800 }}>{propertyLabel(property, RETAIL_NAME.get(property.toUpperCase()))}</div>
       <div className="muted small" style={{ marginTop: 2 }}>Year-by-year actuals per expense line.{reconYear ? ` ${reconYear} is the finalized figure pulled live from the CAM/RET reconciliation.` : ""}</div>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, minWidth: 480 }}>
         <thead>

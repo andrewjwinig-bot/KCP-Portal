@@ -19,6 +19,7 @@ import { useUser } from "@/app/components/UserProvider";
 import { useImport } from "@/app/components/import/ImportProvider";
 import { Abbr } from "@/app/components/Abbr";
 import { DisplayMenu, ToggleRow, toggleLabel } from "@/app/components/DisplayMenu";
+import { PageHeader } from "@/app/components/PageHeader";
 import { HeaderSelect } from "@/app/components/HeaderSelect";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { Pill, StatPill, tiesTone } from "@/app/components/Pill";
@@ -789,49 +790,13 @@ export default function OperatingStatementsPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Operating Statements</h1>
-        </div>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-        </div>
-      </header>
-
-      {error && (
-        <StatusBanner tone="danger" title="Error">{error}</StatusBanner>
-      )}
-
-      {behindPosting && (
-        <StatusBanner tone="warning" icon="clock" title={<>Time to post {MONTHS[expectedPost.period - 1]} {expectedPost.year}</>}
-          actions={<button className="btn import" onClick={() => pickInto(fileRef.current, "general-ledger")}>
-            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import GL
-          </button>}>
-          <b>{cur?.propertyCode} — {cur?.name}</b>{" "}
-          {latestPost
-            ? <>is posted through <b>{MONTHS[latestPost.period - 1]} {latestPost.year}</b>. </>
-            : <>has <b>no GL imported yet</b>. </>}
-          Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
-        </StatusBanner>
-      )}
-
-      {isGandA && pendingAlloc && !pendingAlloc.alreadyProcessed && (
-        <StatusBanner tone="warning" title={<>Allocated invoices for {pendingAlloc.statementMonth} are ready to process</>}
-          actions={<a href="/allocated-invoicer" className="btn primary" style={{ textDecoration: "none" }}>
-            Go to Allocated Invoicer<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
-          </a>}>
-          This is the same 2000 G&amp;A GL the Allocated Expense Invoicer runs on. Generate the property invoices there, then send.
-        </StatusBanner>
-      )}
-
-      <div className="card">
-        <div {...glDrop.dropHandlers} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap", borderRadius: 10, outline: glDrop.dragging ? "2px dashed var(--brand)" : "none", outlineOffset: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
-            {/* Property + Year are always rendered and kept first so the
-                conditional Month select never reflows them. The property is
-                the control the page is driven by, so it is the brand select. */}
+      {/* THE STANDARD HEADER: property, month, year on the left; Import GL,
+          Display, Open, Export on the right; one meta line. Drop a GL on it. */}
+      <PageHeader
+        title="Operating Statements"
+        dropHandlers={glDrop.dropHandlers as Record<string, unknown>}
+        dragging={glDrop.dragging}
+        pickers={<>
             <HeaderSelect ariaLabel="Property" maxWidth={420} value={key} onChange={(v) => { setKey(v); setPeriod(0); setFlagFilter(null); }}
               displayLabel={cur ? `${cur.propertyCode} · ${cur.name}` : "Choose a property"}>
               {!cur && <option value="">Choose a property</option>}
@@ -855,9 +820,8 @@ export default function OperatingStatementsPage() {
             <HeaderSelect ariaLabel="Year" muted value={String(year)} onChange={(v) => { setYear(Number(v)); setPeriod(0); setFlagFilter(null); }} displayLabel={year ? String(year) : "Year"}>
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
-          </div>
-          {/* Actions on the right, Import first (owner: "grouped with the display button"). */}
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        </>}
+        actions={<>
             <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" multiple style={{ display: "none" }} onChange={onUpload} />
             <button className="btn import" onClick={() => pickInto(fileRef.current, "general-ledger")}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
@@ -901,13 +865,8 @@ export default function OperatingStatementsPage() {
                 ]}
               />
             )}
-          </div>
-        </div>
-
-        {/* ONE meta line: when the GL came in, whether it ties, and the (i) for
-            how to export it. The long "Import Detailed General Ledger…"
-            sentence lives in the (i) now. */}
-        <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: "var(--fs-14)" }} className="muted">
+        </>}
+        meta={<div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", fontSize: "var(--fs-14)" }} className="muted">
           {lastImport?.at && (
             <span>Imported {formatImportedAt(lastImport.at)}{lastImport.by ? ` by ${titleName(lastImport.by)}` : ""}</span>
           )}
@@ -932,16 +891,45 @@ export default function OperatingStatementsPage() {
             year={year || new Date().getFullYear()}
             nextPeriod={statement ? Math.min(maxPeriod + 1, 12) : 1}
           />
-        </div>
+        </div>}
+      />
 
-        {statement && !isFullYear && (() => {
+      {error && (
+        <StatusBanner tone="danger" title="Error">{error}</StatusBanner>
+      )}
+
+      {behindPosting && (
+        <StatusBanner tone="warning" icon="clock" title={<>Time to post {MONTHS[expectedPost.period - 1]} {expectedPost.year}</>}
+          actions={<button className="btn import" onClick={() => pickInto(fileRef.current, "general-ledger")}>
+            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />Import GL
+          </button>}>
+          <b>{cur?.propertyCode} — {cur?.name}</b>{" "}
+          {latestPost
+            ? <>is posted through <b>{MONTHS[latestPost.period - 1]} {latestPost.year}</b>. </>
+            : <>has <b>no GL imported yet</b>. </>}
+          Run <b>Post PM and AP</b> then <b>Close Prior Month</b> in Skyline, then upload the GL here.
+        </StatusBanner>
+      )}
+
+      {isGandA && pendingAlloc && !pendingAlloc.alreadyProcessed && (
+        <StatusBanner tone="warning" title={<>Allocated invoices for {pendingAlloc.statementMonth} are ready to process</>}
+          actions={<a href="/allocated-invoicer" className="btn primary" style={{ textDecoration: "none" }}>
+            Go to Allocated Invoicer<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
+          </a>}>
+          This is the same 2000 G&amp;A GL the Allocated Expense Invoicer runs on. Generate the property invoices there, then send.
+        </StatusBanner>
+      )}
+
+      {statement && !isFullYear && (
+      <div className="card">
+        {(() => {
           const noi = statement.rollups.netOperatingIncome;
           const mon = MONTHS[statement.period - 1];
           const vs = (v: number | null) => (v == null || !showBudgetKpi ? undefined : Math.abs(v) < 0.5 ? "On budget" : `$${money0(Math.abs(v))} ${v > 0 ? "better" : "worse"} than budget`);
           const signed = (v: number) => (v < 0 ? `-$${money0(Math.abs(v))}` : `$${money0(v)}`);
           return (
             <>
-              <div className="pills" style={{ marginTop: 14 }}>
+              <div className="pills">
                 {operatingCash != null && <StatPill label={`Starting Cash · ${mon}`} value={`$${money0(operatingCash)}`} sub="Per the GL" />}
                 {/* "NOI", not "Net Operating Income": the long label wrapped to
                     two lines in a tile and pushed the figure down. The tile
@@ -990,6 +978,7 @@ export default function OperatingStatementsPage() {
           );
         })()}
       </div>
+      )}
 
       {!loading && statement && brief && !isFullYear && (
         <div className="card" style={{ borderColor: "rgba(109,40,217,0.35)", background: "rgba(109,40,217,0.05)" }}>

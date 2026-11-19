@@ -61,3 +61,31 @@ describe("UI drift ratchet", () => {
     });
   }
 });
+
+// THE STANDARD HEADER (owner, 11/2026: "i thought we are past me manually
+// telling you to follow the standard formatting"). Four pages had kept a
+// private copy of the header picker and drifted — "9510 — Name" here, "7010 ·
+// Name" there, the year first on one, the pickers boxed in a card on another.
+describe("page headers", () => {
+  const files = walk("app");
+  it("the header picker is the shared HeaderSelect — never a page's own copy", () => {
+    const own = files.filter((p) => !p.endsWith("components/HeaderSelect.tsx") && /function HeaderSelect\s*\(/.test(readFileSync(p, "utf8")));
+    expect(own, `Import HeaderSelect from app/components/HeaderSelect:\n${own.join("\n")}`).toEqual([]);
+  });
+  it("a page with header pickers draws them in PageHeader", () => {
+    const off = files.filter((p) => { const s = readFileSync(p, "utf8"); return /<HeaderSelect\b/.test(s) && !/<PageHeader\b/.test(s); });
+    expect(off, `Pass the pickers to PageHeader's \`pickers\`:\n${off.join("\n")}`).toEqual([]);
+  });
+  it("a property in a picker reads \"code · name\" (propertyLabel), never \"code — name\"", () => {
+    const off = files.filter((p) => /<HeaderSelect\b[^>]*displayLabel=\{[^}]*`\$\{[^}]+\} — \$\{/.test(readFileSync(p, "utf8")));
+    expect(off, `Use propertyLabel(code, name):\n${off.join("\n")}`).toEqual([]);
+  });
+  // Staff pages still hand-building a title (<h1> with no PageHeader). Being
+  // swept; may only go DOWN — lower it when a page moves.
+  it("hand-built page titles do not increase", () => {
+    const PUBLIC = /app\/(site|portal|investor|centers|office-works|service|submit|reserve|login|budget-review|credit-apply|commissions-review|statement)\//;
+    const n = files.filter((p) => !PUBLIC.test(p) && /<h1[\s>]/.test(readFileSync(p, "utf8")) && !/PageHeader/.test(readFileSync(p, "utf8"))).length;
+    expect(n, `${n} pages hand-build a title — use PageHeader (or lower the max).`).toBeLessThanOrEqual(HAND_BUILT_TITLES_MAX);
+  });
+});
+const HAND_BUILT_TITLES_MAX = 37;

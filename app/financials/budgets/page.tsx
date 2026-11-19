@@ -1,5 +1,7 @@
 "use client";
 import { StatusBanner } from "@/app/components/StatusBanner";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect, propertyLabel, tenantLabel } from "@/app/components/HeaderSelect";
 import { pickInto } from "@/app/components/pickFiles";
 import { DisplayMenu, ToggleRow } from "@/app/components/DisplayMenu";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
@@ -213,41 +215,29 @@ export default function BudgetsPage() {
     }
   }
 
-  return (
-    <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <h1 style={{ margin: 0 }}>Operating Budgets</h1>
-            {liveStatus && <Pill tone={liveStatus === "final" ? TONE_GREEN : TONE_AMBER}>{liveStatus === "final" ? "Final" : "Draft"}</Pill>}
-          </div>
-          {workbook && workbook.kind !== "live" && <LastImported at={workbook.uploadedAt} by={workbook.uploadedBy} label="Budget imported" />}
-          {liveStatus && canUpload && (
-            <div style={{ display: "flex", gap: 8, marginTop: 6, flexWrap: "wrap" }}>
+  const pageTitle = <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>Operating Budgets{liveStatus && <Pill tone={liveStatus === "final" ? TONE_GREEN : TONE_AMBER}>{liveStatus === "final" ? "Final" : "Draft"}</Pill>}</span>;
+  const pageMeta = workbook && workbook.kind !== "live" ? <LastImported at={workbook.uploadedAt} by={workbook.uploadedBy} label="Budget imported" /> : undefined;
+  const pageActions = liveStatus && canUpload ? <>
               {liveStatus === "draft" ? (
                 <button onClick={() => setBudgetStatus("final")} disabled={statusSaving} className="btn"
-                  style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700, color: "var(--c-15803d)", borderColor: "var(--tint-green-line, rgba(22,163,74,0.4))", background: "var(--tint-green-bg, rgba(22,163,74,0.05))" }}>
+>
                   {statusSaving ? "Saving…" : "Finalize budget"}
                 </button>
               ) : (
                 <button onClick={() => setBudgetStatus("draft")} disabled={statusSaving} className="btn"
-                  style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700 }}>
+>
                   {statusSaving ? "Saving…" : "Reopen as draft"}
                 </button>
               )}
               <button onClick={handleDelete} disabled={deleting} className="btn"
-                style={{ fontSize: "var(--fs-12)", padding: "5px 12px", fontWeight: 700, color: "var(--c-b91c1c)", borderColor: "var(--tint-red-line, rgba(220,38,38,0.4))", background: "var(--tint-red-bg, rgba(220,38,38,0.05))" }}>
+                style={{ color: "var(--c-b42318)" }}>
                 {deleting ? "Deleting…" : "Delete"}
               </button>
-            </div>
-          )}
-        </div>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-        </div>
-      </header>
+  </> : undefined;
+
+  return (
+    <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
+      {!(workbook && property) && <PageHeader title={pageTitle} meta={pageMeta} actions={pageActions} />}
 
       {error && (
         <StatusBanner tone="danger" title="Error">{error}</StatusBanner>
@@ -295,6 +285,7 @@ export default function BudgetsPage() {
           onCreateClick={() => setCreateOpen(true)}
           onWorkbookUpdate={setWorkbook}
           editor={user.label}
+          header={{ title: pageTitle, meta: pageMeta, actions: pageActions }}
         />
       )}
 
@@ -550,7 +541,10 @@ function BudgetTable({
   onCreateClick,
   onWorkbookUpdate,
   editor,
+  header,
 }: {
+  /** The page's title, meta line and its own actions (finalize, delete). */
+  header: { title: React.ReactNode; meta?: React.ReactNode; actions?: React.ReactNode };
   workbook: BudgetWorkbook;
   property: BudgetWorkbook["properties"][number];
   summaries: WorkbookSummary[];
@@ -839,25 +833,23 @@ function BudgetTable({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      {/* Property summary tile */}
-      <div className="card">
-        {/* Header row — large property + year dropdowns styled as the
-            section title, with the three actions right-aligned on the
-            same line. Old meta row (Budget chip + Imported badge) was
-            replaced by the year selector. */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
+      {/* THE STANDARD HEADER: property, then year; the page's actions on the
+          right. Drawn here because the pickers belong to the loaded budget. */}
+      <PageHeader
+        title={header.title}
+        meta={header.meta}
+        pickers={<>
             <HeaderSelect
               value={`${workbook.id}|${property.propertyCode}`}
               onChange={handlePropertyChange}
-              displayLabel={property.propertyCode === "CONSOLIDATED" ? property.propertyName : `${property.propertyCode} — ${property.propertyName}`}
+              displayLabel={property.propertyCode === "CONSOLIDATED" ? property.propertyName : propertyLabel(property.propertyCode, property.propertyName)}
               ariaLabel="Property"
             >
               {propertyOptionsByWorkbook.map((grp) => (
                 <optgroup key={grp.budgetId} label={grp.label}>
                   {grp.properties.map((p) => (
                     <option key={`${grp.budgetId}|${p.propertyCode}`} value={`${grp.budgetId}|${p.propertyCode}`}>
-                      {p.propertyCode === "CONSOLIDATED" ? p.propertyName : `${p.propertyCode} — ${p.propertyName}`}
+                      {p.propertyCode === "CONSOLIDATED" ? p.propertyName : propertyLabel(p.propertyCode, p.propertyName)}
                     </option>
                   ))}
                 </optgroup>
@@ -874,8 +866,9 @@ function BudgetTable({
                 <option key={y} value={y}>{y}</option>
               ))}
             </HeaderSelect>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        </>}
+        actions={<>
+          {header.actions}
             <DisplayMenu>
               <ToggleRow label="Amounts" left="Total" right="$/SF" active={psf ? "right" : "left"} onLeft={() => setPsf(false)} onRight={() => setPsf(true)} disabled={sqft <= 0} />
               <ToggleRow label="Empty rows" left="Hide" right="Show" active={hideEmpty ? "left" : "right"} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
@@ -937,9 +930,10 @@ function BudgetTable({
                 ]}
               />
             ) : null}
-          </div>
-        </div>
-
+        </>}
+      />
+      {/* Property summary tile */}
+      <div className="card">
         {/* Building switcher — flip between every building's budget for this year
             in one click (esp. while editing a draft). Scoped to this portfolio. */}
         {switcherGroups.length > 0 && (
@@ -2829,90 +2823,6 @@ function ButtonMenu({
   );
 }
 
-/** Header-styled dropdown that sizes its chrome to the *currently
- *  selected* label rather than to the widest option in the list — which
- *  is what native `<select>` does, and what was leaving a big blank
- *  gap between the property name and the chevron on workbooks that
- *  carry long consolidated rollup entries. We render the visible label
- *  + chevron in a content-sized span, then overlay an invisible native
- *  select on top so the platform's dropdown UI still drives selection. */
-function HeaderSelect({
-  value,
-  onChange,
-  displayLabel,
-  ariaLabel,
-  muted = false,
-  children,
-}: {
-  value: string;
-  onChange: (next: string) => void;
-  displayLabel: string;
-  ariaLabel: string;
-  muted?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <span
-      style={{
-        position: "relative",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-        padding: "4px 6px",
-        borderRadius: 8,
-        cursor: "pointer",
-        maxWidth: "100%",
-        minWidth: 0,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 22,
-          fontWeight: 800,
-          color: muted ? "var(--muted)" : "var(--text)",
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          minWidth: 0,
-        }}
-      >
-        {displayLabel}
-      </span>
-      <span
-        aria-hidden
-        style={{
-          fontSize: "var(--fs-11)",
-          lineHeight: 1,
-          color: muted ? "var(--muted)" : "var(--text)",
-          opacity: 0.6,
-          flexShrink: 0,
-        }}
-      >
-        <ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
-      </span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        aria-label={ariaLabel}
-        style={{
-          position: "absolute",
-          inset: 0,
-          width: "100%",
-          height: "100%",
-          opacity: 0,
-          cursor: "pointer",
-          border: 0,
-          padding: 0,
-          margin: 0,
-          appearance: "auto",
-          background: "transparent",
-        }}
-      >
-        {children}
-      </select>
-    </span>
-  );
-}
 
 const BUILD_STEPS = [
   "Reading the current rent roll…",

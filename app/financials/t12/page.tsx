@@ -1,4 +1,7 @@
 "use client";
+import { propertyLabel } from "@/app/components/HeaderSelect";
+import { PageHeader } from "@/app/components/PageHeader";
+import { MetaLine } from "@/app/components/LastImported";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { DisplayMenu, ToggleRow } from "@/app/components/DisplayMenu";
 import LoadingState from "@/app/components/LoadingState";
@@ -82,48 +85,42 @@ export default function T12Page() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <h1>T-12</h1>
-
-      <div className="card">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
-            <HeaderSelect value={end} onChange={setEnd} displayLabel={end ? `Through ${endLabel(end)}` : "—"} ariaLabel="Twelve months ending" muted>
-              {ends.map((k) => <option key={k} value={k}>Twelve months ending {endLabel(k)}</option>)}
-            </HeaderSelect>
-            <HeaderSelect value={key} onChange={setKey} displayLabel={cur ? `${cur.propertyCode} — ${cur.name}` : "—"} ariaLabel="Property">
+      <PageHeader
+        title="T-12"
+        pickers={<>
+            <HeaderSelect value={key} onChange={setKey} maxWidth={420} displayLabel={cur ? propertyLabel(cur.propertyCode, cur.name) : "Choose a property"} ariaLabel="Property">
               {groupStatementOptions(available.map((a) => ({ ...a, years: a.latest ? [a.latest.year] : [] }))).map((grp) => (
                 <optgroup key={grp.label} label={grp.label}>
-                  {grp.items.map((a) => <option key={a.key} value={a.key}>{a.propertyCode} — {a.name}{a.years.length ? "" : " (no GL)"}</option>)}
+                  {grp.items.map((a) => <option key={a.key} value={a.key}>{propertyLabel(a.propertyCode, a.name)}{a.years.length ? "" : " (no GL)"}</option>)}
                 </optgroup>
               ))}
             </HeaderSelect>
-          </div>
-          {data && (
-            <DownloadMenu items={[
-              { label: "Excel (.xlsx)", description: `T-12 actuals, ${data.span}`, href: `/api/financials/t12/download?key=${encodeURIComponent(key)}&end=${end}` },
-            ]} />
-          )}
-        </div>
-
-        <div style={{ marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div className="muted small">
-            {data ? <>Actuals only, {data.span} — every month off the GL, nothing from the budget.</> : cur && !cur.latest ? "No GL uploaded for this property yet." : null}
-          </div>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <HeaderSelect value={end} onChange={setEnd} displayLabel={end ? `Through ${endLabel(end)}` : "Through"} ariaLabel="Twelve months ending" muted>
+              {ends.map((k) => <option key={k} value={k}>Twelve months ending {endLabel(k)}</option>)}
+            </HeaderSelect>
+        </>}
+        actions={<>
             <DisplayMenu>
               <ToggleRow label="Amounts" left="Total" right="$/SF" active={psf ? "right" : "left"} onLeft={() => setPsf(false)} onRight={() => setPsf(true)} disabled={sqft <= 0} />
               <ToggleRow label="Empty rows" left="Hide" right="Show" active={hideEmpty ? "left" : "right"} onLeft={() => setHideEmpty(true)} onRight={() => setHideEmpty(false)} />
               <ToggleRow label="GL accounts" left="Hide" right="Show" active={showGL ? "right" : "left"} onLeft={() => setShowGL(false)} onRight={() => setShowGL(true)} />
             </DisplayMenu>
-          </div>
-        </div>
+          {data && (
+            <DownloadMenu items={[
+              { label: "Excel (.xlsx)", description: `T-12 actuals, ${data.span}`, href: `/api/financials/t12/download?key=${encodeURIComponent(key)}&end=${end}` },
+            ]} />
+          )}
+        </>}
+        meta={<MetaLine>{data ? <span>Actuals only, {data.span} — every month off the GL, nothing from the budget.</span> : cur && !cur.latest ? <span>No GL uploaded for this property yet.</span> : null}</MetaLine>}
+      />
 
-        {pills.length > 0 && (
+      {pills.length > 0 && (
+      <div className="card">
           <div className="pills">
             {pills.map((p) => <StatPill key={p.key} label={p.label} value={p.value} />)}
           </div>
-        )}
       </div>
+      )}
 
       {/* A month no GL covers reads $0 — say which, so a short T-12 is never
           mistaken for a real one. */}
