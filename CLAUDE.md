@@ -2090,6 +2090,57 @@ variant="credit-balance"`. Its title prints "Aging Report (Detailed)".
   Skyline steps sit behind an ⓘ (`InfoPopover`, `app/components/`, shared with
   the CAM recon's year-end exports), never spelled out on the page.
 
+# Philadelphia U&O — /uo-tax (the returns, built by the portal)
+
+Owner, 11/2026: "update our U&O calculations for philly … integrate as much as
+possible and be as autonomous as possible"; "arnie is now Greg"; "let harry,
+nancy, and greg mark as delinquent". It replaces the per-property calculation
+workbooks and the "ShopCtrs U&O direct debit" JE sheet. NOTHING IS KEYED:
+
+- **Line 1 = the City's assessed value × 1.21% ÷ 12**, whole dollars
+  (`maxTaxOf`, `lib/uo/compute.ts` — ties to every October 2026 return). The
+  assessed values are the budget's (`ASSESSED_TAXES` in `assessedTaxes.ts`:
+  2026 = `prior`, 2027 = `assessed`); a value the City's form shows differently
+  is typed on the page (pencil on Line A, `uo-settings`).
+- **One return per OPA parcel with a U&O account** (`UO_PROPERTIES` in
+  `lib/uo/config.ts`): 1100, 1500, 4500 (centre + the REAR PARCEL, no tenants,
+  wholly vacant every month), 5600, 7010, 7200, 7300, 8200. City tax account
+  numbers, PINs, tenant EINs and bank details are NEVER in the portal — they
+  stay in the share-drive folder.
+- **Each suite's monthly U&O = Line 1 × its SF ÷ every SF on the allocation**
+  — the rent roll AS OF the month (`rollAsOf`), vacant suites included, plus
+  common area the roll omits (7010's 2,227 SF hallway, `commonAreas`), each
+  rounded to the dollar as the sheets do. Line 2 vacant, Line 3 exempt +
+  common area, Line 8 delinquent, Line 10 the 1% (a per-property tick; the
+  October 2026 returns for 7010 and 8200 took no discount).
+- **Exempt** = government, credit unions, nonprofits: suggested by the
+  tenant's name (`suggestedExemption`), seeded where a return shows it
+  (`SEEDED_EXEMPT` — North Inc 7010-12347), and ticked on the page.
+- **Delinquents**: PROPOSED from the newest laser statement (open U&O dated the
+  month or before) and ticked / confirmed by Greg, Harry or Nancy (Drew,
+  Alison, admin too). A tick saves at once; Confirm says the list is final.
+- **The cycle runs itself** (`lib/uo/cycle.ts`, cron `/api/cron/uo` 14:00 UTC):
+  the 16th (next business day) Greg + Harry are emailed the candidates
+  (`UO_REVIEW_TO`); the 20th a reminder, Drew copied; once confirmed (or the
+  21st) Drew (`UO_FILER_TO`) gets every return's lines, the UO3 tenants and
+  the Skyline reversals ("REV mm/yy U&O") with the payment JE attached; after
+  the 25th an overdue notice. Greg / Harry / Nancy carry an Action Item while
+  it waits on them; Drew's tracker task `m-uo` (due the 21st) ticks itself
+  when the last property is marked filed.
+- **Mark Filed FREEZES a property's figures** (`uo-months/<YYYY-MM>`); Undo
+  recomputes. A property no rent roll covers claims nothing and cannot be
+  filed until one is imported.
+- **The payment JE is a machine import — bare, positional** (`jeWorkbook`):
+  `JRNL | property | account | LT | M/25/YYYY | <Month> PHL U&O Pmt | U&O<m> |
+  amount` — 2430-0000 Line 9 (+), 0110-0000 Line 11 (−), 9190-8501 Line 10
+  (−); nets to zero; no zero lines. Never theme it.
+- **Billed vs share**: each taxable tenant's U&O line on their newest
+  statement beside their share; a mismatch is amber (update the recurring
+  charge in Skyline — every January's new assessment moves them all). "U&O by
+  tenant" (Export) is the themed replacement for the "No Exemptions" sheet.
+  Pinned by `compute.test.ts` (7010's January 2026 sheet, the October returns
+  and JE).
+
 # Monthly tenant account notices — /tenant-statements/notices (Greg approves)
 
 Owner, 11/2026: every tenant with open charges or a credit is emailed once a

@@ -438,6 +438,18 @@ export const TASK_DEFS: TaskDef[] = [
     link: "/tenant-statements/credits",
     notes: "Import Skyline's Credit Balance report (Any With Open Credits). It builds this month's tenant notices and emails Greg to send them.",
   },
+  // Philadelphia U&O (owner, 11/2026): the portal builds each return off the
+  // rent roll; Greg / Harry / Nancy confirm the delinquents from the 16th;
+  // Drew files on the City's site by the 21st (due the 25th) and marks each
+  // property filed on the page — the last one ticks this task itself.
+  {
+    id: "m-uo",
+    label: "Philadelphia U&O",
+    category: "routine",
+    dueDay: 21,
+    link: "/uo-tax",
+    notes: "File and pay each property's UO1 (and UO3 for delinquents) on the City's site — the figures are on the U&O page. Due the 25th.",
+  },
   {
     id: "m-tenant",
     label: "Tenant Group Setup",

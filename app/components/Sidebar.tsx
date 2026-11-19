@@ -30,6 +30,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Receivables":        "tenant-statements",
   "Open Credits": "tenant-statements",
   "Tenant Notices": "tenant-statements",
+  "Phila U&O":        "uo-tax",
   "Expense History":    "base-years",
   "Expense Trends":     "base-years",
   "CAM Reconciliation": "base-years",
@@ -437,6 +438,23 @@ const NAV = [
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="5" width="18" height="14" rx="2" />
         <polyline points="3 7 12 13 21 7" />
+      </svg>
+    ),
+  },
+  {
+    // Philadelphia Use & Occupancy: the month's returns off the rent roll,
+    // the delinquent review (Greg / Harry / Nancy) and the payment JE.
+    label: "Phila U&O",
+    href: "/uo-tax",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "invoicing",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 21h18" />
+        <path d="M5 21V8l7-4 7 4v13" />
+        <path d="M9 21v-6h6v6" />
       </svg>
     ),
   },

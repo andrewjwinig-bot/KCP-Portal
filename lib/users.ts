@@ -53,6 +53,9 @@ const SC_AND_RESIDENTIAL = new Set([...SC_INDIVIDUAL, ...RESIDENTIAL_INDIVIDUAL]
 /** The Open Credits page — granted on its own to people who VIEW it (Harry,
  *  Alison, Nancy) without the rest of Monthly Statements. */
 export const OPEN_CREDITS_PAGE = "/tenant-statements/credits";
+/** Philadelphia U&O (owner, 11/2026): Drew files; Greg, Harry and Nancy mark
+ *  who is delinquent ("let harry, nancy, and greg mark as delinquent"). */
+export const UO_PAGE = "/uo-tax";
 /** A cardholder's own credit-card charges (Greg). NOT /expenses — that grant
  *  is the whole statement (`/api/expenses/working`'s full access). */
 export const MY_CARD_PAGE = "/expenses/mine";
@@ -126,10 +129,12 @@ export const USERS: Record<UserId, UserDef> = {
       "cash-analysis-draft",
       "tenant-statements",
       "investor-k1",
+      "uo-tax",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
       "/budget-inputs",
+      UO_PAGE,
       "/tracker",
       "/properties",
       "/investors",
@@ -188,10 +193,10 @@ export const USERS: Record<UserId, UserDef> = {
   nancy: {
     id: "nancy",
     label: "NANCY",
-    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets", "open-credits"]),
+    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets", "open-credits", "uo-tax"]),
     // Financials is limited to Budgets only — no Operating Statements,
     // Reprojections, or Cash Sheet.
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials/budgets", "/cam-recon", OPEN_CREDITS_PAGE],
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials/budgets", "/cam-recon", OPEN_CREDITS_PAGE, UO_PAGE],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
@@ -213,10 +218,10 @@ export const USERS: Record<UserId, UserDef> = {
     // "financials-budgets": Harry owns the shopping centres' leasing
     // assumptions, which live on the master budget page — without the grant
     // he could not open the page, or save a decision, on work assigned to him.
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets", "bank-balances", "open-credits", "nnn-quote"]),
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets", "bank-balances", "open-credits", "nnn-quote", "uo-tax"]),
     // "/financials/cash-analysis" is Bank Balances — VIEW ONLY for Harry
     // (owner): `canEditCashSheet` keeps the import and reserves to Drew/admin.
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/financials/budgets", "/financials/cash-analysis", OPEN_CREDITS_PAGE, "/"],
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/financials/budgets", "/financials/cash-analysis", OPEN_CREDITS_PAGE, UO_PAGE, "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
@@ -246,8 +251,8 @@ export const USERS: Record<UserId, UserDef> = {
     // open credits page").
     // "my-card": his own credit-card charges at /expenses/mine, under Invoicing
     // — ONLY his; the full statement stays behind /expenses.
-    navKeys: new Set([...SERVICE_NAV, "financials-budgets", "communications", "tenant-notices", "open-credits", "my-card"]),
-    allowedPathPrefixes: [...SERVICE_PATHS, "/financials/budgets", "/communications", TENANT_NOTICES_PAGE, OPEN_CREDITS_PAGE, MY_CARD_PAGE],
+    navKeys: new Set([...SERVICE_NAV, "financials-budgets", "communications", "tenant-notices", "open-credits", "my-card", "uo-tax"]),
+    allowedPathPrefixes: [...SERVICE_PATHS, "/financials/budgets", "/communications", TENANT_NOTICES_PAGE, OPEN_CREDITS_PAGE, MY_CARD_PAGE, UO_PAGE],
   },
   charles: serviceUser("charles", "CHARLES"),
   jay: serviceUser("jay", "JAY"),
@@ -256,8 +261,9 @@ export const USERS: Record<UserId, UserDef> = {
     label: "ALISON",
     // President — a high-level view: dashboard, properties, investors,
     // rent roll, debt. No operational tools or action items.
-    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "bank-balances", "investor-k1", "open-credits", "nnn-quote"]),
+    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "bank-balances", "investor-k1", "open-credits", "nnn-quote", "uo-tax"]),
     allowedPathPrefixes: [
+      UO_PAGE,
       "/dashboard", "/properties", "/rentroll", "/units", "/investors", "/debt", OPEN_CREDITS_PAGE,
       "/bank-transfers", "/financials", "/cam-recon", "/reports", "/insurance",
       // Capability key, not a page — the K-1 tooling renders inside /investors.
@@ -438,6 +444,8 @@ export function isPathAllowed(userId: UserId, pathname: string): boolean {
 const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]][] = [
   // Tenant Communications — sends to every Interplex tenant; Greg (and admin / Drew).
   ["/api/communications", "/communications"],
+  // Philadelphia U&O — the returns, the delinquent review, the JE.
+  ["/api/uo", UO_PAGE],
   ["/api/commissions/retail", "/commissions/retail"],
   // The quarter's sent-log (dates only) — Harry's retail reminder reads it too.
   ["/api/commissions/avidbill-sent", ["/commissions", "/commissions/retail"]],
