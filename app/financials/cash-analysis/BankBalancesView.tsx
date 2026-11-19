@@ -273,7 +273,7 @@ export default function BankBalancesView() {
         </>}
         meta={
           <MetaLine>
-            {asOf ? <span>Balances as of {dateLabel(asOf)}</span> : <span>No balances imported yet</span>}
+            {asOf && <span>Balances as of {dateLabel(asOf)}</span>}
             {(data?.byBank ?? []).map((b) => (
               <HoverCard key={b.bank} title={BANK_LABEL[b.bank] ?? b.bank}
                 rows={[

@@ -294,10 +294,14 @@ touched UI to it.
   beside it, a row of buttons on its own line, or a text "+" on a button (the
   Lucide `Plus`). The KORMAN wordmark is hidden in the new look (the sidebar
   carries it). An Export `DownloadMenu` is a white menu, not navy — `variant`
-  defaults to `default`. Moved so far: Bank Balances, Monthly Statements, Open
-  Credits, Receipt Reconciliation, 1099, Insurance, Management Fees, Flags to
-  Investigate, Debt Tracker, Security Deposits, Month-End Close, Bank
-  Reconciliation; the rest move as they are touched.
+  defaults to `default`. EVERY STAFF PAGE IS ON IT (sweep 11/19/26). The only
+  pages that still draw their own title are deliberate: the dashboards (Work
+  Queue, the greeting), the property and unit DETAIL pages (hero), embedded
+  panels (Monthly Review, the rent-review view) and Bank Balances' hidden GL
+  view — `HAND_BUILT_TITLES_MAX` (10) holds them. **The white box holds the
+  pickers, actions and meta line (and a page's quote inputs, as NNN Quote);
+  KPI tiles sit BELOW it** (owner: "the box should cut after the pickers
+  before the … KPI boxes") — NNN Quote is the reference.
 - **NO DROP-ZONE CARDS** (owner: "the drop the october 2026 folder here is different than the other import buttons"): an import is the header's `.btn.import` + its (i) (where the files live, as a `FilePath`), and drag-and-drop lands on the header (`PageHeader`'s `dropHandlers` / `dragging`). Bank Recs' dashed "Drop the folder here" box went for this; its folder picker is a button inside the (i).
 - **Imports are `.btn.import` with the Lucide `Upload` icon, labelled
   "Import <thing>"** (Import GL, Import Rent Roll, Import Laser Statement,
