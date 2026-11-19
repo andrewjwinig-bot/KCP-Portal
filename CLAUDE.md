@@ -294,7 +294,7 @@ touched UI to it.
   beside it, a row of buttons on its own line, or a text "+" on a button (the
   Lucide `Plus`). The KORMAN wordmark is hidden in the new look (the sidebar
   carries it). An Export `DownloadMenu` is a white menu, not navy — `variant`
-  defaults to `default`. EVERY STAFF PAGE IS ON IT (sweep 11/19/26). The only
+  defaults to `default`. EVERY STAFF PAGE IS ON IT (sweep 11/19/26). **Every staff header carries an `info` (i)** — one or two sentences on what the page does (owner: "a nice touch"); `noDrift.test.ts` fails a PageHeader without one (the tenant portal aside). The only
   pages that still draw their own title are deliberate: the dashboards (Work
   Queue, the greeting), the property and unit DETAIL pages (hero), embedded
   panels (Monthly Review, the rent-review view) and Bank Balances' hidden GL

@@ -80,6 +80,22 @@ describe("page headers", () => {
     const off = files.filter((p) => /<HeaderSelect\b[^>]*displayLabel=\{[^}]*`\$\{[^}]+\} — \$\{/.test(readFileSync(p, "utf8")));
     expect(off, `Use propertyLabel(code, name):\n${off.join("\n")}`).toEqual([]);
   });
+  // Every staff page explains itself behind the (i) beside its title (owner:
+  // "i like the (i) next to the title to briefly explain what each page does").
+  it("every staff PageHeader carries an info (i)", () => {
+    const off: string[] = [];
+    for (const p of files) {
+      if (/app\/portal\//.test(p)) continue;
+      const s = readFileSync(p, "utf8");
+      const re = /<PageHeader\b/g; let m: RegExpExecArray | null;
+      while ((m = re.exec(s))) {
+        let d = 0, j = m.index;
+        for (; j < s.length; j++) { const c = s[j]; if (c === "{") d++; else if (c === "}") d--; else if (c === ">" && d === 0) break; }
+        if (!/\binfo=/.test(s.slice(m.index, j))) off.push(p);
+      }
+    }
+    expect(off, `Give the page a one-line \`info\`:\n${off.join("\n")}`).toEqual([]);
+  });
   // Staff pages still hand-building a title (<h1> with no PageHeader). Being
   // swept; may only go DOWN — lower it when a page moves.
   it("hand-built page titles do not increase", () => {

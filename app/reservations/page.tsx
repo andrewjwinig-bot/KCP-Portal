@@ -108,6 +108,7 @@ function ReservationsPageInner() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <PageHeader title="Conference Room Reservations"
+        info={<>Tenant conference room requests: approve, move or decline them.</>}
         actions={<>
           <button onClick={reload} disabled={loading} className="btn" title="Pull the latest reservations">
             <RefreshCw size={16} strokeWidth={1.75} aria-hidden style={{ animation: loading ? "spin 0.8s linear infinite" : "none" }} />

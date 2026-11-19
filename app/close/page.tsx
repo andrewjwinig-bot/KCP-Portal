@@ -90,6 +90,7 @@ export default function MonthClosePage() {
   return (
     <main style={{ display: "grid", gap: 16 }}>
       <PageHeader title="Month-End Close"
+        info={<>Everything that has to happen to close the month — GLs imported, bank recs, AvidXchange sends, move-out close-outs — and the sign-off once nothing is left.</>}
         pickers={
           <HeaderSelect value={month} onChange={setMonth} ariaLabel="Month" displayLabel={label(month)}>
             {months.map((m) => <option key={m} value={m}>{label(m)}</option>)}

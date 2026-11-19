@@ -794,6 +794,7 @@ export default function OperatingStatementsPage() {
           Display, Open, Export on the right; one meta line. Drop a GL on it. */}
       <PageHeader
         title="Operating Statements"
+        info={<>Each property&apos;s monthly operating statement from its imported GL, against budget, with flagged lines to investigate.</>}
         dropHandlers={glDrop.dropHandlers as Record<string, unknown>}
         dragging={glDrop.dragging}
         pickers={<>
