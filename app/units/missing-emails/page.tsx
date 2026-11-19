@@ -24,7 +24,7 @@ type Row = {
   group: Group; sqft: number | null; skylineContact: string | null; skylinePhone: string | null;
 };
 type Data = { group: Group | null; fixed: boolean; rows: Row[] };
-type ImportResult = { source?: "skyline"; asContacts?: number; unchanged?: number; tenants: number; added: number; problems: { row: number; unitRef: string; problem: string }[] };
+type ImportResult = { source?: "skyline"; asContacts?: number; unchanged?: number; updated?: number; stillMissing?: number; tenants: number; added: number; problems: { row: number; unitRef: string; problem: string }[] };
 
 const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true, style: { verticalAlign: "-3px", flexShrink: 0 } } as const;
 const LABEL: Record<Group, string> = { sc: "Shopping Centers & Residential", office: "Office" };
@@ -84,8 +84,10 @@ export default function MissingEmailsPage() {
 
       {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
       {result && (
-        <StatusBanner tone={result.problems.length ? "warning" : "success"} title={`Added emails for ${result.tenants} tenant${result.tenants === 1 ? "" : "s"}`}>
+        <StatusBanner tone={result.problems.length ? "warning" : "success"} title={result.source === "skyline" && !result.tenants && !result.added && result.updated ? `Tagged ${result.updated} suite${result.updated === 1 ? "" : "s"} from Skyline` : `Added emails for ${result.tenants} tenant${result.tenants === 1 ? "" : "s"}`}>
           {result.added} new address{result.added === 1 ? "" : "es"}
+          {result.source === "skyline" && !!result.updated && <> · {result.updated} suite{result.updated === 1 ? "" : "s"} tagged General / Correspondence / Other Billing</>}
+          {result.source === "skyline" && result.stillMissing != null && <> · {result.stillMissing} tenant{result.stillMissing === 1 ? "" : "s"} still have no email</>}
           {result.source === "skyline" && !!result.asContacts && <> · {result.asContacts} tenant{result.asContacts === 1 ? "" : "s"} already had a recipient, so the new addresses were added as contacts only (tick them on the unit page to send to them)</>}
           {result.problems.length > 0 && <> · {result.problems.length} {result.source === "skyline" ? "suite" : "row"}{result.problems.length === 1 ? "" : "s"} not used: {result.problems.slice(0, 5).map((p) => `${p.row ? `row ${p.row} ` : ""}(${p.unitRef}) ${p.problem.toLowerCase()}`).join("; ")}{result.problems.length > 5 ? "…" : ""}</>}
         </StatusBanner>

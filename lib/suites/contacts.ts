@@ -2,6 +2,8 @@
 // rent-roll unit. Pure types + helpers, safe to import from client
 // components. Server-only storage lives in ./contactsStorage.ts.
 
+import type { SkylineTag } from "./skylineEmailList";
+
 export type SuiteContact = {
   id: string;
   name: string;
@@ -18,6 +20,10 @@ export type SuiteContact = {
    *  (tenants may only edit/remove their own additions). Absent / "staff" —
    *  entered by property staff on the unit page. */
   source?: "tenant" | "staff";
+  /** Where Skyline lists this address for the occupant (its Email List
+   *  report's colours): the General tab, Correspondence, Other Billing — one
+   *  address can be all three (lib/suites/skylineEmailList.ts). */
+  skyline?: SkylineTag[];
 };
 
 export type SuiteContacts = {
@@ -76,6 +82,9 @@ export function sanitizeContacts(body: unknown): SuiteContact[] {
       notes: asText(c.notes, 1000),
       camRecipient: c.camRecipient === true,
       ...(c.source === "tenant" || c.source === "staff" ? { source: c.source } : {}),
+      ...(Array.isArray(c.skyline)
+        ? { skyline: (["general", "correspondence", "billing"] as const).filter((t) => (c.skyline as unknown[]).includes(t)) }
+        : {}),
     };
     // Skip fully empty rows.
     if (contact.name || contact.email || contact.phone || contact.title || contact.notes) {

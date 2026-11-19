@@ -1903,6 +1903,16 @@ yet gets them as its statement recipients; a suite that already sends
 somewhere keeps its recipients and gains the new addresses as CONTACTS only**
 (`addSuiteEmails(…, { recipient: false })`, `hasRecipient`) — tick them on the
 unit page to use them. Units not on the current rent roll are reported.
+**Each address is TAGGED with the kind Skyline lists it under** (owner: "tag
+them … general, correspondance, and other billing"; "same email for all … add
+multiple tags to the one email address"). The report says the kind ONLY by
+FONT COLOUR (black = General, blue = Correspondence, green = Other Billing),
+which SheetJS drops, so `xlsFontColors` (`lib/suites/`) reads the .xls's own
+FONT / XF / cell records. ONE contact per address, its `skyline` tags merged
+(`SuiteContact.skyline`), shown as pills on the unit page's Contacts card. A
+re-import of the same file adds no addresses but TAGS the contacts already
+there; the banner reports suites tagged and how many tenants still have no
+email (`stillMissing`).
 
 # Open credits — Skyline's Credit Balance report, itemized
 
