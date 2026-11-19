@@ -24,7 +24,7 @@ import type { UoMonth } from "@/lib/uo/store";
 
 type Data = {
   month: string; record: UoMonth; properties: UoPropertyView[]; candidates: UoCandidate[];
-  rollMonth: string | null; statementPeriod: string | null; statementAsOf: string | null;
+  rollMonth: string | null; statementPeriod: string | null; statementAsOf: string | null; agingAsOf: string | null;
   stage: "not-open" | "review" | "ready" | "filed" | "overdue";
   dates: { reviewOpens: string; fileBy: string; due: string };
   canReview: boolean; canFile: boolean;
@@ -129,7 +129,9 @@ export default function UoTaxPage() {
         <MetaLine>
           <span>Due {day(data.dates.due)} · file by {day(data.dates.fileBy)}</span>
           {data.rollMonth && <span>· Tenancy from the {monthName(data.rollMonth)} rent roll</span>}
-          {data.statementPeriod && <span>· Open U&amp;O from the {monthName(data.statementPeriod)} laser statement</span>}
+          {data.agingAsOf
+            ? <span>· Open U&amp;O from the Aging Report run {day(data.agingAsOf)}{data.statementAsOf ? `, else the ${monthName(data.statementPeriod ?? month)} Laser Statement` : ""}</span>
+            : data.statementPeriod && <span>· Open U&amp;O from the {monthName(data.statementPeriod)} Laser Statement</span>}
         </MetaLine>
       )}
     />
@@ -172,7 +174,7 @@ export default function UoTaxPage() {
           <div>
             <div style={{ fontSize: 17, fontWeight: 700 }}>Delinquent Tenants</div>
             <div className="muted" style={{ fontSize: "var(--fs-14)", marginTop: 2 }}>
-              {rec.confirmedAt ? `Confirmed by ${rec.confirmedBy} ${when(rec.confirmedAt)}${changedSince ? ` · changed since by ${rec.updatedBy}` : ""}` : "Tenants with U&O still open on the laser statement. Tick to report delinquent (UO3); their U&O is then reversed in Skyline."}
+              {rec.confirmedAt ? `Confirmed by ${rec.confirmedBy} ${when(rec.confirmedAt)}${changedSince ? ` · changed since by ${rec.updatedBy}` : ""}` : "Tenants with U&O still open on the newest Aging Report or Laser Statement. Tick to report delinquent (UO3); their U&O is then reversed in Skyline."}
             </div>
           </div>
           {data.canReview && (
