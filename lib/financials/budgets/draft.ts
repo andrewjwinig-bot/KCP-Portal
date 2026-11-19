@@ -1291,6 +1291,10 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
     // you pull reprojections").
     cam: pool.cam[1] + officePool.cam[1], ins: pool.ins[1] + officePool.ins[1], ret: pool.ret[1] + officePool.ret[1],
   });
+  if (reimbursementEstimate && mixed) reimbursementEstimate.poolParts = {
+    retail: { pools: { cam: pool.cam[0], ins: pool.ins[0], ret: pool.ret[0] }, basis: { cam: pool.cam[1], ins: pool.ins[1], ret: pool.ret[1] } },
+    office: { pools: { cam: officePool.cam[0], ins: officePool.ins[0], ret: officePool.ret[0] }, basis: { cam: officePool.cam[1], ins: officePool.ins[1], ret: officePool.ret[1] } },
+  };
   if (reimbursementEstimate) applyEstimateOverrides(reimbursementEstimate, estimateOverrides);
   // A charge collected only at reconciliation lands in MAY, when it is
   // collected — not spread over twelve months it is never billed in.
