@@ -33,6 +33,7 @@ import ReceivablesOverview from "./ReceivablesOverview";
 import OrientationCard from "./OrientationCard";
 import PendingReservationsCard from "./PendingReservationsCard";
 import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
+import RequestsSummaryCard from "./RequestsSummaryCard";
 import MonthlyReviewPanel from "../reports/monthly/MonthlyReviewPanel";
 import DebtSummaryCard from "./DebtSummaryCard";
 import MgmtFeesChartCard from "./MgmtFeesChartCard";
@@ -687,11 +688,19 @@ function DashboardInner() {
           <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>}
-      {!queueOn && <QuickLinks />}
+      {/* The service logins keep their quick links at the BOTTOM (owner: "move
+          the quick links somewhere else"); their page leads with the work. */}
+      {!queueOn && !isService && <QuickLinks />}
       {user.id === "randy" && <OrientationCard />}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
         {/* ── Pending reservation requests (anyone with reservations access) ── */}
+        {/* The maintenance team's requests at a glance (owner: "for gregs
+            dashboard … any requests summary just high level"). */}
+        {isService && user.navKeys.has("maintenance") && (
+          <div style={{ gridColumn: "1 / -1", order: -4 }}><RequestsSummaryCard me={user.id} /></div>
+        )}
+
         {(user.navKeys.has("all") || user.navKeys.has("reservations")) && (
           <PendingReservationsCard order={user.id === "nancy" ? -2 : 1} />
         )}
@@ -1209,6 +1218,7 @@ function DashboardInner() {
         )}
       </div>
       )}
+      {isService && <QuickLinks />}
     </main>
   );
 }
