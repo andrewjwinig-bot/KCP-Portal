@@ -4,7 +4,8 @@ import { StatusBanner } from "@/app/components/StatusBanner";
 import { useEffect, useMemo, useState } from "react";
 import { SectionLabel } from "@/app/properties/PropertyDetail";
 import { AutosaveStatus, useAutosave } from "@/app/components/useAutosave";
-import { Pill, TONE_AMBER, TONE_BLUE, TONE_TEAL } from "@/app/components/Pill";
+import { Pill, TONE_AMBER, TONE_BLUE, TONE_NEUTRAL, TONE_TEAL } from "@/app/components/Pill";
+import { SKYLINE_TAG_LABEL } from "@/lib/suites/skylineEmailList";
 import {
   emptyContact,
   newContactId,
@@ -236,8 +237,14 @@ export default function ContactsCard({
               padding: "12px", border: "1px solid var(--border)",
               borderRadius: 10, background: "var(--tint-neutral-faint, rgba(15,23,42,0.015))",
             }}>
-              {c.source === "tenant" && (
-                <span style={{ alignSelf: "flex-start" }}><Pill tone={TONE_BLUE}>ADDED BY TENANT</Pill></span>
+              {(c.source === "tenant" || !!c.skyline?.length) && (
+                <span style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                  {c.source === "tenant" && <Pill tone={TONE_BLUE}>ADDED BY TENANT</Pill>}
+                  {!!c.skyline?.length && (
+                    <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>In Skyline:</span>
+                  )}
+                  {c.skyline?.map((t) => <Pill key={t} tone={TONE_NEUTRAL}>{SKYLINE_TAG_LABEL[t]}</Pill>)}
+                </span>
               )}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 <ContactField label="Name">

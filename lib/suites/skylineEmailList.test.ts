@@ -24,8 +24,26 @@ describe("Skyline Email List", () => {
     const out = parseSkylineEmailList(rows);
     expect(out.map((e) => e.unitRef)).toEqual(["9999-1", "9999-2", "9999-4"]);
     expect(out[0].emails).toEqual(["billing@acme-test.com", "ap@acme-test.com", "owner@acme-test.com"]);
-    expect(out[1]).toEqual({ unitRef: "9999-2", emails: ["pay@beta.test"], bad: [] }); // phone dropped
-    expect(out[2]).toEqual({ unitRef: "9999-4", emails: ["one@gamma.test"], bad: ["broken@gamma"] });
+    expect(out[1]).toMatchObject({ unitRef: "9999-2", emails: ["pay@beta.test"], bad: [] }); // phone dropped
+    expect(out[2]).toMatchObject({ unitRef: "9999-4", emails: ["one@gamma.test"], bad: ["broken@gamma"] });
+  });
+
+  it("tags each address by its Skyline colour, ONE address carrying every tag it has", () => {
+    // row 2 black (General), row 3 blue (Correspondence), row 4 green (Other Billing)
+    const colors: Record<number, number> = { 2: 8, 3: 12, 4: 17, 5: 8, 7: 17 };
+    const out = parseSkylineEmailList(rows, (r) => colors[r]);
+    expect(out[0].tagged).toEqual([
+      { email: "billing@acme-test.com", tags: ["general", "correspondence"] },
+      { email: "ap@acme-test.com", tags: ["billing"] },
+      { email: "owner@acme-test.com", tags: ["billing"] },
+    ]);
+    expect(out[2].tagged).toEqual([{ email: "one@gamma.test", tags: ["billing"] }]);
+  });
+
+  it("without colours, the name-led row is General and the rest untagged", () => {
+    const out = parseSkylineEmailList(rows);
+    expect(out[0].tagged[0]).toEqual({ email: "billing@acme-test.com", tags: ["general"] });
+    expect(out[0].tagged[1]).toEqual({ email: "ap@acme-test.com", tags: [] });
   });
 
   it("leaves out 2000's intercompany entities and 'See Main Record'", () => {

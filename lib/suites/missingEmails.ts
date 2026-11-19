@@ -10,6 +10,7 @@ import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { currentAging } from "@/lib/statements/agingStore";
 import { camRecipientEmails, emptyContact } from "./contacts";
+import type { SkylineTag } from "./skylineEmailList";
 import { getOrEmptySuiteContacts, getSuiteContactsMap, saveSuiteContacts } from "./contactsStorage";
 
 /** Whose tenants: Harry — shopping centres and residential; Nancy — office. */
@@ -71,19 +72,36 @@ export function splitEmails(raw: string): { emails: string[]; bad: string[] } {
  *  only marked a recipient. Returns how many were new. */
 export async function addSuiteEmails(
   unitRef: string, emails: string[], name?: string | null,
-  opts: { recipient?: boolean } = {},
+  opts: { recipient?: boolean; tags?: Map<string, SkylineTag[]>; onTagged?: () => void } = {},
 ): Promise<number> {
   const recipient = opts.recipient !== false;
+  const tagsOf = (e: string) => opts.tags?.get(e.toLowerCase()) ?? [];
+  const merge = (a: SkylineTag[] | undefined, b: SkylineTag[]) =>
+    (["general", "correspondence", "billing"] as const).filter((t) => a?.includes(t) || b.includes(t));
+  let changed = false;
   const rec = await getOrEmptySuiteContacts(unitRef);
   const contacts = [...rec.contacts];
   let added = 0;
   for (const e of emails) {
     const hit = contacts.findIndex((c) => c.email.trim().toLowerCase() === e.toLowerCase());
-    if (hit >= 0) { if (recipient) contacts[hit] = { ...contacts[hit], camRecipient: true }; continue; }
-    contacts.push({ ...emptyContact(), email: e, name: (name ?? "").trim().slice(0, 120), camRecipient: recipient, source: "staff" });
+    const tags = tagsOf(e);
+    if (hit >= 0) {
+      // An address already on file keeps everything it has; it only gains
+      // Skyline's tags (and the recipient tick when this suite had none).
+      const cur = contacts[hit];
+      const skyline = tags.length ? merge(cur.skyline, tags) : cur.skyline;
+      const next = { ...cur, ...(recipient ? { camRecipient: true } : {}), ...(skyline?.length ? { skyline } : {}) };
+      if (JSON.stringify(next) !== JSON.stringify(cur)) { contacts[hit] = next; changed = true; }
+      continue;
+    }
+    contacts.push({
+      ...emptyContact(), email: e, name: (name ?? "").trim().slice(0, 120), camRecipient: recipient, source: "staff",
+      ...(tags.length ? { skyline: tags } : {}),
+    });
     added++;
   }
-  if (added || recipient) await saveSuiteContacts(unitRef, contacts);
+  if (added || changed) await saveSuiteContacts(unitRef, contacts);
+  if (changed) opts.onTagged?.();
   return added;
 }
 

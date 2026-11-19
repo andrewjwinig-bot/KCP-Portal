@@ -11,7 +11,31 @@
 // Record"). The intercompany "tenants" of 2000 (our own entities) are left
 // out; anything not on the current rent roll is the route's to refuse.
 
-export type EmailListEntry = { unitRef: string; emails: string[]; bad: string[] };
+export type SkylineTag = "general" | "correspondence" | "billing";
+export const SKYLINE_TAG_LABEL: Record<SkylineTag, string> = {
+  general: "General", correspondence: "Correspondence", billing: "Other Billing",
+};
+const TAG_ORDER: SkylineTag[] = ["general", "correspondence", "billing"];
+
+/** Skyline's palette colours on the report: black (8, or 0x7FFF "automatic")
+ *  is the General tab's address, blue (12) Correspondence, green (17) Other
+ *  Billing. */
+export function tagOfColor(ci: number | undefined): SkylineTag | null {
+  if (ci === 8 || ci === 0x7fff) return "general";
+  if (ci === 12) return "correspondence";
+  if (ci === 17) return "billing";
+  return null;
+}
+
+/** One entry per suite; each address ONCE, carrying every kind Skyline lists
+ *  it under (owner: "if its the same email for all … add multiple tags to the
+ *  one email address"). */
+export type EmailListEntry = {
+  unitRef: string;
+  emails: string[];
+  tagged: { email: string; tags: SkylineTag[] }[];
+  bad: string[];
+};
 
 const EMAIL = /^[^\s@<>;,]+@[^\s@<>;,]+\.[a-z]{2,}$/i;
 const UNIT = /^[0-9A-Z]{3,6}-[0-9A-Z]+$/i;
@@ -25,15 +49,24 @@ export function isSkylineEmailList(rows: unknown[][]): boolean {
   return hits >= 3;
 }
 
-export function parseSkylineEmailList(rows: unknown[][]): EmailListEntry[] {
-  const by = new Map<string, { order: number; emails: Map<string, string>; bad: Set<string> }>();
+/** `colorAt(rowIndex, colIndex)` gives a cell's font colour (xlsFontColors);
+ *  without it a row whose address follows the occupant's name is read as
+ *  General (that is how the report prints the main address) and the rest go
+ *  untagged. */
+export function parseSkylineEmailList(
+  rows: unknown[][],
+  colorAt?: (row: number, col: number) => number | undefined,
+): EmailListEntry[] {
+  const by = new Map<string, { order: number; emails: Map<string, Set<SkylineTag>>; bad: Set<string> }>();
   rows.forEach((row, i) => {
     const unitRef = String(row[0] ?? "").trim().toUpperCase();
     if (!UNIT.test(unitRef) || unitRef.startsWith("2000-")) return;
-    const text = row.slice(1).map((c) => String(c ?? "")).join(" ");
+    const col = row.findIndex((c, j) => j > 0 && /<[^>]*>/.test(String(c ?? "")));
+    if (col < 0) return;
+    const text = String(row[col] ?? "");
     const inside = [...text.matchAll(/<([^>]*)>/g)].map((m) => m[1]);
-    if (!inside.length) return;
-    const e = by.get(unitRef) ?? { order: i, emails: new Map<string, string>(), bad: new Set<string>() };
+    const tag = colorAt ? tagOfColor(colorAt(i, col)) : (/^\s*</.test(text) ? null : "general");
+    const e = by.get(unitRef) ?? { order: i, emails: new Map<string, Set<SkylineTag>>(), bad: new Set<string>() };
     for (const chunk of inside) {
       for (const raw of chunk.split(/[;,\s]+/)) {
         const s = raw.trim().replace(/^mailto:/i, "").replace(/[.;,]+$/, "");
@@ -42,7 +75,10 @@ export function parseSkylineEmailList(rows: unknown[][]): EmailListEntry[] {
         if (!EMAIL.test(s)) { e.bad.add(s); continue; }
         // Skyline Proper-Cases the main address ("Shears1999@Aol.Com");
         // addresses are case-blind in practice, so keep one lower-case copy.
-        e.emails.set(s.toLowerCase(), s.toLowerCase());
+        const k = s.toLowerCase();
+        const tags = e.emails.get(k) ?? new Set<SkylineTag>();
+        if (tag) tags.add(tag);
+        e.emails.set(k, tags);
       }
     }
     by.set(unitRef, e);
@@ -51,7 +87,8 @@ export function parseSkylineEmailList(rows: unknown[][]): EmailListEntry[] {
     .sort((a, b) => a[1].order - b[1].order)
     .map(([unitRef, e]) => ({
       unitRef,
-      emails: [...e.emails.values()],
+      emails: [...e.emails.keys()],
+      tagged: [...e.emails.entries()].map(([email, t]) => ({ email, tags: TAG_ORDER.filter((x) => t.has(x)) })),
       bad: [...e.bad],
     }))
     .filter((e) => e.emails.length || e.bad.length);
