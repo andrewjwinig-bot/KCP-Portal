@@ -6,9 +6,11 @@
 //   GET ?group=…&format=xlsx             → the fill-in workbook
 //   POST (multipart, file)               → import a filled workbook
 //   POST { unitRef, emails, name? }      → add one tenant's email(s)
+//   POST { action: "waive", unitRef, reason? } → no email needed for this tenant
+//   POST { action: "unwaive", unitRef }  → ask about the suite again
 
 import { NextRequest, NextResponse } from "next/server";
-import { addSuiteEmails, hasRecipient, splitEmails, tenantsWithoutEmail, type ContactGroup } from "@/lib/suites/missingEmails";
+import { addSuiteEmails, hasRecipient, missingAndWaived, splitEmails, tenantsWithoutEmail, type ContactGroup } from "@/lib/suites/missingEmails";
 import { isSkylineEmailList, parseSkylineEmailList } from "@/lib/suites/skylineEmailList";
 import { xlsFontColors } from "@/lib/suites/xlsFontColors";
 import * as XLSX from "xlsx";
@@ -17,6 +19,7 @@ import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
 import { logAudit, auditIp } from "@/lib/audit";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
+import { unwaiveEmail, waiveEmail } from "@/lib/suites/emailWaiverStore";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +44,7 @@ async function scope(req: NextRequest): Promise<{ user: string | null; group: Co
 
 export async function GET(req: NextRequest) {
   const { user, group } = await scope(req);
-  const rows = await tenantsWithoutEmail(group);
+  const { rows, waived } = await missingAndWaived(group);
   if (req.nextUrl.searchParams.get("format") === "xlsx") {
     const asOf = new Date().toLocaleDateString("en-US", { timeZone: "America/New_York", month: "long", day: "numeric", year: "numeric" });
     const bytes = await buildFillSheet(rows, { who: group ? GROUP_LABEL[group] : "All Properties", asOf });
@@ -50,7 +53,7 @@ export async function GET(req: NextRequest) {
       headers: { "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "content-disposition": `attachment; filename="${name}"` },
     });
   }
-  return NextResponse.json({ ok: true, group: group ?? null, fixed: !!defaultGroupFor(user), rows });
+  return NextResponse.json({ ok: true, group: group ?? null, fixed: !!defaultGroupFor(user), rows, waived });
 }
 
 export async function POST(req: NextRequest) {
@@ -129,6 +132,15 @@ export async function POST(req: NextRequest) {
   const b = await req.json().catch(() => ({}));
   const ref = known.get(String(b?.unitRef ?? "").toUpperCase());
   if (!ref) return NextResponse.json({ error: "That suite is not on the current rent roll." }, { status: 404 });
+  if (b?.action === "waive" || b?.action === "unwaive") {
+    if (b.action === "unwaive") await unwaiveEmail(ref);
+    else {
+      const tenant = (roll?.properties ?? []).flatMap((p) => p.units ?? []).find((u) => u.unitRef.toUpperCase() === ref.toUpperCase())?.occupantName ?? "";
+      await waiveEmail({ unitRef: ref, tenant: String(tenant).trim(), reason: String(b?.reason ?? "No email needed").slice(0, 80), by });
+    }
+    await logAudit({ event: `suites.emails-${b.action}`, user: by, ip: auditIp(req), detail: ref });
+    return NextResponse.json({ ok: true });
+  }
   const { emails, bad } = splitEmails(String(b?.emails ?? ""));
   if (bad.length) return NextResponse.json({ error: `Not an email address: ${bad.join(", ")}` }, { status: 400 });
   if (!emails.length) return NextResponse.json({ error: "Type an email address." }, { status: 400 });
