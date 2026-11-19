@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import type { RentRollData, RentRollUnit } from "../../lib/rentroll/parseRentRollExcel";
 import { TAX_TASKS, TAX_CATEGORIES, filingLabel, isTaskEffectivelyDone, loadTaxChecked, type TaxTask } from "../tracker/tax-data";
 import { useUser } from "../components/UserProvider";
-import { isPathAllowed } from "../../lib/users";
+import { accessGroup, isPathAllowed } from "../../lib/users";
 import { PROPERTY_DEFS } from "../../lib/properties/data";
 import { UNIQUE_BANK_ACCOUNTS } from "../../lib/bank-rec/accounts";
 import { bankRecKey, nextBankRecDeadline, nextStatementsDeadline, bankRecPeriodLabel } from "../../lib/bank-rec/util";
@@ -448,11 +448,14 @@ function DashboardInner() {
   //  - Nancy → office only
   //  - Harry → retail only
   //  - Marie → hidden entirely
-  //  - everyone else (admin / maint) → all property types
+  //  - the service logins (Greg, Charles, Jay, Service) → hidden; leasing is
+  //    not their work (owner: "not sure greg needs leases expiring")
+  //  - everyone else (admin) → all property types
+  const isService = accessGroup(user.id) === "service";
   const expiringScope: "office" | "retail" | "all" | "none" =
     user.id === "nancy"  ? "office" :
     user.id === "harry"  ? "retail" :
-    user.id === "marie" ? "none"   :
+    user.id === "marie" || isService ? "none" :
     "all";
   const showExpiring = expiringScope !== "none";
 
@@ -700,7 +703,7 @@ function DashboardInner() {
           <PortfolioOccupancyPanel rentroll={rentroll} scopes={["retail"]} order={-1} />
         ) : isAlison ? (
           <PortfolioOccupancyPanel rentroll={rentroll} scopes={["category", "office", "jv3", "ni", "retail", "residential"]} order={-1} />
-        ) : isDrew ? null : isMarie ? null : (
+        ) : isDrew || isMarie || isService ? null : (
         <Link href="/rentroll" className="card" style={{ display: "block", textDecoration: "none", color: "inherit", cursor: "pointer", transition: "box-shadow 0.15s, transform 0.15s", order: 0 }}
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = "0 4px 16px rgba(15,23,42,0.08)"; }}
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.boxShadow = ""; }}>
