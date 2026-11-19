@@ -87,7 +87,7 @@ function reviewEmail(view: UoMonthView, reminder: boolean) {
     subject: `${reminder ? "Reminder: " : ""}U&O delinquents to confirm — ${monthName(view.month)}`,
     eyebrow: "Philadelphia U&O",
     title: `Who is delinquent for ${monthName(view.month)}?`,
-    lead: `${view.candidates.length ? `${view.candidates.length} tenant${view.candidates.length === 1 ? "" : "s"} still show U&O open on the laser statement.` : "No tenant shows U&O open on the laser statement."} Tick anyone to report delinquent to the City and confirm the list — it is due by the ${UO_FILE_BY_DAY}st so Drew can file.`,
+    lead: `${view.candidates.length ? `${view.candidates.length} tenant${view.candidates.length === 1 ? "" : "s"} still show U&O open on the newest Aging Report or Laser Statement.` : "No tenant shows U&O open on the newest Aging Report or Laser Statement."} Tick anyone to report delinquent to the City and confirm the list — it is due by the ${UO_FILE_BY_DAY}st so Drew can file.`,
     rows: [],
     sections: [...byProp.entries()].map(([code, list]) => ({
       title: `${code} · ${view.properties.find((p) => p.code === code)?.name ?? code}`,

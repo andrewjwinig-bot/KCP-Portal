@@ -5,9 +5,10 @@
 //                    unless a value the City's form shows was typed on the page
 //   tenancy          the rent roll AS OF the month (`rollAsOf`)
 //   exemptions       the name rules + seeds + what was set on the page
-//   delinquents      PROPOSED from the newest laser statement — every tenant
-//                    with an open U&O charge for the month or earlier — and
-//                    confirmed by Greg / Harry / Nancy
+//   delinquents      PROPOSED from the open items — the Aging Report
+//                    (Detailed) where it is newer, else the laser statement —
+//                    every tenant with an open U&O charge for the month or
+//                    earlier; confirmed by Greg / Harry / Nancy
 //   billed           each tenant's U&O line on their statement, checked
 //                    against their computed share
 //
@@ -17,6 +18,10 @@ import "server-only";
 import { listJSON } from "@/lib/storage";
 import { rollAsOf } from "@/lib/rentroll/current";
 import { allRuns } from "@/lib/statements/store";
+import { currentAging } from "@/lib/statements/agingStore";
+import { agingLookup, statementFromAging } from "@/lib/statements/aging";
+import { laserDate } from "@/lib/statements/currentAccount";
+import type { TenantStatement } from "@/lib/statements/types";
 import { statementBillingFor } from "@/lib/financials/budgets/statementBilling";
 import { ASSESSED_TAXES } from "@/lib/financials/budgets/assessedTaxes";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -33,6 +38,9 @@ export type UoCandidate = {
   oldest: string | null;
   /** Reported delinquent the month before. */
   lastMonth: boolean;
+  /** Where the open U&O was read: the Aging Report or the laser statement. */
+  source: "aging" | "statement";
+  asOf: string | null;
 };
 
 export type UoBilledCheck = { unitRef: string; tenant: string; share: number; billed: number | null; billedMonth?: string };
@@ -61,6 +69,8 @@ export type UoMonthView = {
   rollMonth: string | null;
   statementPeriod: string | null;
   statementAsOf: string | null;
+  /** The Aging Report (Detailed) date, where it was the newer source. */
+  agingAsOf: string | null;
 };
 
 const prevMonth = (m: string) => {
@@ -107,20 +117,44 @@ export async function loadUoMonth(month: string): Promise<UoMonthView> {
   const year = Number(month.slice(0, 4));
   const delinquent = new Set(record.delinquents.map((s) => s.toUpperCase()));
 
-  // The newest laser statement at or before the month (else the newest).
+  // Which tenants still owe U&O: the open items on the NEWEST data — the
+  // Aging Report (Detailed) where it is at least as new as the laser
+  // statement (the report the team circulated for U&O review around the
+  // 16th, which lists every open charge with its code and date), else the
+  // laser statement. Per tenant, as `statementOf` reads an account, so a
+  // credits-only aging run never hides a tenant who owes.
   const run = runs.find((r) => r.period <= month) ?? runs[0] ?? null;
+  const aging = await currentAging().catch(() => null);
   const monthEnd = `${month}-31`;
   const lastMonth = new Set((prior?.delinquents ?? []).map((s) => s.toUpperCase()));
   const codes = new Set(UO_PROPERTIES.map((p) => p.code));
+  const accounts = new Map<string, { st: TenantStatement; source: "aging" | "statement"; asOf: string | null }>();
+  for (const laser of run?.statements ?? []) {
+    if (!codes.has(String(laser.propertyCode).toUpperCase()) || laser.noOpenItems) continue;
+    const hit = aging ? agingLookup(aging, laser.unitRef, laser.tenantName) : null;
+    if (hit?.kind === "found" && hit.tenant.asOf >= laserDate(laser, run?.updatedAt)) {
+      accounts.set(laser.unitRef.toUpperCase(), { st: statementFromAging(hit.tenant, laser), source: "aging", asOf: hit.tenant.asOf });
+    } else {
+      accounts.set(laser.unitRef.toUpperCase(), { st: laser, source: "statement", asOf: laserDate(laser, run?.updatedAt) || null });
+    }
+  }
+  // A tenant on the aging report but not on that laser statement.
+  for (const t of aging?.tenants ?? []) {
+    const ref = t.unitRef.toUpperCase();
+    if (!codes.has(String(t.propertyCode).toUpperCase()) || accounts.has(ref)) continue;
+    accounts.set(ref, { st: statementFromAging(t, null), source: "aging", asOf: t.asOf });
+  }
   const candidates: UoCandidate[] = [];
-  for (const st of run?.statements ?? []) {
-    if (!codes.has(String(st.propertyCode).toUpperCase()) || st.noOpenItems) continue;
+  for (const { st, source, asOf } of accounts.values()) {
     const uo = (st.charges ?? []).filter((c) => c.category === "uando" && c.amount > 0 && (!c.dateISO || c.dateISO <= monthEnd));
     const open = Math.round(uo.reduce((s, c) => s + c.amount, 0) * 100) / 100;
     if (open <= 0) continue;
     const dates = uo.map((c) => c.dateISO).filter(Boolean).sort() as string[];
-    candidates.push({ unitRef: st.unitRef, tenant: st.tenantName, property: st.propertyCode, openUo: open, oldest: dates[0] ?? null, lastMonth: lastMonth.has(st.unitRef.toUpperCase()) });
+    candidates.push({ unitRef: st.unitRef, tenant: st.tenantName, property: st.propertyCode, openUo: open, oldest: dates[0] ?? null, lastMonth: lastMonth.has(st.unitRef.toUpperCase()), source, asOf });
   }
+  const sources = [...accounts.values()];
+  const agingUsed = sources.filter((a) => a.source === "aging").map((a) => a.asOf ?? "").sort().pop() || null;
+  const laserUsed = sources.some((a) => a.source === "statement") ? (laserDate(run?.statements?.[0] ?? null, run?.updatedAt) || null) : null;
 
   const properties: UoPropertyView[] = [];
   for (const cfg of UO_PROPERTIES) {
@@ -174,6 +208,7 @@ export async function loadUoMonth(month: string): Promise<UoMonthView> {
     month, record, settings, properties, candidates,
     rollMonth: roll?.reportTo ? String(roll.reportTo).slice(0, 7) : null,
     statementPeriod: run?.period ?? null,
-    statementAsOf: run?.statements?.[0]?.exportedAt ?? run?.statements?.[0]?.importedAt ?? null,
+    statementAsOf: laserUsed,
+    agingAsOf: agingUsed,
   };
 }

@@ -2116,9 +2116,15 @@ workbooks and the "ShopCtrs U&O direct debit" JE sheet. NOTHING IS KEYED:
 - **Exempt** = government, credit unions, nonprofits: suggested by the
   tenant's name (`suggestedExemption`), seeded where a return shows it
   (`SEEDED_EXEMPT` — North Inc 7010-12347), and ticked on the page.
-- **Delinquents**: PROPOSED from the newest laser statement (open U&O dated the
-  month or before) and ticked / confirmed by Greg, Harry or Nancy (Drew,
-  Alison, admin too). A tick saves at once; Confirm says the list is final.
+- **Delinquents**: PROPOSED from the tenants' OPEN ITEMS — every open U&O
+  charge dated the month or before — read per tenant from the **Aging Report
+  (Detailed)** wherever it is at least as new as the laser statement, else the
+  laser statement (`statementOf`'s rule). That report is what the team always
+  circulated for U&O review around the 16th (Skyline's "Delinquency / Aging
+  Report (Detailed)", the same report imported as the Credit Balance Report);
+  run for every tenant with a balance, not just open credits, it covers every
+  tenant who owes. Ticked / confirmed by Greg, Harry or Nancy (Drew, Alison,
+  admin too). A tick saves at once; Confirm says the list is final.
 - **The cycle runs itself** (`lib/uo/cycle.ts`, cron `/api/cron/uo` 14:00 UTC):
   the 16th (next business day) Greg + Harry are emailed the candidates
   (`UO_REVIEW_TO`); the 20th a reminder, Drew copied; once confirmed (or the
