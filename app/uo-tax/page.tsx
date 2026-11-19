@@ -124,6 +124,7 @@ export default function UoTaxPage() {
         <DownloadMenu label="Export" items={[
           { label: "Payment JE (Skyline import)", description: "0110 / 2430 / 9190 per property", href: `/api/uo?month=${month}&export=je` },
           { label: "U&O by tenant (Excel)", description: "Each suite's monthly U&O vs billed", href: `/api/uo?month=${month}&export=charges` },
+          ...(data?.canFile && month.endsWith("-01") ? [{ label: `Email ${month.slice(0, 4)} charges to Tanya`, description: "Each tenant's new UO charge, effective 1/1 (sent on its own in December)", onClick: () => post({ action: "january-reset", year: Number(month.slice(0, 4)) }, "reset") }] : []),
         ]} />
       }
       meta={data && (

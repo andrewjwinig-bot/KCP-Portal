@@ -144,6 +144,10 @@ export async function uoTick(now = new Date()): Promise<Record<string, unknown>>
   // The City's assessed values, read once a week — every year, for good.
   const city = await refreshCityAssessments({ now }).catch(() => null);
   if (city?.checked) done.push(city.error ? `assessments: ${city.error}` : `assessments checked (${city.changes} changed)`);
+  // December: the new year's UO charges to Tanya (januaryReset.ts). Imported
+  // lazily — it imports this file.
+  const reset = await import("./januaryReset").then((m) => m.januaryResetTick(now)).catch(() => null);
+  if (reset) done.push(`assessments/${reset}`);
   const rec = (await getUoMonth(month)) ?? emptyMonth(month);
   const stage = stageOf(rec, today);
   if (stage === "not-open" || stage === "filed") return { month, stage, done };

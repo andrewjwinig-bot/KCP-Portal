@@ -13,6 +13,7 @@
 
 import { NextResponse } from "next/server";
 import { refreshCityAssessments } from "@/lib/uo/assessmentsLoad";
+import { sendJanuaryReset } from "@/lib/uo/januaryReset";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS, type UserId } from "@/lib/users";
 import { etToday } from "@/lib/statements/reminderSchedule";
@@ -119,6 +120,12 @@ export async function POST(req: Request) {
     s.updatedAt = new Date().toISOString(); s.updatedBy = by;
     await saveUoSettings(s);
     return NextResponse.json({ ok: true });
+  }
+  if (action === "january-reset") {
+    const year = Number(body.year) || Number(etToday().slice(0, 4)) + 1;
+    const r = await sendJanuaryReset(year);
+    if (!r.ok) return NextResponse.json({ error: r.error }, { status: 502 });
+    return NextResponse.json({ ok: true, ...r });
   }
   if (action === "refresh-assessments") {
     if (!FILERS.includes(user)) return NextResponse.json({ error: "Only Drew, Alison or admin can do that." }, { status: 403 });

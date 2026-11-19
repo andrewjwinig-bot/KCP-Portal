@@ -2090,6 +2090,21 @@ variant="credit-balance"`. Its title prints "Aging Report (Detailed)".
   Skyline steps sit behind an ⓘ (`InfoPopover`, `app/components/`, shared with
   the CAM recon's year-end exports), never spelled out on the page.
 
+# Tanya — AP and tenant charges, a reading profile
+
+Owner, 11/2026: "tanya needs a user profile … she needs to see the U&O, open
+credits and receivables, rent roll and high level property info"; "and
+invoicing history since she processes the invoices". `tanya` in
+`lib/users.ts` (access group `accounting`): dashboard, Property Info, Rent
+Roll, unit pages, Receivables + Open Credits, Philadelphia U&O, and the
+invoice archives — CC Expense History (`/expenses/history`, which now returns
+the full charge archive to anyone with that page, `/api/statements?charges=1`),
+the Allocated Invoicer's history and both Commissions pages. Her WRITES are
+the receivables work only (`WRITE_SCOPE`, as Tami's): the Allocated Send, a
+commission edit, a rent-roll import or a U&O filing is refused on the server.
+No payroll (salaries). Sign-in: an admin issues her a one-time password on
+Security, or her `SITE_USER_PASSWORDS` entry.
+
 # Philadelphia U&O — /uo-tax (the returns, built by the portal)
 
 Owner, 11/2026: "update our U&O calculations for philly … integrate as much as
@@ -2114,6 +2129,17 @@ workbooks and the "ShopCtrs U&O direct debit" JE sheet. NOTHING IS KEYED:
   certified the year. Where the open data disagrees with a year the budget
   carries, the page says so rather than moving it. "Check now" on the meta
   line (filers) forces a read.
+- **THE JANUARY RESET: TANYA KEYS THE NEW UO CHARGES** (owner: "tanya keys
+  the U&O charges, code is UO"; `lib/uo/januaryReset.ts`, pinned by its
+  test). From December 15th (next business day) the U&O cron emails Tanya
+  (`UO_CHARGES_TO`, trovkin@), Drew copied, every taxable tenant whose January
+  share differs from today's charge by $1+ (and any not billed U&O at all):
+  suite, tenant, today, January, change, with January's U&O by Tenant workbook
+  attached — she updates each recurring UO charge effective 1/1. Once a year
+  (`uo-resets/<year>`); the January month's Export menu re-sends it. A
+  property whose year is not certified yet is named in the email. No Skyline
+  import file: the UO charge's sequence number differs by tenant, and a wrong
+  one adds a second charge instead of replacing the first.
 - **One return per OPA parcel with a U&O account** (`UO_PROPERTIES` in
   `lib/uo/config.ts`): 1100, 1500, 4500 (centre + the REAR PARCEL, no tenants,
   wholly vacant every month), 5600, 7010, 7200, 7300, 8200. City tax account
