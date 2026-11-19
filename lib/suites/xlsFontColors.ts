@@ -13,10 +13,16 @@ import * as XLSX from "xlsx";
 const BOF = 0x0809, FONT = 0x0031, XF = 0x00e0;
 const LABELSST = 0x00fd, LABEL = 0x0204, RSTRING = 0x00d6;
 
+// Under Node's CommonJS interop `import * as XLSX` carries CFB only on
+// `default` — reading it off the namespace alone threw inside the try and
+// every colour came back empty (every Skyline address untagged).
+const CFB: typeof XLSX.CFB = (XLSX as unknown as { CFB?: typeof XLSX.CFB }).CFB
+  ?? (XLSX as unknown as { default?: { CFB?: typeof XLSX.CFB } }).default?.CFB as typeof XLSX.CFB;
+
 function workbookStream(buf: Uint8Array): Uint8Array | null {
   try {
-    const cfb = XLSX.CFB.read(buf, { type: "buffer" });
-    const e = XLSX.CFB.find(cfb, "Workbook") ?? XLSX.CFB.find(cfb, "Book");
+    const cfb = CFB.read(buf, { type: "buffer" });
+    const e = CFB.find(cfb, "Workbook") ?? CFB.find(cfb, "Book");
     const c = e?.content as unknown;
     if (!c) return null;
     return c instanceof Uint8Array ? c : Uint8Array.from(c as number[]);
