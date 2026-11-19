@@ -1,4 +1,5 @@
 "use client";
+import { balanceSummary, changeOf as changeOfRows } from "@/lib/financials/bank-balances/summary";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
 import { ChevronDown, ChevronRight, ChevronUp, Upload } from "lucide-react";
@@ -72,6 +73,7 @@ const monthsSince = (a: { year: number; month: number }) => { const d = new Date
 const money2 = (n: number | null) => (n == null ? "—" : n.toLocaleString("en-US", { style: "currency", currency: "USD" }));
 const dateLabel = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—");
 const sum = (rs: Row[], f: (r: Row) => number | null) => rs.reduce((s, r) => s + (f(r) ?? 0), 0);
+const changeOf = (rs: Row[]) => changeOfRows(rs);
 const shortDate = (iso: string | null) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—");
 
 /** Week over week: green up, red down, an arrow so it reads in black and white too. */
@@ -112,14 +114,6 @@ function reserveRows(r: Row): { label: string; value: string; color?: string }[]
   return out;
 }
 
-function changeOf(rs: Row[]) {
-  const c = rs.filter((r) => r.change != null);
-  if (!c.length) return { change: null, prior: null, now: null, priorAsOf: null };
-  return {
-    change: sum(c, (r) => r.change), prior: sum(c, (r) => r.priorBalance), now: sum(c, (r) => r.balance),
-    priorAsOf: c.map((r) => r.priorAsOf).filter(Boolean).sort()[0] ?? null,
-  };
-}
 
 // The Rent Roll's table type (owner: "more like the rent roll … font size and
 // styles"): 13px cells, the name at 600, account numbers as 12px <code> the way
@@ -249,16 +243,9 @@ export default function BankBalancesView() {
 
   const rows = data?.rows ?? [];
   const groups = useMemo(() => (data?.groups ?? []).map((g) => ({ g, rows: rows.filter((r) => r.group === g) })).filter((x) => x.rows.length), [data]); // eslint-disable-line react-hooks/exhaustive-deps
-  const operating = rows.filter((r) => !r.restricted);
-  const totalCash = sum(rows, (r) => r.balance);
-  const restricted = sum(rows.filter((r) => r.restricted), (r) => r.balance);
-  const reserves = sum(operating, (r) => (r.balance == null ? 0 : r.reserves));
-  const net = sum(operating, (r) => r.netAvailable);
-  const handsOff = sum(rows.filter((r) => r.handsOff), (r) => r.balance);
-  const wow = changeOf(rows);
-  const debt = sum(rows, (r) => r.debt) + (data?.unplacedDebt ?? 0);
-  const debtService = sum(rows, (r) => r.debtService) + (data?.unplacedDebtService ?? 0);
-  const asOf = (data?.byBank ?? []).map((b) => b.asOf).filter(Boolean).sort().pop() ?? null;
+  // The tiles' totals — the same function Alison's dashboard card reads.
+  const { totalCash, deposits: restricted, reserves, net, handsOff, wow, debt, debtService, asOf } =
+    balanceSummary({ rows, groups: data?.groups ?? [], byBank: data?.byBank ?? [], unplacedDebt: data?.unplacedDebt, unplacedDebtService: data?.unplacedDebtService, tenantCredits: data?.tenantCredits });
   const missing = rows.filter((r) => r.balance == null);
   const toggle = (set: Set<string>, k: string, f: (s: Set<string>) => void) => { const n = new Set(set); n.has(k) ? n.delete(k) : n.add(k); f(n); };
 
