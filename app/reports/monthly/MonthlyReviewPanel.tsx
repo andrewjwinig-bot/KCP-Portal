@@ -173,7 +173,21 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
 
       {report && p && (
         <>
-          {/* ── Hero callouts ── */}
+          {/* On the DASHBOARD the review is trimmed to what the cards above it
+               do not already say (owner: "trim down the monthly summary at the
+               bottom since its repeating some of the same info from up top"):
+               occupancy is the Portfolio Occupancy card's, so one row — NOI
+               against budget and service requests — then By Group. The full
+               view / print keeps everything. */}
+          {embedded ? (
+            <div className="pills" style={{ justifyContent: "flex-start" }}>
+              <StatPill label="NOI · YTD" value={moneyK(p.noiActual)} accent={BRAND}
+                sub={noiVar == null ? undefined : `${noiVar >= 0 ? "+" : "−"}${money(Math.abs(noiVar))} vs budget${p.noiBudget ? ` (${((noiVar / Math.abs(p.noiBudget)) * 100).toFixed(1)}%)` : ""}`} />
+              <StatPill label="Open service reqs" value={p.openRequests} accent={p.openRequests > 0 ? AMBER : GREEN}
+                sub={`${p.newRequestsThisMonth} new · ${p.completedThisMonth} completed this month`} />
+            </div>
+          ) : (
+          <>
           <div className="pills" style={{ justifyContent: "flex-start" }}>
             <StatPill label={`Occupancy${p.occPctPrior != null ? " · vs last mo" : ""}`} value={<>{p.occPct.toFixed(1)}%<Delta now={p.occPct} prior={p.occPctPrior} /></>} accent={p.occPct >= 90 ? GREEN : AMBER} />
             <StatPill label="Occupied SF" value={sf(Math.round(p.occupiedSqft))} accent={BRAND} />
@@ -218,6 +232,9 @@ export default function MonthlyReviewPanel({ embedded = false }: { embedded?: bo
               )}
             </div>
           </div>
+
+          </>
+          )}
 
           {/* ── By group ── */}
           <div style={{ fontSize: "var(--fs-14)", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text)", marginTop: 4 }}>By Group</div>

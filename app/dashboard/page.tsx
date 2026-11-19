@@ -34,6 +34,7 @@ import OrientationCard from "./OrientationCard";
 import PendingReservationsCard from "./PendingReservationsCard";
 import PortfolioOccupancyPanel from "./PortfolioOccupancyPanel";
 import RequestsSummaryCard from "./RequestsSummaryCard";
+import BankBalancesCard from "./BankBalancesCard";
 import MonthlyReviewPanel from "../reports/monthly/MonthlyReviewPanel";
 import DebtSummaryCard from "./DebtSummaryCard";
 import MgmtFeesChartCard from "./MgmtFeesChartCard";
@@ -765,6 +766,7 @@ function DashboardInner() {
         )}
 
         {/* ── Debt Summary (Alison) — full width, sits with the occupancy panel ── */}
+        {isAlison && <BankBalancesCard order={-2} />}
         {isAlison && <DebtSummaryCard order={-1} />}
 
         {/* ── Management Fees chart (Alison) — the report is reference, so its chart lives here ── */}

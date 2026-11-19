@@ -5,7 +5,7 @@
 
 import { ownGlFor } from "@/lib/financials/operating-statements/fundCombine";
 import "server-only";
-import { getJSON, listJSON } from "@/lib/storage";
+import { listJSON } from "@/lib/storage";
 import type { RentRollData } from "@/lib/rentroll/parseRentRollExcel";
 import { listRequests } from "@/lib/maintenance/requestsStorage";
 import { monthlyStatements } from "@/lib/financials/operating-statements/mappingStore";
@@ -17,16 +17,18 @@ import { computeStatement } from "@/lib/financials/operating-statements/compute"
 import { resolvePropertyBudget, makeBudgetLookup } from "@/lib/financials/operating-statements/budgetCrosswalk";
 import { listBudgets } from "@/lib/financials/budgets/storage";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
-import { composeCurrentRoll } from "@/lib/rentroll/current";
+import { composeCurrentRoll, rollAsOf } from "@/lib/rentroll/current";
+import { BUSINESS_PARK_CODES, LIK_CODES, SHOPPING_CENTER_CODES, occupancyOf } from "@/lib/properties/portfolioGroups";
 import { confirmedMoveouts, sameTenant } from "@/lib/leasing/confirmedMoveouts";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const HISTORY_PREFIX = "rentroll-history";
 
 // Company groupings for the report.
-const BUSINESS_PARKS = new Set(["3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
-const SHOPPING_CENTERS = new Set(["1100", "2300", "4500", "7010", "9510", "7200", "7300", "1500", "9200", "5600", "8200", "9000"]);
-const LIK = new Set(["2000", "2010"]);
+// One list with the dashboard's Portfolio Occupancy card (portfolioGroups.ts).
+const BUSINESS_PARKS = BUSINESS_PARK_CODES;
+const SHOPPING_CENTERS = SHOPPING_CENTER_CODES;
+const LIK = LIK_CODES;
 export const REPORT_GROUP_ORDER = ["bp", "sc", "lik", "other"] as const;
 export type ReportGroupKey = (typeof REPORT_GROUP_ORDER)[number];
 export const REPORT_GROUP_LABELS: Record<ReportGroupKey, string> = {
@@ -122,14 +124,17 @@ export async function buildMonthlyReport(year: number, month: number, now: Date)
   const monthKey = `${year}-${String(month).padStart(2, "0")}`;
 
   // Rent roll for the month (fall back to current if that month isn't stored).
-  const history = ((await listJSON(HISTORY_PREFIX)) as RentRollData[]) ?? [];
+  // Every property AS OF the month — each from its newest roll at or before
+  // it (`rollAsOf`, the one-source rule) — never the month's raw upload, which
+  // holds only what was imported for it (Nancy's office-only file).
+  const history = ((await listJSON(HISTORY_PREFIX, { fresh: true })) as RentRollData[]) ?? [];
   const byKey = new Map(history.map((h) => [monthKeyOf(h), h]));
-  const roll = byKey.get(monthKey) ?? (composeCurrentRoll(history) ?? ((await getJSON("rentroll", "current")) as RentRollData | null));
+  const roll = history.length ? rollAsOf(history, monthKey) : null;
   const rentRollMonth = roll ? monthKeyOf(roll) : null;
 
-  // Prior month (for occupancy MoM + leasing diff).
+  // Prior month (for occupancy MoM + leasing diff), by the same rule.
   const priorKeys = [...byKey.keys()].filter((k) => k < (rentRollMonth ?? monthKey)).sort();
-  const prior = priorKeys.length ? byKey.get(priorKeys[priorKeys.length - 1]) ?? null : null;
+  const prior = priorKeys.length ? rollAsOf(history, priorKeys[priorKeys.length - 1]) : null;
 
   // ── Occupancy + SF by group (and portfolio) ──
   const g = (k: ReportGroupKey): GroupMetrics => ({
@@ -141,12 +146,15 @@ export async function buildMonthlyReport(year: number, month: number, now: Date)
   if (roll) {
     for (const prop of roll.properties ?? []) {
       const gk = groupOf(prop.propertyCode);
+      // The rent roll's rule (`occupancyOf`): a common room is space in use —
+      // occupied SF, though not a unit to lease.
+      const o = occupancyOf(prop.units ?? []);
+      groups[gk].totalSqft += o.total; groups[gk].occupiedSqft += o.occupied; groups[gk].vacantSqft += o.vacant;
+      pTotal += o.total; pOcc += o.occupied; pVac += o.vacant;
       for (const u of prop.units ?? []) {
         if (u.amenity) continue;
-        const sf = u.sqft ?? 0;
-        groups[gk].totalSqft += sf; groups[gk].units += 1; pTotal += sf; pUnits += 1;
-        if (u.isVacant) { groups[gk].vacantSqft += sf; groups[gk].vacantUnits += 1; pVac += sf; pVacUnits += 1; }
-        else { groups[gk].occupiedSqft += sf; pOcc += sf; }
+        groups[gk].units += 1; pUnits += 1;
+        if (u.isVacant) { groups[gk].vacantUnits += 1; pVacUnits += 1; }
       }
     }
   }
@@ -155,7 +163,7 @@ export async function buildMonthlyReport(year: number, month: number, now: Date)
   let occPctPrior: number | null = null;
   if (prior) {
     let t = 0, o = 0;
-    for (const prop of prior.properties ?? []) for (const u of prop.units ?? []) { if (u.amenity) continue; const sf = u.sqft ?? 0; t += sf; if (!u.isVacant) o += sf; }
+    for (const prop of prior.properties ?? []) { const x = occupancyOf(prop.units ?? []); t += x.total; o += x.occupied; }
     occPctPrior = t > 0 ? (o / t) * 100 : null;
   }
 

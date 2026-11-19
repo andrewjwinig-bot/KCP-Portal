@@ -1,4 +1,5 @@
 "use client";
+import { BUSINESS_PARK_CODES, JV_III_CODES, NI_LLC_CODES, OFFICE_WORKS_CODES, RESIDENTIAL_CODES, SHOPPING_CENTER_CODES } from "@/lib/properties/portfolioGroups";
 import { ChevronRight } from "lucide-react";
 
 // Full-width portfolio occupancy panel: a bold headline rate, a thick
@@ -14,12 +15,11 @@ import { PROPERTY_DEFS } from "../../lib/properties/data";
 
 export type OccupancyScope = "category" | "office" | "jv3" | "ni" | "retail" | "residential";
 
-const OFFICE_CODES = new Set(["3610", "3620", "3640", "4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
-const JV_III_CODES = new Set(["3610", "3620", "3640"]);
-const NI_LLC_CODES = new Set(["4050", "4060", "4070", "4080", "40A0", "40B0", "40C0"]);
-const RETAIL_CODES = new Set(["1100", "1500", "2300", "4500", "5600", "7010", "7200", "7300", "8200", "9200", "9510"]);
-const RESIDENTIAL_CODES = new Set(["9800", "9820", "9840", "9860"]);
-const OW_CODES = new Set(["4900"]);
+// The groups are the SAME lists the Monthly Review reads (portfolioGroups.ts),
+// so the two never disagree about what is in the portfolio.
+const OFFICE_CODES = BUSINESS_PARK_CODES;
+const RETAIL_CODES = SHOPPING_CENTER_CODES;
+const OW_CODES = OFFICE_WORKS_CODES;
 
 const SCOPE_LABEL: Record<OccupancyScope, string> = {
   category: "All",
