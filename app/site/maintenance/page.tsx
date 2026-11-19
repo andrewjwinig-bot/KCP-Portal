@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
 import MaintenanceForm from "../_contact/MaintenanceForm";
+import { PAGE_DESCRIPTIONS, pageMeta } from "@/lib/site/seo";
 
 // Maintenance — the vendor's page and form, now feeding the portal's own
 // service-request queue (see MaintenanceForm for what changed and why).
 
-export const metadata: Metadata = {
-  title: { absolute: "Service Requests | Korman Commercial Properties" },
-  description: "Get in touch with Korman Commercial Properties for inquiries about our maintenance services.",
-};
+export const metadata: Metadata = pageMeta({ absoluteTitle: "Tenant Service Requests | Korman Commercial Properties", description: PAGE_DESCRIPTIONS.maintenance, path: "/maintenance" });
 
 export default function MaintenancePage() {
   return (

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./site.css";
+import { DEFAULT_SHARE_IMAGE, PAGE_DESCRIPTIONS, SITE_NAME, SITE_ORIGIN } from "@/lib/site/seo";
 import SiteHeader from "./_components/SiteHeader";
 import SiteFooter from "./_components/SiteFooter";
 import { SiteLoadingProvider } from "./_components/SiteLoading";
@@ -10,11 +11,17 @@ import { SiteLoadingProvider } from "./_components/SiteLoading";
 // the portal's globals.css skips every element inside it, and site.css (the
 // vendor build's own Tailwind output) styles it. Light only, as the original.
 
+// Search: every page names its canonical on kormancommercial.com, carries a
+// written description and a share card (lib/site/seo.ts).
 export const metadata: Metadata = {
-  title: { default: "Korman Commercial Properties", template: "%s | Korman Commercial Properties" },
-  description:
-    "Developers and managers of office, retail, industrial and rental housing. Neshaminy Interplex business center and The Office Works.",
+  metadataBase: new URL(SITE_ORIGIN),
+  title: { default: SITE_NAME, template: `%s | ${SITE_NAME}` },
+  description: PAGE_DESCRIPTIONS.home,
   icons: { icon: "/site/favicon.ico" },
+  robots: { index: true, follow: true, googleBot: { index: true, follow: true, "max-image-preview": "large" } },
+  openGraph: { type: "website", siteName: SITE_NAME, locale: "en_US", images: [{ url: DEFAULT_SHARE_IMAGE }] },
+  twitter: { card: "summary_large_image" },
+  formatDetection: { telephone: false },
 };
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {

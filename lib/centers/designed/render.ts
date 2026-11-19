@@ -1,3 +1,4 @@
+import { centerCanonical, designedHead, organizationLd, placeLd, withDesignedHead } from "@/lib/site/seo";
 import "server-only";
 import { readFile } from "fs/promises";
 import path from "path";
@@ -31,7 +32,7 @@ type Designed = {
   plan: PlanMeta;
 };
 
-const DESIGNED: Record<string, Designed> = {
+export const DESIGNED: Record<string, Designed> = {
   "lafayette-hill": { suites: LAFAYETTE_HILL_SUITES, fallbackGla: 18487,
     plan: { src: "/centers/lafayette-hill/assets/siteplan-tight.webp", viewBox: "0 600 3300 1670", width: 2400, height: 1215 } },
   brookwood: { suites: BROOKWOOD_SUITES, fallbackGla: 61572,
@@ -138,7 +139,20 @@ export async function renderDesignedCenter(slug: string): Promise<string | null>
   // JSON is valid JS; escaping "<" keeps a tenant name from closing the script.
   const json = JSON.stringify(suites).replace(/</g, "\\u003c");
   const propJson = JSON.stringify(property ?? {}).replace(/</g, "\\u003c");
-  return template
+  // Search: description, canonical (the centre's own domain where it has one),
+  // share card and the ShoppingCenter + company JSON-LD (lib/site/seo.ts).
+  const canonical = centerCanonical(slug);
+  const description = centerDescription(profile, glaNow, available.length);
+  const head = designedHead({
+    title: `${profile.name} — Retail Space for Lease in ${profile.city}, ${profile.state}`,
+    description, canonical,
+    image: `/centers/${designed.assetDir ?? slug}/assets/hero.jpg`,
+    jsonLd: [
+      placeLd({ name: profile.name, url: canonical, description, type: "ShoppingCenter", street: profile.streetAddress, city: profile.city, region: profile.state, zip: profile.zip ?? null, lat: profile.geo?.lat ?? null, lng: profile.geo?.lng ?? null, email: profile.contact?.email ?? null, phone: profile.contact?.phone ?? null }),
+      organizationLd(),
+    ],
+  });
+  return withDesignedHead(template, head, `${profile.name} — Retail Space for Lease in ${profile.city}, ${profile.state}`)
     .replace("/*@SUITES@*/[]", () => json)
     // The header logo goes back to the company website (/site works on
     // kormancommercial.com and on the portal host alike).
@@ -149,6 +163,16 @@ export async function renderDesignedCenter(slug: string): Promise<string | null>
     .replaceAll("{{GLA}}", fmt(glaNow))
     .replaceAll("{{AVAIL_SF}}", fmt(availSf))
     .replaceAll("{{AVAIL_DETAIL}}", availDetail);
+}
+
+/** A centre's search description: what, where, size, anchor, and space now open. */
+function centerDescription(p: { name: string; addressLine: string; anchorName?: string; keyTenants?: string }, gla: number, open: number): string {
+  const tenants = (p.keyTenants ?? "").split(",").map((t) => t.trim()).filter(Boolean).slice(0, 4).join(", ");
+  const parts = [
+    `${p.name}, ${p.addressLine}: ${fmt(gla)} SF shopping center`,
+    p.anchorName ? `anchored by ${p.anchorName}` : null,
+  ].filter(Boolean).join(" ");
+  return `${parts}.${tenants ? ` Tenants include ${tenants}.` : ""} ${open ? `${open} ${open === 1 ? "space" : "spaces"} for lease now.` : "Leasing inquiries welcome."}`;
 }
 
 export type ProfileRequest = {

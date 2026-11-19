@@ -1046,6 +1046,46 @@ staff chrome), pinned by `middleware.test.ts`.
   portal's 404, whose metadata says "KCP Portal · internal portal". If the site grows, split it into its own
   Vercel project reading a public availability feed.
 
+# Search visibility — the website's SEO (lib/site/seo.ts)
+
+Owner, 11/2026: "do an SEO audit and improve SEO and traffic drivers for all
+pages … this is our site so it should have good visibility". The audit found
+no robots.txt or sitemap, no canonical anywhere (every page answers at
+kormancommercial.com/x, /site/x and portal.kormancommercial.com/site/x; a
+centre at its own domain AND /centers/<slug>), no share cards, no structured
+data, no h1 on the home page, no description on the designed pages and
+placeholder ones on the categories. Now:
+
+- **One canonical per page** (`canonicalUrl`, `centerCanonical`): the website
+  at kormancommercial.com's ROOT (`/site` stripped); Brookwood, Parkwood and
+  Gray's Ferry at their own domains; Lafayette Hill and Parkwood Commons at
+  kormancommercial.com/centers/<slug>; The Office Works at theofficeworks.com;
+  the Interplex at kormancommercial.com/office/neshaminy-interplex.
+- **Every Next page** takes `pageMeta` (title, written description from
+  `PAGE_DESCRIPTIONS` / `CATEGORY_DESCRIPTIONS` / `propertyDescription`,
+  canonical, Open Graph + Twitter card); the site layout sets `metadataBase`,
+  index / follow and the default share image. The ROOT layout says noindex, so
+  portal pages are never indexed.
+- **Designed pages** (centres, The Office Works, the Interplex — served whole
+  as HTML) get `designedHead` + `withDesignedHead` at render: a search title
+  ("Brookwood Shopping Center — Retail Space for Lease in Bensalem, PA"), the
+  description (with the live count of spaces open), canonical, share card and
+  JSON-LD; a page with no <html> gets one with lang="en".
+- **Structured data**: Organization + RealEstateAgent and WebSite on the home
+  page; ShoppingCenter / Place with address, geo and leasing contact on every
+  property; BreadcrumbList on property pages and the Interplex.
+- **robots.txt and sitemap.xml are by HOST** (`app/robots.txt`,
+  `app/sitemap.xml`, `lib/site/sitemap.ts`): a website domain allows all but
+  /api/ and names its sitemap; the portal host disallows everything.
+  kormancommercial.com's sitemap lists every page at its canonical (never a
+  page that redirects); a centre's / The Office Works' domain lists its one
+  page. Both paths are public in the middleware matcher and pass on website
+  hosts. Pinned by `seo.test.ts`.
+- **NEXT (owner's side)**: verify kormancommercial.com, theofficeworks.com and
+  the three centre domains in Google Search Console and Bing Webmaster Tools
+  and submit each sitemap; claim / update the Google Business Profiles (HQ,
+  each centre, The Office Works) with the same names, addresses and these URLs.
+
 # The Office Works website — /office-works
 
 **The Office Works (4900) has its own designed site** (Claude Design handoff,
@@ -1308,6 +1348,15 @@ handoff's screenshot crop.
   SF across 4 properties") and Clear filters; the filters ride in the URL so a
   filtered view can be sent to a prospect. Styled by scoped `.as-*` rules at
   the end of site.css (no Tailwind compiler here).
+- **EVERY LISTING SHOWS THE SITE PLAN, THEN A PHOTO** (owner: "none of the
+  site plans are pulling … if there is not site plan available can you also
+  show a property photo"; `withPropertyImages` in `liveListings.ts`): after a
+  space's own photo or floor plan, the property's site plan (a designed
+  centre's page plan, else the CMS site plan) and a photo (the centre's hero,
+  else the property's main image). An Interplex suite shows its building's
+  photo and the campus map; an Office Works office the floor plan and an
+  office photo. A PDF floor plan is never handed to an <img> — that was why
+  the centre listings showed nothing.
 - **THE WEBSITE'S CENTRE LINKS GO TO THE DESIGNED PAGES** (owner: "the new
   pages i built arent loading"): `DESIGNED_PAGES` / `propertyPath` in
   `lib/site/paths.ts` map the website's slug (`brookwood-shopping-center`) to

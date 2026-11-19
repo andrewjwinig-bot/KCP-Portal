@@ -1,6 +1,6 @@
 import "server-only";
-import { SITE_LISTINGS, type SiteListing } from "./content";
-import { liveDesignedSuites } from "@/lib/centers/designed/render";
+import { SITE_LISTINGS, type SiteImage, type SiteListing } from "./content";
+import { DESIGNED, liveDesignedSuites } from "@/lib/centers/designed/render";
 import { FLYERS, spaceLabel } from "@/lib/centers/designed/flyer";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { SITE_PROPERTIES } from "./content";
@@ -48,10 +48,41 @@ async function centreListings(siteSlug: string, designedSlug: string): Promise<S
         condition: s.condition ?? was?.condition ?? null,
         available: s.availableWhen ?? "Now",
         details: details.length ? details : was?.details ?? null,
-        images: s.floorplan ? [{ url: s.floorplan, alt: `Floor plan of ${plain(spaceLabel(s, street))}` }] : was?.images ?? null,
+        // A PDF floor plan cannot be drawn as an image — the site plan and a
+        // photo stand in for it (withPropertyImages).
+        images: s.floorplan && !s.floorplanPdf ? [{ url: s.floorplan, alt: `Floor plan of ${plain(spaceLabel(s, street))}` }] : was?.images ?? null,
         requestMoreInfoEmail: live.profile.contact.email,
       } satisfies SiteListing;
     });
+}
+
+/** Every listing shows the property's SITE PLAN, and a PHOTO of the property
+ *  where there is no site plan (owner: "none of the site plans are pulling …
+ *  if there is not site plan available can you also show a property photo"),
+ *  after any photo or floor plan of the space itself. A designed centre's
+ *  plan and hero are its page's own. */
+function propertyImages(siteSlug: string): SiteImage[] {
+  const p = SITE_PROPERTIES.find((x) => x.slug === siteSlug);
+  const name = p?.name ?? "Property";
+  const d = SITE_TO_DESIGNED[siteSlug] ? DESIGNED[SITE_TO_DESIGNED[siteSlug]] : null;
+  const plan = d?.plan.src ?? p?.sitePlan?.url ?? null;
+  const dir = d ? (d.assetDir ?? SITE_TO_DESIGNED[siteSlug]) : null;
+  const photo = dir ? `/centers/${dir}/assets/hero.jpg` : p?.mainImage ?? p?.gallery?.[0]?.url ?? null;
+  return [
+    ...(plan ? [{ url: plan, alt: `Site plan of ${name}` }] : []),
+    ...(photo ? [{ url: photo, alt: p?.mainImageAlt || name }] : []),
+  ];
+}
+
+export function withPropertyImages(listings: SiteListing[]): SiteListing[] {
+  const cache = new Map<string, SiteImage[]>();
+  return listings.map((l) => {
+    if (!cache.has(l.property)) cache.set(l.property, propertyImages(l.property));
+    const own = (l.images ?? []).filter((i) => i?.url);
+    const extra = cache.get(l.property)!.filter((i) => !own.some((o) => o.url === i.url));
+    const images = [...own, ...extra];
+    return { ...l, images: images.length ? images : null };
+  });
 }
 
 /** The non-centre properties' listings off the CURRENT rent roll
@@ -88,12 +119,12 @@ export async function liveSiteListings(): Promise<SiteListing[]> {
   }
   // A property neither the designed pages nor the roll covers keeps its CMS copy.
   for (const l of SITE_LISTINGS) if (!bySite.has(l.property) && !isRollProperty(l.property)) out.push(l);
-  return out;
+  return withPropertyImages(out);
 }
 
 export async function liveListingsFor(slug: string): Promise<SiteListing[]> {
   const d = SITE_TO_DESIGNED[slug];
-  if (d) { const l = await centreListings(slug, d); if (l) return l; }
-  if (isRollProperty(slug)) return (await rollListings())?.get(slug) ?? [];
-  return SITE_LISTINGS.filter((l) => l.property === slug);
+  if (d) { const l = await centreListings(slug, d); if (l) return withPropertyImages(l); }
+  if (isRollProperty(slug)) return withPropertyImages((await rollListings())?.get(slug) ?? []);
+  return withPropertyImages(SITE_LISTINGS.filter((l) => l.property === slug));
 }

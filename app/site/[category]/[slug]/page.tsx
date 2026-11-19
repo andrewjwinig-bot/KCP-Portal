@@ -3,6 +3,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { SITE_CATEGORIES, SITE_PROPERTIES, propertyBySlug, type SiteProperty } from "@/lib/site/content";
 import { liveListingsFor } from "@/lib/site/liveListings";
 import { DESIGNED_PAGES, sitePath } from "@/lib/site/paths";
+import { breadcrumbLd, canonicalUrl, ldJson, pageMeta, placeLd } from "@/lib/site/seo";
 import { ChevronLeft, ExternalLink } from "../../_components/icons";
 import Gallery from "../../_property/Gallery";
 import ListingsTable from "../../_property/ListingsTable";
@@ -23,12 +24,18 @@ export function generateStaticParams() {
 export function generateMetadata({ params }: { params: { category: string; slug: string } }): Metadata {
   const p = propertyBySlug(params.category, params.slug);
   if (!p) return {};
-  const description = `View details and information about ${p.name} in ${p.city}, ${p.state}.`;
-  return {
-    title: p.name,
-    description,
-    openGraph: { title: p.name, description, images: p.mainImage ? [p.mainImage] : undefined },
-  };
+  return pageMeta({ title: `${p.name} — ${placeKind(p)} in ${p.city}, ${p.state}`, description: propertyDescription(p), path: `/${p.category}/${p.slug}`, image: p.mainImage });
+}
+
+const placeKind = (p: SiteProperty) =>
+  p.category === "retail" ? "Retail Space" : p.category === "office" ? "Office Space" : p.category === "residential" ? "Residential Rental" : "Land";
+
+/** A written description a searcher reads: what it is, where, and what it offers. */
+function propertyDescription(p: SiteProperty): string {
+  const where = [p.address, p.city && p.state ? `${p.city}, ${p.state}` : p.city].filter(Boolean).join(", ");
+  const facts = [p.gla ? `${p.gla} SF` : null, p.acres ? `${p.acres} acres` : null, p.keyTenants ? `tenants include ${p.keyTenants}` : null].filter(Boolean).join(" · ");
+  const lead = p.category === "residential" ? `${p.name}: rental homes at ${where}` : p.category === "land" ? `${p.name}: land at ${where}` : `${p.name}: ${placeKind(p).toLowerCase()} for lease at ${where}`;
+  return `${lead}${facts ? ` — ${facts}` : ""}. Owned and managed by Korman Commercial Properties.`.slice(0, 300);
 }
 
 /** The amenities the original listed on every office property. */
@@ -94,9 +101,19 @@ export default async function PropertyPage({ params }: { params: { category: str
     rentalRate: l.rentalRate === "$0.00/SF/YR" || l.rentalRate === "$0/SF/YR" ? "Upon Request" : l.rentalRate,
   }));
 
+  const ld = [
+    placeLd({
+      name: p.name, url: canonicalUrl(`/${p.category}/${p.slug}`), description: propertyDescription(p), image: p.mainImage,
+      street: p.address, city: p.city, region: p.state, lat: p.coordinates?.lat ?? null, lng: p.coordinates?.lng ?? null,
+      type: p.category === "retail" ? "ShoppingCenter" : "Place", email: p.leasingInquiryEmail, phone: p.leasingInquiryPhone,
+    }),
+    breadcrumbLd([{ name: "Home", url: "/" }, { name: category.title, url: `/${p.category}` }, { name: p.name, url: `/${p.category}/${p.slug}` }]),
+  ];
+
   return (
     <div className="office-layout">
       <main className="min-h-screen">
+        {ld.map((d, i) => <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(d) }} />)}
         <div className="w-full bg-slate-800 text-white py-3">
           <div className="container mx-auto px-4">
             <a href={sitePath(`/${p.category}`)} className="flex items-center group max-w-fit">

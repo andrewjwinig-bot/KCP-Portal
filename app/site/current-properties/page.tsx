@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { sitePath } from "@/lib/site/paths";
+import { PAGE_DESCRIPTIONS, pageMeta } from "@/lib/site/seo";
 import { SITE_CATEGORIES, type SiteCategory } from "@/lib/site/content";
 import { ArrowRight } from "../_components/icons";
 
-export const metadata: Metadata = { title: "Current Properties" };
+export const metadata: Metadata = pageMeta({ title: "Our Properties — Office, Retail, Residential & Land", description: PAGE_DESCRIPTIONS.currentProperties, path: "/current-properties" });
 
 // Current Properties: one large photo tile per category. The photos are the
 // category documents' images from the old CMS.

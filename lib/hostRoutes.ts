@@ -53,7 +53,7 @@ const WEBSITE_PASSTHROUGH = [
   /^\/api\/reservations\/(submit|tenants)$/,
   /^\/api\/tenants\/(lookup|companies)$/,
   /^\/(site|office-works|centers)(\/|$)/,
-  /^\/(robots\.txt|korman-logo\.svg)$/,
+  /^\/(robots\.txt|sitemap\.xml|korman-logo\.svg)$/,
 ];
 
 export type WebsiteRoute = { kind: "pass" } | { kind: "rewrite"; path: string } | { kind: "notFound" };
