@@ -93,6 +93,14 @@ async function load(who: Who): Promise<ActionItem[]> {
       href: "/tenant-statements/notices", nav: "/tenant-statements/notices", count: j.counts.toSend, tone: "warning" } as ActionItem];
   }));
 
+  // Philadelphia U&O: Greg / Harry / Nancy confirm the delinquents from the
+  // 16th; the returns go to Drew once they do.
+  if (has("uo-tax") && is("greg", "harry", "nancy")) jobs.push(getJson("/api/uo?status=1").then((j) => {
+    if (!j?.ok || j.stage !== "review" || j.confirmedAt) return [];
+    return [{ id: `uo-${j.month}`, title: `Confirm ${monthName(j.month)}'s U&O Delinquents`, sub: `Needed by ${fmtDay(j.fileBy)} so the returns can be filed`,
+      href: `/uo-tax?month=${j.month}`, nav: "/uo-tax", count: 1, tone: "warning" } as ActionItem];
+  }));
+
   // Credit-card charges still to code — the cardholder's own, or the whole
   // statement for the person who sends it (Harry).
   jobs.push(getJson("/api/expenses/working").then((j) => {
