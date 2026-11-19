@@ -2808,6 +2808,27 @@ time — and the team does not have time to open the GL over $80.
   it only feeds auto-explain's written notes, where a missed or doubled bill is
   worth mentioning whatever the amount.
 
+# NNN Quote — Harry quotes a vacant suite's all-in rent
+
+`/financials/budgets/nnn-quote` (sidebar Directory → NNN Quote; Harry, Drew,
+Alison, admin — `nnn-quote` nav key; owner, 11/2026: "select the suite, input
+the base rent … populate est CAM, INS, RET … find the 'all in' number"; "right
+now he comes to me and asks me what NNNs would be for a specific space").
+Pick a centre (the viewer's `budgetScope`) and a suite (vacant first), type the
+base rent $/SF/yr; CAM, insurance and taxes are the BUDGET YEAR's recoverable
+pools × the suite's SF ÷ the GLA — the budget draft's own "NNN / SF" tile
+(`reimbursementEstimate.pools`, the draft's GLA) — plus the CAM admin fee most
+of the centre's leases carry (`typicalAdminFee` over `RETAIL_CONFIG_SEED`,
+editable). A new lease's own terms (cap, exclusion, stipulated share) are not
+applied. Copy Quote puts the lines and the all-in on the clipboard. **NNN Over
+the Years** (owner: "so he can talk to them about the trends … some
+properties theyve come down"): each reconciled year's actual pools
+(`loadRetailRecon`) and the frozen years before it (`RETAIL_EXPENSE_HISTORY`),
+then the budget year — every year per SF of TODAY'S GLA, so the change is the
+cost. Only centres with CAM recons carry history (1100, 2300, 4500, 7010,
+9510); 9000 is gross and says so. Math pure in `lib/leasing/nnnQuote.ts`
+(pinned by its test), data in `nnnQuoteLoad.ts` (a centre's draft kept 15 min).
+
 # Budget season — the Expenses step and leasing assumptions
 
 - **Three expense lines are KEYED, not grown** (`lib/financials/budgets/expenseInputs.ts`,

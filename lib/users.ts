@@ -117,6 +117,7 @@ export const USERS: Record<UserId, UserDef> = {
       "bank-transfers",
       "bank-rec-tracker",
       "financials-budgets",
+      "nnn-quote",
       // No "budget-inputs" in Drew's sidebar: he keys taxes and insurance on
       // the master budget page (Step 3). The page stays reachable; it is
       // Greg's view.
@@ -212,7 +213,7 @@ export const USERS: Record<UserId, UserDef> = {
     // "financials-budgets": Harry owns the shopping centres' leasing
     // assumptions, which live on the master budget page — without the grant
     // he could not open the page, or save a decision, on work assigned to him.
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets", "bank-balances", "open-credits"]),
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets", "bank-balances", "open-credits", "nnn-quote"]),
     // "/financials/cash-analysis" is Bank Balances — VIEW ONLY for Harry
     // (owner): `canEditCashSheet` keeps the import and reserves to Drew/admin.
     allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/financials/budgets", "/financials/cash-analysis", OPEN_CREDITS_PAGE, "/"],
@@ -255,7 +256,7 @@ export const USERS: Record<UserId, UserDef> = {
     label: "ALISON",
     // President — a high-level view: dashboard, properties, investors,
     // rent roll, debt. No operational tools or action items.
-    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "bank-balances", "investor-k1", "open-credits"]),
+    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "bank-balances", "investor-k1", "open-credits", "nnn-quote"]),
     allowedPathPrefixes: [
       "/dashboard", "/properties", "/rentroll", "/units", "/investors", "/debt", OPEN_CREDITS_PAGE,
       "/bank-transfers", "/financials", "/cam-recon", "/reports", "/insurance",
