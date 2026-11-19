@@ -298,7 +298,7 @@ touched UI to it.
   pages that still draw their own title are deliberate: the dashboards (Work
   Queue, the greeting), the property and unit DETAIL pages (hero), embedded
   panels (Monthly Review, the rent-review view) and Bank Balances' hidden GL
-  view — `HAND_BUILT_TITLES_MAX` (10) holds them. **The white box holds the
+  view — `HAND_BUILT_TITLES_MAX` (11) holds them. **The white box holds the
   pickers, actions and meta line (and a page's quote inputs, as NNN Quote);
   KPI tiles sit BELOW it** (owner: "the box should cut after the pickers
   before the … KPI boxes") — NNN Quote is the reference.
@@ -2105,6 +2105,29 @@ commission edit, a rent-roll import or a U&O filing is refused on the server.
 No payroll (salaries). Sign-in: an admin issues her a one-time password on
 Security, or her `SITE_USER_PASSWORDS` entry.
 
+- **INVOICE HISTORY** (`/invoices`, sidebar Invoicing → Invoice History,
+  `INVOICE_HISTORY_PAGE`; Tanya, Drew, admin; owner: "give tanya all invoice
+  history"): every batch in the AP send log, all four flows, newest first,
+  filtered by flow and year, each opening into its invoices AS SENT — View /
+  download a PDF or the batch as a ZIP (`lib/invoicing/invoiceHistory.ts`,
+  `GET /api/invoice-history`). Credit Card + Payroll from the sent-invoice
+  archive, Allocated from its archive (a REBUILT copy says so), Commissions
+  re-drawn from the as-sent snapshot by the send's own renderer. A batch sent
+  before its archive says so. Nothing new is stored.
+- **HER DASHBOARD IS PAYABLES & U&O** (`app/dashboard/PayablesOverview.tsx`,
+  returned for `tanya` as Tami gets Receivables; owner: "remove portfolio
+  occupancy and expiring tenants"): the latest batch per flow + the last eight
+  sent, and the month's U&O — stage, Lines 1 / 2–3 / 8 / 11, and the tenants
+  whose UO charge no longer matches their share (what she keys in Skyline).
+- **NO PAYROLL BY EMPLOYEE** (owner: "make sure she doesnt see any per
+  employee payroll allocations"): `NO_PAYROLL_USERS` (Tanya, Tami) are refused
+  `/api/allocation` (exactly — the employee allocation workbook; its
+  sub-routes are the Allocated Invoicer's), `/api/payroll`, `/api/periods`,
+  `/api/parse-payroll`, `/api/generate-*`, the Payroll Invoicer (`/`) and
+  `/history`. Those APIs were open to ANY signed-in login (only the pages were
+  gated). A payroll INVOICE is per property with no names and stays in Invoice
+  History. Pinned by `authz.test.ts`.
+
 # Philadelphia U&O — /uo-tax (the returns, built by the portal)
 
 Owner, 11/2026: "update our U&O calculations for philly … integrate as much as
@@ -2117,18 +2140,24 @@ workbooks and the "ShopCtrs U&O direct debit" JE sheet. NOTHING IS KEYED:
   assessed values are the budget's (`ASSESSED_TAXES` in `assessedTaxes.ts`:
   2026 = `prior`, 2027 = `assessed`); a value the City's form shows differently
   is typed on the page (pencil on Line A, `uo-settings`).
-- **EVERY LATER YEAR READS ITSELF FROM THE CITY** (owner: "update in
-  perpetuity not just for one year"; `lib/uo/assessments.ts`, pinned by its
-  test): the U&O cron reads the OPA's certified values (`market_value`,
-  `assessments` on phl.carto.com) for every U&O parcel, last year through two
-  years out, once a week (`refreshCityAssessments`, `uo-assessments/current`;
-  a failed or partial read forgets nothing), and emails Drew any new year or
-  moved value with Line 1 before → after. `resolveAssessed`: typed → the
-  budget's figure for that exact year → the open data for that year → the
-  latest year known, with a warning on the property that the City has not
-  certified the year. Where the open data disagrees with a year the budget
-  carries, the page says so rather than moving it. "Check now" on the meta
-  line (filers) forces a read.
+- **EVERY LATER YEAR READS ITSELF FROM THE CITY — ONCE A YEAR, AND IT SHOUTS
+  WHEN IT STOPS** (owner: "update in perpetuity"; "annually, not weekly …
+  notify me … i cant miss something like that and proceed with stale data";
+  `lib/uo/assessments.ts`, pinned by its test). The U&O cron (daily) reads the
+  OPA's certified values (`market_value`, `assessments` on phl.carto.com) only
+  when `refreshDue`: from April 1 until NEXT year's value is in for every U&O
+  parcel (monthly, weekly from October), then not again until the next April —
+  or weekly whatever the month if THIS year's value is missing
+  (`uo-assessments/current`; a failed read forgets nothing). A new year or a
+  moved value is emailed to Drew with Line 1 before → after. **THE ALARM**
+  (`assessmentAlarm`, re-sent every 7 days until it clears, and a banner on the
+  U&O page): a WARNING from October 1 while next year is missing, and DANGER
+  ("ACTION NEEDED") once a return this year is on an older year's value — the
+  last read's failure is named in both. `resolveAssessed`: typed → the budget's
+  figure for that exact year → the open data for that year → the latest year
+  known (flagged). Where the open data disagrees with a year the budget
+  carries, the page says so rather than moving it. "Check now" on the meta line
+  (filers) forces a read.
 - **THE JANUARY RESET: TANYA KEYS THE NEW UO CHARGES** (owner: "tanya keys
   the U&O charges, code is UO"; `lib/uo/januaryReset.ts`, pinned by its
   test). From December 15th (next business day) the U&O cron emails Tanya
@@ -4684,6 +4713,17 @@ the tenant `reservationModifiedEmail` — the new time, "You asked for", and
 staff's optional note. The server re-runs `slotError` / `slotConflicts`
 (`lib/reservations/reschedule.ts`, pinned by `reschedule.test.ts`). The old
 "suggest alternates" email is still there ("Email alternates instead").
+
+# Staff emails to tenants — ONE signature
+
+**A staff message (service request reply, reservation approve / modify /
+custom) is signed by the letter's own block — name + Korman Commercial
+Properties — so the body ends at "Thanks,"** (owner: "delete this repetitive
+row … on outgoing emails"). The default drafts no longer type the name and
+"Korman Commercial Operations" / "KCP Property Management" under it, and
+`withoutTypedSignature` (`lib/maintenance/confirmationEmail.ts`, inside
+`staffMessageEmail`) strips a trailing typed name or company line at render,
+so an older draft cannot print it twice. Pinned by `typedSignature.test.ts`.
 
 # Tenant Communications — Greg's Interplex tenant emails (/communications)
 

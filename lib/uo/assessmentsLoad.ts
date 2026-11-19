@@ -1,6 +1,7 @@
 // Reads the City's certified assessments for the U&O parcels from the open
 // data, keeps them (`uo-assessments/current`) and emails Drew what changed.
-// Run by the U&O cron once a week; see assessments.ts for the rule.
+// Run by the U&O cron daily; it reads the City once a year (`refreshDue`)
+// and raises the alarm (`assessmentAlarm`). See assessments.ts.
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
@@ -8,12 +9,11 @@ import { sendMailDetailed, VERIFIED_FROM } from "@/lib/mail";
 import { portalEmail } from "@/lib/email/portalEmail";
 import { UO_PROPERTIES } from "./config";
 import {
-  assessmentChanges, cityQuery, emptyCityAssessments, mergeCity, parseCityRows, uoParcels, yearsToCheck,
-  type CityAssessments, type CityValues,
+  alarmDue, assessmentAlarm, assessmentChanges, cityQuery, emptyCityAssessments, mergeCity, parseCityRows, refreshDue, uoParcels, yearsToCheck,
+  type AssessmentChange, type CityAssessments, type CityValues,
 } from "./assessments";
 
 const PREFIX = "uo-assessments";
-const CHECK_EVERY_DAYS = 6;
 
 export async function getCityAssessments(): Promise<CityAssessments> {
   const s = (await getJSON(PREFIX, "current", { retryOnMiss: true }).catch(() => null)) as CityAssessments | null;
@@ -38,43 +38,68 @@ const labelOf = (parcel: string) => {
 };
 const money = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
-/** Check the City now (or only when a week has passed, unless `force`). */
-export async function refreshCityAssessments(opts: { force?: boolean; now?: Date } = {}): Promise<{ checked: boolean; changes: number; error?: string }> {
+/** Read the City when it is due (once a year — `refreshDue`), or now with
+ *  `force`; then email Drew the alarm if a value is missing (`assessmentAlarm`). */
+export async function refreshCityAssessments(opts: { force?: boolean; now?: Date } = {}): Promise<{ checked: boolean; changes: number; error?: string; alarm?: string }> {
   const now = opts.now ?? new Date();
-  const prev = await getCityAssessments();
-  if (!opts.force && prev.checkedAt && now.getTime() - Date.parse(prev.checkedAt) < CHECK_EVERY_DAYS * 86_400_000) {
-    return { checked: false, changes: 0 };
-  }
   const at = now.toISOString();
-  let read: CityValues;
-  try {
-    read = await fetchCityValues(uoParcels(), yearsToCheck(at.slice(0, 10)));
-  } catch (e) {
-    const error = e instanceof Error ? e.message : String(e);
-    await storeJSON(PREFIX, "current", { ...prev, checkedAt: at, error });
-    return { checked: true, changes: 0, error };
-  }
-  const changes = assessmentChanges(prev.values, read);
-  const next = mergeCity(prev, read, at);
-  await storeJSON(PREFIX, "current", next);
+  const prev = await getCityAssessments();
+  let state: CityAssessments = prev;
+  let checked = false;
+  let changeCount = 0;
+  let error: string | undefined;
 
-  // The first read only fills the store: everything in it is already what the
-  // returns use. After that, a new year or a moved value is news.
-  if (changes.length && Object.keys(prev.values).length) {
-    const to = (process.env.UO_FILER_TO ?? "dwinig@kormancommercial.com").trim();
-    const years = [...new Set(changes.map((c) => c.year))].join(", ");
+  if (opts.force || refreshDue(prev, now)) {
+    checked = true;
+    try {
+      const read = await fetchCityValues(uoParcels(), yearsToCheck(at.slice(0, 10)));
+      const changes = assessmentChanges(prev.values, read);
+      changeCount = changes.length;
+      state = { ...mergeCity(prev, read, at), alarmedAt: prev.alarmedAt };
+      // The first read only fills the store: everything in it is already what
+      // the returns use. After that, a new year or a moved value is news.
+      if (changes.length && Object.keys(prev.values).length) await sendChanges(changes);
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+      state = { ...prev, checkedAt: at, error };
+    }
+  }
+
+  // The alarm — the one thing that must not go quiet.
+  const alarm = assessmentAlarm(state, now);
+  if (alarm && alarmDue(state.alarmedAt, now)) {
     const e = portalEmail({
-      subject: `Philadelphia assessments: ${changes.length} new or changed (${years})`,
+      subject: `${alarm.level === "danger" ? "ACTION NEEDED: " : ""}${alarm.title}`,
       eyebrow: "Philadelphia U&O",
-      title: `The City's ${years} assessments are in`,
-      lead: "The portal read the City's open data. The U&O returns use these from January of each year — nothing to key. Tenants' U&O charges in Skyline need the new amounts from the page's U&O by Tenant export.",
-      rows: changes.map((c) => ({
-        label: `${labelOf(c.parcel)} · ${c.year}`,
-        value: `${c.before != null ? `${money(c.before)} → ` : ""}${money(c.after)} · Line 1 ${c.lineBefore != null ? `${money(c.lineBefore)} → ` : ""}${money(c.lineAfter)}/mo`,
-      })),
+      title: alarm.title,
+      lead: alarm.text,
+      rows: alarm.parcels.map((p) => ({ label: p, value: `No ${alarm.year} value`, tone: alarm.level === "danger" ? "bad" as const : "warn" as const })),
       link: { label: "Open the U&O returns", path: "/uo-tax" },
     });
-    await sendMailDetailed({ to, from: `KCP Portal <${VERIFIED_FROM}>`, subject: e.subject, htmlBody: e.html, textBody: e.text }).catch(() => null);
+    const res = await sendMailDetailed({ to: UO_ALARM_TO, from: `KCP Portal <${VERIFIED_FROM}>`, subject: e.subject, htmlBody: e.html, textBody: e.text }).catch(() => null);
+    if (res?.ok) state = { ...state, alarmedAt: at };
+  } else if (!alarm && state.alarmedAt) {
+    state = { ...state, alarmedAt: undefined };
   }
-  return { checked: true, changes: changes.length };
+  if (state !== prev) await storeJSON(PREFIX, "current", state);
+  return { checked, changes: changeCount, error, alarm: alarm?.title };
+}
+
+/** Who is told when the City's values stop reaching the portal. */
+export const UO_ALARM_TO = (process.env.UO_FILER_TO ?? "dwinig@kormancommercial.com").trim();
+
+async function sendChanges(changes: AssessmentChange[]): Promise<void> {
+  const years = [...new Set(changes.map((c) => c.year))].join(", ");
+  const e = portalEmail({
+    subject: `Philadelphia assessments: ${changes.length} new or changed (${years})`,
+    eyebrow: "Philadelphia U&O",
+    title: `The City's ${years} assessments are in`,
+    lead: "The portal read the City's open data. The U&O returns use these from January of each year — nothing to key. Tenants' U&O charges in Skyline need the new amounts from the page's U&O by Tenant export.",
+    rows: changes.map((c) => ({
+      label: `${labelOf(c.parcel)} · ${c.year}`,
+      value: `${c.before != null ? `${money(c.before)} → ` : ""}${money(c.after)} · Line 1 ${c.lineBefore != null ? `${money(c.lineBefore)} → ` : ""}${money(c.lineAfter)}/mo`,
+    })),
+    link: { label: "Open the U&O returns", path: "/uo-tax" },
+  });
+  await sendMailDetailed({ to: UO_ALARM_TO, from: `KCP Portal <${VERIFIED_FROM}>`, subject: e.subject, htmlBody: e.html, textBody: e.text }).catch(() => null);
 }

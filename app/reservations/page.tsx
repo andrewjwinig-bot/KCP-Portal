@@ -697,8 +697,6 @@ function approveEmailBody(r: Reservation, sender: string): string {
     "If anything changes on your end, just reply to this email and we'll sort it out.",
     "",
     "Thanks,",
-    sender,
-    "KCP Property Management",
   ].filter((l) => l !== null).join("\n");
 }
 
@@ -728,8 +726,6 @@ function modifyEmailBody(r: Reservation, sameDay: Reservation[], sender: string)
     "Could you either pick another time, or one of the other rooms? Just reply with what works and we'll get it locked in.",
     "",
     "Thanks,",
-    sender,
-    "KCP Property Management",
   ].join("\n");
 }
 
@@ -742,8 +738,6 @@ function customEmailBody(r: Reservation, sender: string): string {
     "[ Add your message here ]",
     "",
     "Thanks,",
-    sender,
-    "KCP Property Management",
   ].join("\n");
 }
 

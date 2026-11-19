@@ -23,7 +23,7 @@ import { agingLookup, statementFromAging } from "@/lib/statements/aging";
 import { laserDate } from "@/lib/statements/currentAccount";
 import type { TenantStatement } from "@/lib/statements/types";
 import { statementBillingFor } from "@/lib/financials/budgets/statementBilling";
-import { resolveAssessed, type AssessedValue, type CityValues } from "./assessments";
+import { assessmentAlarm, resolveAssessed, type AssessedValue, type AssessmentAlarm, type CityValues } from "./assessments";
 import { getCityAssessments } from "./assessmentsLoad";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { SEEDED_EXEMPT, UO_PROPERTIES, suggestedExemption, type UoAccount } from "./config";
@@ -75,6 +75,8 @@ export type UoMonthView = {
   /** When the City's open data was last read, and any failure. */
   cityCheckedAt: string | null;
   cityError: string | null;
+  /** The City's values have stopped reaching the portal (assessments.ts). */
+  cityAlarm: AssessmentAlarm | null;
 };
 
 const prevMonth = (m: string) => {
@@ -212,5 +214,6 @@ export async function loadUoMonth(month: string): Promise<UoMonthView> {
     agingAsOf: agingUsed,
     cityCheckedAt: city?.checkedAt ?? null,
     cityError: city?.error ?? null,
+    cityAlarm: assessmentAlarm({ values: city?.values ?? {}, error: city?.error }, new Date()),
   };
 }

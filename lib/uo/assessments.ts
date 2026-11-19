@@ -4,8 +4,8 @@
 // Line 1 of every U&O return is the parcel's assessed value for the calendar
 // year × 1.21% ÷ 12, and Philadelphia reassesses every year. The OPA certifies
 // next year's values in the spring and publishes them on the City's open data
-// (`assessments` on phl.carto.com). The U&O cron reads them once a week
-// (`assessmentsLoad.ts`), keeps every year it finds, and emails Drew when a
+// (`assessments` on phl.carto.com). The U&O cron reads them once a year
+// (`refreshDue` below; `assessmentsLoad.ts`), keeps every year it finds, and emails Drew when a
 // new year arrives or a value moves — so January switches to the new figure
 // on its own, this year and every year after.
 //
@@ -34,6 +34,8 @@ export type CityAssessments = {
   checkedAt?: string;
   /** The last check that failed, and why — shown on the page. */
   error?: string;
+  /** When Drew was last emailed the alarm (`assessmentAlarm`). */
+  alarmedAt?: string;
 };
 
 export const emptyCityAssessments = (): CityAssessments => ({ values: {}, seenAt: {} });
@@ -155,3 +157,83 @@ export function mergeCity(prev: CityAssessments, read: CityValues, at: string): 
   }
   return { values, seenAt, checkedAt: at };
 }
+
+// ── Once a year, and an alarm when it stops (owner, 11/2026: "i think we
+// update the values annually, not weekly … notify me … when it stops updating
+// on its own? i cant miss something like that and proceed with stale data") ──
+//
+// The OPA certifies next year's values by the end of March. So the read runs
+// from April 1 until next year's values are in for every U&O parcel — monthly,
+// weekly from October — and then not again until the next April. If THIS
+// year's value is ever missing, it reads weekly whatever the month.
+//
+// The ALARM (`assessmentAlarm`) goes to Drew:
+//   warning  from October 1, next year's value is still missing for a parcel
+//            (January would carry this year's figure forward)
+//   danger   a return THIS year is on an old year's value — the City's data
+//            stopped reaching the portal and the returns are stale
+// either one also when the last read FAILED. Re-sent every 7 days until it
+// clears; the U&O page shows it as a banner meanwhile.
+
+const DAY = 86_400_000;
+
+/** Parcels with no known value (seed or open data) for `year`. */
+export function missingFor(year: number, city: CityValues, parcels = uoParcels()): string[] {
+  return parcels.filter((p) => !(city[`${p}:${year}`] > 0) && seededValue(p, year) == null);
+}
+
+/** Should the City be read now? */
+export function refreshDue(state: Pick<CityAssessments, "values" | "checkedAt">, now: Date): boolean {
+  const today = now.toISOString().slice(0, 10);
+  const year = Number(today.slice(0, 4));
+  const since = state.checkedAt ? now.getTime() - Date.parse(state.checkedAt) : Infinity;
+  if (missingFor(year, state.values).length) return since >= 6 * DAY;
+  if (!missingFor(year + 1, state.values).length) return false;
+  const month = Number(today.slice(5, 7));
+  if (month < 4) return false;
+  return since >= (month >= 10 ? 6 : 28) * DAY;
+}
+
+export type AssessmentAlarm = {
+  level: "warning" | "danger";
+  year: number;
+  /** "<code> <label>" of each parcel without the value. */
+  parcels: string[];
+  title: string;
+  text: string;
+};
+
+const parcelLabel = (parcel: string) => {
+  for (const p of UO_PROPERTIES) {
+    const a = p.accounts.find((x) => x.parcel === parcel);
+    if (a) return `${p.code} ${a.label}`;
+  }
+  return parcel;
+};
+
+export function assessmentAlarm(state: Pick<CityAssessments, "values" | "error">, now: Date): AssessmentAlarm | null {
+  const today = now.toISOString().slice(0, 10);
+  const year = Number(today.slice(0, 4));
+  const failed = state.error ? ` The last read of the City's open data failed: ${state.error}` : "";
+  const now0 = missingFor(year, state.values);
+  if (now0.length) {
+    return {
+      level: "danger", year, parcels: now0.map(parcelLabel),
+      title: `U&O is using stale assessed values for ${year}`,
+      text: `The City's ${year} assessed value never reached the portal for ${now0.map(parcelLabel).join(", ")}, so those returns are figured on an older year's value.${failed} Check the City's form and type Line A on the U&O page, or have the City's data read again.`,
+    };
+  }
+  const next = missingFor(year + 1, state.values);
+  if (next.length && Number(today.slice(5, 7)) >= 10) {
+    return {
+      level: "warning", year: year + 1, parcels: next.map(parcelLabel),
+      title: `The City's ${year + 1} assessed values are not in yet`,
+      text: `No ${year + 1} value has reached the portal for ${next.map(parcelLabel).join(", ")}. The City usually certifies them by March; without them January's returns would carry ${year}'s figure forward.${failed}`,
+    };
+  }
+  return null;
+}
+
+/** Re-send the alarm a week after the last one. */
+export const alarmDue = (lastAlarmAt: string | undefined, now: Date) =>
+  !lastAlarmAt || now.getTime() - Date.parse(lastAlarmAt) >= 7 * DAY;
