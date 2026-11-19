@@ -4,6 +4,7 @@
 // uploads, …). Gated by the admin tier in middleware.
 
 import LoadingState from "@/app/components/LoadingState";
+import { PageHeader } from "@/app/components/PageHeader";
 import { useEffect, useState } from "react";
 
 type AuditEvent = { at: string; event: string; user: string | null; ip: string | null; detail?: string };
@@ -39,11 +40,10 @@ export default function AuditPage() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <h1>Audit Log</h1>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter (user, event, IP…)"
-          style={{ minWidth: 240 }} />
-      </header>
+      <PageHeader title="Audit Log"
+        info="The most recent 1,000 events: logins, sign-outs and key actions."
+        actions={<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter (user, event, IP…)" aria-label="Filter events"
+          style={{ minWidth: 240 }} />} />
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         {err ? <div className="muted small" style={{ padding: 16 }}>{err}</div>
           : events == null ? <LoadingState card={false} status="Loading audit log…" rows={4} />
@@ -67,7 +67,6 @@ export default function AuditPage() {
           </div>
         )}
       </div>
-      <p className="muted small" style={{ margin: 0 }}>Most recent 1,000 events. Records logins, sign-outs, and key actions.</p>
     </main>
   );
 }
