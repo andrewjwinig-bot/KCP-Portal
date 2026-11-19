@@ -251,7 +251,9 @@ export default function BankBalancesView() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <PageHeader title="Bank Balances" dropHandlers={drop.dropHandlers} dragging={drop.dragging}
+      <PageHeader title="Bank Balances"
+        info={<>Each bank account&apos;s balance from the latest import, less reserves and tenants&apos; security deposits, is the cash available. To import, save each bank&apos;s accounts page as a PDF — Chase, Liberty and M&amp;T — and drop them on this header. Each import updates only that bank&apos;s accounts.</>}
+        dropHandlers={drop.dropHandlers} dragging={drop.dragging}
         actions={<>
           {data?.canEdit && (
             <>
@@ -271,7 +273,7 @@ export default function BankBalancesView() {
         </>}
         meta={
           <MetaLine>
-            {asOf && <span>Balances as of {dateLabel(asOf)}</span>}
+            {asOf ? <span>Balances as of {dateLabel(asOf)}</span> : <span>No balances imported yet</span>}
             {(data?.byBank ?? []).map((b) => (
               <HoverCard key={b.bank} title={BANK_LABEL[b.bank] ?? b.bank}
                 rows={[
@@ -282,11 +284,6 @@ export default function BankBalancesView() {
                 <span>· {BANK_LABEL[b.bank] ?? b.bank} {shortDate(b.asOf)}</span>
               </HoverCard>
             ))}
-            <InfoPopover label="How to import" align="left">
-              <div style={{ paddingTop: 12, fontSize: "var(--fs-14)" }}>
-                Save each bank&apos;s accounts page as a PDF — Chase, Liberty and M&amp;T — and drop them here. Each import updates only that bank&apos;s accounts.
-              </div>
-            </InfoPopover>
           </MetaLine>
         }>
         {notice && <StatusBanner compact tone="success" style={{ marginTop: 8 }} title={notice} />}

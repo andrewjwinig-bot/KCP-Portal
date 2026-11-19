@@ -1193,7 +1193,7 @@ export default function ExpensesPage() {
         </>}
         meta={isMaint || !(importedAt || statementPeriodText || fileName) ? undefined : (
           <MetaLine at={importedAt} by={importedBy} label="Statement imported">
-            <span>{importedAt ? "· " : ""}{[statementPeriodText && `Period: ${statementPeriodText}`, fileName, "Monthly"].filter(Boolean).join(" · ")}</span>
+            {(statementPeriodText || fileName) && <span>{importedAt ? "· " : ""}{[statementPeriodText && `Period: ${statementPeriodText}`, fileName].filter(Boolean).join(" · ")}</span>}
           </MetaLine>
         )}>
         {!isMaint && saveError && <StatusBanner compact tone="danger" title={saveError} />}

@@ -131,7 +131,7 @@ function ProRataAuditInner() {
     <main>
       <PageHeader title="Pro-rata Share Audit"
         info="Office tenants whose stipulated CAMPrep share differs from their true square-foot share."
-        actions={<Link href="/cam-recon" className="btn" style={{ flexShrink: 0, textDecoration: "none" }}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />CAM / RET Reconciliation</Link>} />
+        actions={<Link href="/cam-recon" className="text-link">CAM / RET Reconciliation<ChevronRight size={16} strokeWidth={1.75} aria-hidden /></Link>} />
 
       {error && (
         <StatusBanner tone="danger" style={{ marginTop: 16 }} title="Something went wrong">{error}</StatusBanner>

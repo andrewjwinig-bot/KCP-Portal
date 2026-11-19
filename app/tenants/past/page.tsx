@@ -79,7 +79,7 @@ export default function PastTenantsPage() {
   }, [tenancies, q, prop]);
 
   return (
-    <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
+    <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <PageHeader title="Past Tenants"
         info={<>Former tenancies reconstructed from the monthly rent-roll history — look back at any departed tenant’s rent, charges, and security deposit. Pick one to see their full record.</>}
         pickers={
