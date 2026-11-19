@@ -14,6 +14,7 @@
 
 import type { SiteListing } from "./content";
 import { spacesFromRoll, type RollPropertyForSpace } from "@/lib/interplex/spaces";
+import { floorplateUrl } from "./floorplate";
 import { OFFICE_WORKS_CODE, isSharedSpace, planFromRoll } from "@/lib/officeWorks/offices";
 
 export type RollUnit = { unitRef: string; occupantName: string; isVacant: boolean; sqft: number; amenity?: unknown };
@@ -45,21 +46,22 @@ export function interplexListings(props: RollProperty[], email: string | null): 
   return spacesFromRoll(props as RollPropertyForSpace[])
     .sort((a, b) => a.bldg.localeCompare(b.bldg, undefined, { numeric: true }) || a.suite.localeCompare(b.suite, undefined, { numeric: true }))
     .map((s) => {
+      const plate = floorplateUrl(s.unit);
       return {
         ...base(INTERPLEX_SLUG, email),
         id: `interplex-${s.unit}`,
         space: `${BUILDING_NAME(s.bldg)} · ${s.suite}`,
         size: s.sf,
         spaceUse: "Office",
-        // The building's photo, then the campus map (the park page's own).
+        // The suite on its floor (rest greyed), the building's photo, then
+        // the campus map (the park page's own).
         images: [
+          ...(plate ? [{ url: plate, alt: `${BUILDING_NAME(s.bldg)} ${s.suite} on its floor plan` }] : []),
           { url: `/site/interplex/assets/b-${s.bldg}.jpg`, alt: `${BUILDING_NAME(s.bldg)}, Neshaminy Interplex` },
           { url: "/site/interplex/assets/campus-map.png", alt: "Neshaminy Interplex campus map" },
         ],
-        details: [
-          { text: `${BUILDING_NAME(s.bldg)}, Neshaminy Interplex Business Center` },
-          ...(s.floor ? [{ text: `${s.floor} floor` }] : []),
-        ],
+        // The space column already names the building; the floor is the news.
+        details: s.floor ? [{ text: `${s.floor} floor` }] : null,
       } satisfies SiteListing;
     });
 }

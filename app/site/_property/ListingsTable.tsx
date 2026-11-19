@@ -104,7 +104,7 @@ function ListingPhotos({ l, onOpen }: { l: ListingWithProperty; onOpen: (imgs: S
         <div key={k} className={`absolute inset-0 transition-opacity duration-500 ${k === i ? "opacity-100" : "opacity-0"}`}
           style={{ pointerEvents: k === i ? "auto" : "none" }}
           onClick={(e) => { e.stopPropagation(); onOpen(imgs, k); }}>
-          <img src={img.url} alt={img.alt || `${l.space} office space - Image ${k + 1}`} style={FILL} className="object-cover cursor-pointer" />
+          <img src={img.url} alt={img.alt || `${l.space} office space - Image ${k + 1}`} style={FILL} className={`${isPlan(img.url) ? "object-contain bg-white" : "object-cover"} cursor-pointer`} />
         </div>
       ))}
       {n > 1 && (
@@ -121,6 +121,33 @@ function ListingPhotos({ l, onOpen }: { l: ListingWithProperty; onOpen: (imgs: S
         </>
       )}
     </>
+  );
+}
+
+/** A plan (floorplate, floor / site plan, campus map) is shown whole, never cropped. */
+const isPlan = (url: string) => /floorplate|floorplan|floor-plan|plan-|site-?plan|campus-map|\.svg($|\?)/i.test(url);
+
+/** The listing's big call-out: who to call, their phone and email. */
+function ContactCallout({ l }: { l: ListingWithProperty }) {
+  if (!l.requestMoreInfoEmail && !l.contactPhone) return null;
+  const where = l.propertyName ? `${l.space} at ${l.propertyName}` : l.space;
+  const mail = l.requestMoreInfoEmail ? `mailto:${l.requestMoreInfoEmail}?subject=${encodeURIComponent(`Leasing inquiry: ${where}`)}` : null;
+  const tel = l.contactPhone ? `tel:+1${l.contactPhone.replace(/\D/g, "").replace(/^1/, "")}` : null;
+  return (
+    <div className="as-contact" onClick={(e) => e.stopPropagation()}>
+      <div className="as-contact-who">
+        <span className="as-contact-label">Leasing contact</span>
+        <span className="as-contact-name">{l.contactName || "Korman Commercial Properties"}</span>
+        <span className="as-contact-lines">
+          {tel && <a href={tel}>{l.contactPhone}</a>}
+          {mail && <a href={mail}>{l.requestMoreInfoEmail}</a>}
+        </span>
+      </div>
+      <div className="as-contact-actions">
+        {tel && <a href={tel} className="as-contact-btn">Call {l.contactName?.split(" ")[0] ?? "us"}</a>}
+        {mail && <a href={mail} className="as-contact-btn primary">Email about this space</a>}
+      </div>
+    </div>
   );
 }
 
@@ -183,7 +210,7 @@ function Table({ listings, format, cols, onOpen }: { listings: ListingWithProper
                         </div>
                         <div className="md:w-2/3 flex flex-col justify-between">
                           <div>
-                            <h3 className="text-xl font-medium text-slate-800 mb-4">{l.space} Details</h3>
+                            <h3 className="text-xl font-medium text-slate-800 mb-4">{l.space}</h3>
                             <ul className="space-y-2">
                               {(l.details ?? []).map((d, k) => (
                                 <li key={k} className="flex items-start">
@@ -193,9 +220,7 @@ function Table({ listings, format, cols, onOpen }: { listings: ListingWithProper
                               ))}
                             </ul>
                           </div>
-                          {l.requestMoreInfoEmail && (
-                            <div className="mt-6 text-left text-slate-700">Contact {l.requestMoreInfoEmail} for more information</div>
-                          )}
+                          <ContactCallout l={l} />
                         </div>
                       </div>
                     </div>
@@ -251,12 +276,7 @@ function Cards({ listings, format, cols, onOpen }: { listings: ListingWithProper
                     </li>
                   ))}
                 </ul>
-                {l.requestMoreInfoEmail && (
-                  <a href={`mailto:${l.requestMoreInfoEmail}?subject=Information Request: ${l.space} at ${l.propertyName}`}
-                    className="block w-full bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded transition-colors text-sm text-center">
-                    Request More Information
-                  </a>
-                )}
+                <ContactCallout l={l} />
               </div>
             </div>
           </div>
