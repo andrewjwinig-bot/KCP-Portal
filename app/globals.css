@@ -557,6 +557,9 @@ select.select-sm {
   border-color: rgba(255, 255, 255, 0.3) !important;
 }
 
+/* A link drawn as a button never carries a link underline. */
+a.btn, a.btn:hover { text-decoration: none; }
+
 .btn {
   border: 1px solid var(--border);
   background: #fff;
