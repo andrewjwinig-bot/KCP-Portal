@@ -14,6 +14,7 @@ import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { DisplayMenu, ToggleRow } from "@/app/components/DisplayMenu";
 import { InfoPopover } from "@/app/components/InfoPopover";
 import { MetaLine } from "@/app/components/LastImported";
+import { PageHeader } from "@/app/components/PageHeader";
 import { ReprojTable, HeaderSelect, SegToggle, MONTHS, ACTUAL_TINT, money, varColor, sum, type Mode, type ViewOpts, type Reprojection, type OnDrill, type OnEdit } from "./ReprojTable";
 import { useUser } from "@/app/components/UserProvider";
 import { isBudgetAuthor } from "@/lib/financials/budgets/contributors";
@@ -170,12 +171,9 @@ export default function ReprojectionsPage() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <h1>{actuals ? "Full-Year Actuals" : "Reprojections"}</h1>
-
-      {/* Header: ONE row of controls and ONE meta line, like Operating Statements. */}
-      <div className="card">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", minWidth: 0 }}>
+      <PageHeader
+        title={actuals ? "Full-Year Actuals" : "Reprojections"}
+        pickers={<>
             <HeaderSelect ariaLabel="Property" maxWidth={420} value={key} onChange={setKey} displayLabel={cur ? `${cur.propertyCode} · ${cur.name}` : "Choose a property"}>
               {!cur && <option value="">Choose a property</option>}
               {groupStatementOptions(available).map((grp) => (
@@ -187,8 +185,8 @@ export default function ReprojectionsPage() {
             <HeaderSelect ariaLabel="Year" muted value={String(year)} onChange={(v) => setYear(Number(v))} displayLabel={year ? String(year) : "Year"}>
               {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
             </HeaderSelect>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        </>}
+        actions={<>
             <DisplayMenu>
               <ToggleRow label="Show" left="Reproject" right="Actuals" active={actuals ? "right" : "left"} onLeft={() => setMode("reproject")} onRight={() => setMode("actuals")} />
               <ToggleRow label="Amounts" left="Total" right="$/SF" active={psf ? "right" : "left"} onLeft={() => setPsf(false)} onRight={() => setPsf(true)} disabled={sqft <= 0} />
@@ -212,10 +210,8 @@ export default function ReprojectionsPage() {
                 }))),
               ]}
             />
-          </div>
-        </div>
-
-        <MetaLine>
+        </>}
+        meta={<MetaLine>
           {data && <span>{coverageText}</span>}
           {data && !actuals && <span>· {budgetYear ? <>Budget FY {budgetYear}{budgetFallback ? " (nearest)" : ""}</> : "No budget for this property"}</span>}
           {data && !hasGl && <span>· No GL imported{actuals ? "" : ", projecting from budget"}</span>}
@@ -232,14 +228,16 @@ export default function ReprojectionsPage() {
               <div>Hover a line&apos;s note for its variance explanation; click it to open the Operating Statement.</div>
             </div>
           </InfoPopover>
-        </MetaLine>
+        </MetaLine>}
+      />
 
-        {pills.length > 0 && (
+      {pills.length > 0 && (
+      <div className="card">
           <div className="pills">
             {pills.map((p) => <StatPill key={p.key} label={p.label} value={p.value} sub={p.sub} />)}
           </div>
-        )}
       </div>
+      )}
 
       {loading && <LoadingState status="Loading full-year figures…" columns={4} rows={4} />}
       {!loading && !data && <div className="card"><div className="muted small">Select a property and year.</div></div>}

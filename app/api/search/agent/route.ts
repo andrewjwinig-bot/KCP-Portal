@@ -34,6 +34,10 @@ import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { isPathAllowed, ALL_USERS, type UserId } from "@/lib/users";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
+import { budgetUser } from "@/lib/financials/budgets/currentUser";
+import { USERS } from "@/lib/users";
+import { loadNnnQuote, quoteProperties } from "@/lib/leasing/nnnQuoteLoad";
+import { answerNnnQuote } from "@/lib/assistant/nnnQuote";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -72,6 +76,7 @@ const ROUTES = [
   { path: "/financials/operating-statements/review", desc: "Flags to Investigate" },
   { path: "/financials/cash-analysis", desc: "Cash analysis" },
   { path: "/financials/budgets", desc: "Operating budgets" },
+  { path: "/financials/budgets/nnn-quote", desc: "NNN Quote: a suite's estimated CAM / INS / RET and all-in rent, with a PDF for the tenant" },
   { path: "/commissions", desc: "Leasing commissions" },
   { path: "/deposits", desc: "Security deposits" },
   { path: "/properties", desc: "Property directory" },
@@ -279,6 +284,30 @@ const OPERATIONAL_TOOLS: ToolDef[] = [
   },
 ];
 
+// NNN quotes — whoever may open the NNN Quote page (Harry, Drew, Alison).
+const canQuoteNnn = () => canOpen("/financials/budgets/nnn-quote");
+const NNN_TOOLS: ToolDef[] = [
+  {
+    name: "nnn_quote",
+    description:
+      "ESTIMATED NNN CHARGES for a suite at a SHOPPING CENTRE (CAM, CAM admin fee, insurance, real estate taxes) and the ALL-IN rent with a base rent — the SAME figures as the NNN Quote page: the suite's pro-rata share (SF ÷ GLA) of the budget year's recoverable pools. " +
+      "Pass the property (code or name) and the suite (number, unit ref, or tenant name). A current tenant's suite starts from their own base rent and admin fee; a vacancy uses the centre's typical admin fee and the base_rent_psf you were given (ask for it if the user wants an all-in and gave none). " +
+      "With no suite it returns the centre's NNN per SF and its vacancies. Also returns NNN per SF over past years (actuals, this year's reprojection, the budget) — a talking point when costs came down. " +
+      "Use for 'what are the NNNs for suite 104 at 9510', 'all-in at $24 for the vacancy at Brookwood', 'CAM per SF at Gray's Ferry'. Give the answer as $/SF/yr and monthly, and point to the NNN Quote page for a PDF for the tenant.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property: { type: "string", description: "Shopping centre code (e.g. 9510) or name" },
+        suite: { type: "string", description: "Suite number, unit ref (9510-104) or tenant name; omit for the centre's NNN per SF" },
+        base_rent_psf: { type: "number", description: "Base rent being quoted, $/SF/yr" },
+        admin_pct: { type: "number", description: "CAM admin fee % to use instead of the lease's / centre's typical" },
+        sqft: { type: "number", description: "Square feet, if quoting a different size than the suite" },
+      },
+      required: ["property"],
+    },
+  },
+];
+
 const AR_TOOLS: ToolDef[] = [
   {
     name: "get_open_ar",
@@ -458,6 +487,7 @@ const TOOL_STATUS: Record<string, string> = {
   portfolio_rollup: "Rolling up the portfolio",
   portfolio_breakdown: "Breaking the portfolio down",
   rent_roll_breakdown: "Breaking down occupancy and rent",
+  nnn_quote: "Estimating NNN charges from the budget",
   calculate: "Calculating",
   build_dataset: "Building the dataset across properties and years",
   debt_summary: "Summarizing the debt",
@@ -702,6 +732,24 @@ async function runTool(name: string, input: Record<string, unknown>, showFinanci
         occupancyPct: totalSqft > 0 ? Math.round((occSqft / totalSqft) * 1000) / 10 : null,
         unitCount: units, vacantUnitCount: vacantUnits,
       };
+    }
+
+    case "nnn_quote": {
+      if (!(await canQuoteNnn())) return { error: "Not authorized to quote NNN charges." };
+      const user = await budgetUser();
+      const props = quoteProperties(user ? USERS[user]?.budgetScope?.codes ?? null : null);
+      const want = String(input.property ?? "").trim().toLowerCase();
+      const prop = props.find((p) => p.code.toLowerCase() === want)
+        ?? props.find((p) => p.name.toLowerCase() === want)
+        ?? props.find((p) => want.length >= 3 && (p.name.toLowerCase().includes(want) || want.includes(p.name.toLowerCase())));
+      if (!prop) return { error: `"${input.property}" is not a shopping centre you quote. Centres: ${props.map((p) => `${p.code} ${p.name}`).join("; ")}` };
+      const data = await loadNnnQuote(prop.code, new Date().getFullYear() + 1);
+      return answerNnnQuote(data, {
+        suite: typeof input.suite === "string" ? input.suite : undefined,
+        base_rent_psf: typeof input.base_rent_psf === "number" ? input.base_rent_psf : undefined,
+        admin_pct: typeof input.admin_pct === "number" ? input.admin_pct : undefined,
+        sqft: typeof input.sqft === "number" ? input.sqft : undefined,
+      });
     }
 
     case "rent_roll_breakdown": {
@@ -1247,8 +1295,8 @@ export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return NextResponse.json({ error: "AI isn't configured (ANTHROPIC_API_KEY not set)." }, { status: 503 });
 
-  const [showFinancials, showAr] = await Promise.all([canSeeFinancials(), canSeeAr()]);
-  const tools = [...OPERATIONAL_TOOLS, ...(showAr ? AR_TOOLS : []), ...(showFinancials ? FINANCIAL_TOOLS : [])];
+  const [showFinancials, showAr, showNnn] = await Promise.all([canSeeFinancials(), canSeeAr(), canQuoteNnn()]);
+  const tools = [...OPERATIONAL_TOOLS, ...(showAr ? AR_TOOLS : []), ...(showNnn ? NNN_TOOLS : []), ...(showFinancials ? FINANCIAL_TOOLS : [])];
 
   // Standing preferences the team taught the assistant — injected so it "learns"
   // from feedback ("keep it to one sentence", "always whole dollars", etc.).
@@ -1266,7 +1314,7 @@ export async function POST(req: Request) {
     `HOW TO THINK: first decide what the question needs (which figures, which grouping, which period), then pick the tool built for it — ` +
     `money from the books (revenue, expenses, NOI, cash flow, any GL line) → the operating-statement tools (portfolio_breakdown, portfolio_rollup, rank_properties, build_dataset, get_noi_trend, get_operating_statement); ` +
     `space, tenants and rent (occupancy, vacancy, rent per SF, gross rent, who is where, expirations) → the rent-roll tools (rent_roll_breakdown, get_occupancy, aggregate_tenants, get_property_rent_roll, list_expirations, search_tenants); ` +
-    `loans → debt_summary / list_debt; tenant balances, past due, delinquency, A/R → get_open_ar; what data exists → get_data_coverage. ` +
+    `loans → debt_summary / list_debt; tenant balances, past due, delinquency, A/R → get_open_ar; estimated NNN / CAM / all-in rent for a suite or centre → nnn_quote; what data exists → get_data_coverage. ` +
     `"vs last year", "growth", "how has it changed" → pass compare_year (period-aligned) rather than calling twice. ` +
     `A question that needs two of these is answered by calling both and combining them with the calculate tool — e.g. "NOI per SF by property type" = portfolio_breakdown (NOI) + rent_roll_breakdown (SF) + calculate. Never refuse a question a combination of tools can answer, and never do arithmetic yourself: use calculate. ` +
     `Say what a figure is: year to date through which month, or as of the current rent roll; base or gross rent; which properties were left out and why. If the data truly is not in the portal, say exactly what is missing and which page or import would supply it. Today is ${new Date().toISOString().slice(0, 10)}.\n\n` +

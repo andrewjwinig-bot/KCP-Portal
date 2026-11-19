@@ -16,6 +16,7 @@ import AllowedLink from "../components/AllowedLink";
 import { isPathAllowed } from "@/lib/users";
 import { MetaLine } from "../components/LastImported";
 import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { PageHeader } from "@/app/components/PageHeader";
 import { blobSrc } from "../../lib/blobProxy";
 import { normName } from "../../lib/centers/registry";
 import { Pill, TONE_RED, TONE_TEAL } from "@/app/components/Pill";
@@ -1791,44 +1792,19 @@ export default function RentRollPage() {
         <StatusBanner tone="success" style={{ marginBottom: 16 }} title={importedFlash}
           actions={<button type="button" className="btn sm" onClick={() => setImportedFlash(null)}>Dismiss</button>} />
       )}
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 24, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Rent Roll</h1>
-        {periodLabel && snapshotList.length === 0 && (
-          <span style={{ fontSize: 20, fontWeight: 700, color: "var(--muted)", whiteSpace: "nowrap" }}>{periodLabel}</span>
-        )}
-      </div>
-
-      {/* The "units skipped — unrecognized property code" banner was removed
-          at the owner's request: those rows are entity/clearing and co-working
-          lines (2000-*, 4901-CIP*, 08xx pads) the portal deliberately does not
-          track, so the banner was permanent noise. `unknownUnits` is still
-          computed on import if it is ever needed again. */}
-
-      {/* ── Import card ───────────────────────────────────────────────────── */}
-      <div
-        className="card"
-        onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragging(true); }}
-        onDragEnter={(e) => { e.preventDefault(); if (!uploading) setDragging(true); }}
-        onDragLeave={(e) => { e.preventDefault(); if (e.currentTarget === e.target) setDragging(false); }}
-        onDrop={onDropFile}
-        style={{
-          marginBottom: 24, position: "relative",
-          transition: "border-color 0.15s, background 0.15s",
-          ...(dragging ? { borderColor: "var(--c-0b4a7d)", background: "var(--tint-brand-bg, rgba(11,74,125,0.05))" } : {}),
+      {/* THE STANDARD HEADER: the month on the left, Import Rent Roll and the
+          Status Report on the right, one meta line; drop the roll on it. */}
+      <PageHeader
+        title="Rent Roll"
+        dropHandlers={{
+          onDragOver: (e: React.DragEvent) => { e.preventDefault(); if (!uploading) setDragging(true); },
+          onDragEnter: (e: React.DragEvent) => { e.preventDefault(); if (!uploading) setDragging(true); },
+          onDragLeave: (e: React.DragEvent) => { e.preventDefault(); if (e.currentTarget === e.target) setDragging(false); },
+          onDrop: onDropFile,
         }}
-      >
-        {dragging && (
-          <div style={{ position: "absolute", inset: 0, zIndex: 5, borderRadius: 16, border: "2px dashed #0b4a7d", background: "var(--tint-brand-bg, rgba(11,74,125,0.06))", display: "flex", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "var(--fs-14)", fontWeight: 700, color: "var(--c-0b4a7d)" }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-              Drop the rent roll to import
-            </div>
-          </div>
-        )}
-        {/* ONE row of controls: the month on the left; the actions — import
-            first, then the report — grouped on the right. */}
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        dragging={dragging}
+        pickers={<>
+            {periodLabel && snapshotList.length === 0 && <span style={{ fontSize: 22, fontWeight: 800 }}>{periodLabel}</span>}
             {snapshotList.length > 0 && (
               <HeaderSelect
                 value={reportMonth}
@@ -1859,8 +1835,8 @@ export default function RentRollPage() {
                 {deleteError && <span style={{ color: "var(--c-b42318, #B42318)" }}>{deleteError}</span>}
               </span>
             )}
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+        </>}
+        actions={<>
             <input
               ref={fileInputRef}
               type="file"
@@ -1888,9 +1864,8 @@ export default function RentRollPage() {
               {generatingReport ? "Building Status Report" : "Status Report"}
             </button>
           )}
-          </div>
-        </div>
-        <MetaLine at={rentroll?.uploadedAt} by={rentroll?.uploadedBy}>
+        </>}
+        meta={<MetaLine at={rentroll?.uploadedAt} by={rentroll?.uploadedBy}>
           <ImportInstructionsButton nextMonth={(() => {
             // Next month to import = the month after the latest snapshot (or the
             // current calendar month when nothing has been imported yet).
@@ -1902,8 +1877,11 @@ export default function RentRollPage() {
             const now = new Date();
             return { year: now.getFullYear(), month: now.getMonth() + 1 };
           })()} />
-          {!rentroll?.uploadedAt && <span>Import the Commercial Rent Roll, or drop the file on this card.</span>}
-        </MetaLine>
+          {!rentroll?.uploadedAt && <span>Import the Commercial Rent Roll, or drop the file on this header.</span>}
+        </MetaLine>}
+      />
+
+      <div className="card" style={{ marginBottom: 24, marginTop: 24 }}>
         {reportMonth && Object.keys(carriedFrom).length > 0 && (() => {
           const byMonth = new Map<string, string[]>();
           for (const [c, m] of Object.entries(carriedFrom)) byMonth.set(m, [...(byMonth.get(m) ?? []), c]);

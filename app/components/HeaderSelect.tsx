@@ -23,3 +23,12 @@ export function HeaderSelect({ value, onChange, displayLabel, ariaLabel, muted, 
     </span>
   );
 }
+
+/** ONE way to name a property in a picker, header or option: "9510 · Shops of
+ *  Lafayette Hill" (owner, 11/2026: "a lot of inconsistencies in how we do
+ *  tenants and property dropdowns"). Never "—", never the code alone. */
+export const propertyLabel = (code: string, name?: string | null) => (name && name !== code ? `${code} · ${name}` : code);
+
+/** ONE way to name a tenant: the suite, then the tenant ("104 · Shear
+ *  Sensation"), as `UnitSelect` lists them. A vacancy reads "104 · Vacant". */
+export const tenantLabel = (suite: string, name?: string | null) => (name ? `${suite} · ${name}` : suite);

@@ -1,5 +1,6 @@
 "use client";
-import { ChevronDown } from "lucide-react";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect, propertyLabel, tenantLabel } from "@/app/components/HeaderSelect";
 
 import { useEffect, useState } from "react";
 import type { BuildingReconResult } from "@/lib/cam/office/types";
@@ -29,30 +30,7 @@ const th: React.CSSProperties = {
 };
 const td: React.CSSProperties = { textAlign: "right", padding: "7px 10px", fontSize: "var(--fs-14)", whiteSpace: "nowrap" };
 
-function HeaderSelect({ value, onChange, displayLabel, ariaLabel, muted = false, children }: {
-  value: string; onChange: (next: string) => void; displayLabel: string; ariaLabel: string; muted?: boolean; children: React.ReactNode;
-}) {
-  return (
-    <span style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 6px", borderRadius: 8, cursor: "pointer", maxWidth: "100%", minWidth: 0 }}>
-      <span style={{ fontSize: 22, fontWeight: 800, color: muted ? "var(--muted)" : "var(--text)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 }}>{displayLabel}</span>
-      <span aria-hidden style={{ fontSize: "var(--fs-11)", lineHeight: 1, color: muted ? "var(--muted)" : "var(--text)", opacity: 0.6, flexShrink: 0 }}><ChevronDown size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} aria-label={ariaLabel}
-        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0, cursor: "pointer", border: 0, padding: 0, margin: 0, appearance: "auto", background: "transparent" }}>
-        {children}
-      </select>
-    </span>
-  );
-}
 
-function KormanWordmark() {
-  return (
-    <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-      <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-      <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-      <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-    </div>
-  );
-}
 
 type Available = { propertyCode: string; name: string; years: number[] };
 
@@ -113,24 +91,18 @@ export default function CamEstimatesPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <h1>CAM / RET Estimates</h1>
-        <KormanWordmark />
-      </header>
-
-      <div className="card">
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", minWidth: 0 }}>
-          <HeaderSelect value={String(year)} onChange={(v) => setYear(Number(v))} displayLabel={String(year || "—")} ariaLabel="Year" muted>
+      <PageHeader
+        title="CAM / RET Estimates"
+        info={<>Monthly CAM / RET escrow per tenant: {prevYear} (current charge) vs. the {newYear} estimate, with the change. A jump over {Math.round(SPIKE * 100)}% is flagged red so you can review before it reaches a tenant.</>}
+        pickers={<>
+          <HeaderSelect value={property} onChange={setProperty} maxWidth={460} displayLabel={property ? propertyLabel(property, propName) : "Property"} ariaLabel="Property">
+            {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{propertyLabel(a.propertyCode, a.name)}</option>)}
+          </HeaderSelect>
+          <HeaderSelect value={String(year)} onChange={(v) => setYear(Number(v))} displayLabel={String(year || "Year")} ariaLabel="Year" muted>
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </HeaderSelect>
-          <HeaderSelect value={property} onChange={setProperty} displayLabel={property ? `${property} — ${propName}` : "—"} ariaLabel="Property">
-            {available.map((a) => <option key={a.propertyCode} value={a.propertyCode}>{a.propertyCode} — {a.name}</option>)}
-          </HeaderSelect>
-        </div>
-        <p className="small muted" style={{ marginTop: 6, marginBottom: 0 }}>
-          Monthly CAM / RET escrow per tenant: {prevYear} (current charge) vs. the {newYear} estimate, with the change. A jump over {Math.round(SPIKE * 100)}% is flagged red so you can review before it reaches a tenant.
-        </p>
-      </div>
+        </>}
+      />
 
       {loading && <div className="card"><div className="muted small">Loading…</div></div>}
 

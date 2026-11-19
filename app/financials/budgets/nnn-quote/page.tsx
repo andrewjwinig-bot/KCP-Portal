@@ -9,8 +9,9 @@
 // admin fee the centre's leases carry. Math: lib/leasing/nnnQuote.ts.
 
 import { useEffect, useMemo, useState } from "react";
-import { Copy, TrendingDown, TrendingUp } from "lucide-react";
+import { Check, Copy, TrendingDown, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect, propertyLabel, tenantLabel } from "@/app/components/HeaderSelect";
 import { MetaLine } from "@/app/components/LastImported";
 import { StatPill } from "@/app/components/Pill";
 import { StatusBanner } from "@/app/components/StatusBanner";
@@ -33,7 +34,7 @@ const cents = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigi
 // the room, the figures stay narrow.
 const FIELD = (flex: string): React.CSSProperties => ({ display: "grid", gap: 6, minWidth: 0, flex });
 const HINT: React.CSSProperties = { fontSize: "var(--fs-12)", color: "var(--muted)", minHeight: 16 };
-const LABEL: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
+const LABEL: React.CSSProperties = { whiteSpace: "nowrap", fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 export default function NnnQuotePage() {
   const [properties, setProperties] = useState<{ code: string; name: string }[]>([]);
@@ -46,7 +47,6 @@ export default function NnnQuotePage() {
   const [admin, setAdmin] = useState("");
   const [sfText, setSfText] = useState("");
   const [copied, setCopied] = useState(false);
-  const [prospect, setProspect] = useState("");
 
   useEffect(() => {
     fetch("/api/financials/budgets/nnn-quote", { cache: "no-store" }).then((r) => r.json()).then((j) => {
@@ -101,10 +101,10 @@ export default function NnnQuotePage() {
     const doc = new jsPDF({ unit: "pt", format: "letter" });
     drawNnnQuote(doc, {
       centre: q.name, address: q.address, suite: suite.suite, sqft, budgetYear: q.budgetYear,
-      preparedFor: prospect.trim() || undefined, quote, trend: pot?.trend,
+      quote, trend: pot?.trend,
       dateLabel: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
     });
-    const name = `${q.name} Suite ${suite.suite} - Estimated Occupancy Costs${prospect.trim() ? ` - ${prospect.trim()}` : ""}.pdf`.replace(/[\\/:*?"<>|]/g, "");
+    const name = `${q.name} Suite ${suite.suite} - Estimated Occupancy Costs.pdf`.replace(/[\\/:*?"<>|]/g, "");
     if (mode === "download") { doc.save(name); return; }
     doc.autoPrint();
     window.open(URL.createObjectURL(doc.output("blob")), "_blank");
@@ -127,44 +127,43 @@ export default function NnnQuotePage() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <PageHeader title="NNN Quote"
         info={<>Pick a suite and type the base rent you are quoting — a current tenant&apos;s suite starts at their rent and admin fee today, both typeable. CAM, insurance and real estate taxes are the {q?.budgetYear ?? "budget year"} budget&apos;s recoverable expenses for the centre times the suite&apos;s share of its square footage (the budget&apos;s &ldquo;NNN / SF&rdquo;), plus the CAM admin fee most of the centre&apos;s leases carry. A new lease&apos;s own terms — a cap, an exclusion, a stipulated share — are not applied.</>}
+        pickers={properties.length > 0 ? <>
+          <HeaderSelect value={code} onChange={setCode} maxWidth={460} ariaLabel="Centre"
+            displayLabel={propertyLabel(code, properties.find((p) => p.code === code)?.name)}>
+            {properties.map((p) => <option key={p.code} value={p.code}>{propertyLabel(p.code, p.name)}</option>)}
+          </HeaderSelect>
+          {q && !q.gross && (
+            <HeaderSelect value={unitRef} muted maxWidth={420} ariaLabel="Suite"
+              onChange={(v) => pick(q.suites.find((s) => s.unitRef === v) ?? null)}
+              displayLabel={suite ? `Suite ${tenantLabel(suite.suite, suite.vacant ? (mixed && suite.pot === "office" ? "Vacant office" : "Vacant") : suite.tenant)}` : "Suite"}>
+              {vacant.length > 0 && <optgroup label="Vacant">{vacant.map((s) => <option key={s.unitRef} value={s.unitRef}>{tenantLabel(s.suite, mixed && s.pot === "office" ? "Office" : null)}</option>)}</optgroup>}
+              {leased.length > 0 && <optgroup label="Leased">{leased.map((s) => <option key={s.unitRef} value={s.unitRef}>{tenantLabel(s.suite, s.tenant)}</option>)}</optgroup>}
+            </HeaderSelect>
+          )}
+        </> : undefined}
         actions={quote && suite ? <>
-          <button className="btn" onClick={copyQuote}><Copy size={16} strokeWidth={1.75} aria-hidden /> {copied ? "Copied" : "Copy Quote"}</button>
+          <button className="btn icon-tip" onClick={copyQuote} style={{ padding: "8px 12px", display: "inline-flex", alignItems: "center", justifyContent: "center" }} aria-label="Copy Quote" data-tip={copied ? "Copied" : "Copy Quote"}>{copied ? <Check size={16} strokeWidth={1.75} aria-hidden /> : <Copy size={16} strokeWidth={1.75} aria-hidden />}</button>
           <DownloadMenu label="Export" items={[
             { label: "PDF for the tenant", description: "One page: the charges, the all-in and NNN over the years", onClick: () => void quotePdf("download") },
             { label: "Print", description: "Opens the same PDF ready to print", onClick: () => void quotePdf("print") },
           ]} />
         </> : undefined}
-        meta={q && !q.gross && pot?.pools ? <MetaLine><span>{q.budgetYear} budget{mixed ? ` · ${suite?.pot === "office" ? "Office" : "Retail"} pool` : ""} · GLA {pot.gla.toLocaleString("en-US")} SF · NNN {psf((pot.pools.cam + pot.pools.ins + pot.pools.ret) / pot.gla)} / SF before admin fee</span></MetaLine> : undefined} />
+        meta={q && !q.gross && pot?.pools ? <MetaLine><span>{q.budgetYear} budget{mixed ? ` · ${suite?.pot === "office" ? "Office" : "Retail"} pool` : ""}{suite ? ` · ${suite.sqft.toLocaleString("en-US")} SF suite` : ""} · GLA {pot.gla.toLocaleString("en-US")} SF · NNN {psf((pot.pools.cam + pot.pools.ins + pot.pools.ret) / pot.gla)} / SF before admin fee</span></MetaLine> : undefined} />
 
       {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
 
-      {/* ONE card: every input in one row (owner: "why is property name
-          outside of the box altogether?"), each field its own column so a
-          long suite option never runs into the next box. */}
+      {/* The centre and suite are the header's pickers (the standard
+          PageHeader); the card holds what is typed for the quote. */}
       {properties.length > 0 && (
         <section className="card" style={{ display: "grid", gap: 14 }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "start" }}>
-            <label style={FIELD("2 1 300px")}>
-              <span style={LABEL}>Centre</span>
-              <select className="select-brand" value={code} onChange={(e) => setCode(e.target.value)} style={{ width: "100%", minWidth: 0 }}>
-                {properties.map((p) => <option key={p.code} value={p.code}>{p.code} · {p.name}</option>)}
-              </select>
-            </label>
-            <label style={FIELD("2 1 300px")}>
-              <span style={LABEL}>Suite</span>
-              <select value={unitRef} disabled={!q || q.gross || !pot?.pools} onChange={(e) => pick(q?.suites.find((s) => s.unitRef === e.target.value) ?? null)} style={{ width: "100%", minWidth: 0 }}>
-                {vacant.length > 0 && <optgroup label="Vacant">{vacant.map((s) => <option key={s.unitRef} value={s.unitRef}>{s.suite}{mixed && s.pot === "office" ? " · Office" : ""}</option>)}</optgroup>}
-                {leased.length > 0 && <optgroup label="Leased">{leased.map((s) => <option key={s.unitRef} value={s.unitRef}>{s.suite} · {s.tenant}</option>)}</optgroup>}
-              </select>
-              <span style={HINT}>{mixed && suite ? (suite.pot === "office" ? "Office suite · office pool" : "Retail suite · retail pool") : ""}</span>
-            </label>
             <label style={FIELD("1 1 120px")}>
               <span style={LABEL}>Square feet</span>
               <input inputMode="numeric" value={sfText} placeholder={suite ? suite.sqft.toLocaleString("en-US") : ""} onChange={(e) => setSfText(e.target.value)} style={{ width: "100%", minWidth: 0 }} />
               <span style={HINT} />
             </label>
             <label style={FIELD("1 1 150px")}>
-              <span style={LABEL}>Base rent $ / SF / yr</span>
+              <span style={LABEL}>Rent $/SF/yr</span>
               <input inputMode="decimal" value={rent} placeholder="e.g. 24.00" onChange={(e) => setRent(e.target.value)} autoFocus style={{ width: "100%", minWidth: 0 }} />
               <span style={HINT}>{suite && !suite.vacant && suite.baseRentPsf != null
                 ? (rentIsCurrent ? "Current rent" : <button type="button" className="text-link" style={{ background: "none", border: 0, padding: 0, fontSize: "inherit", cursor: "pointer" }} onClick={() => setRent(suite.baseRentPsf!.toFixed(2))}>Current {psf(suite.baseRentPsf)}</button>)
@@ -176,11 +175,6 @@ export default function NnnQuotePage() {
               <span style={HINT}>{Number(admin) === adminDefault
                 ? (suite && !suite.vacant && suite.adminPct != null ? "Their lease" : "Centre typical")
                 : <button type="button" className="text-link" style={{ background: "none", border: 0, padding: 0, fontSize: "inherit", cursor: "pointer" }} onClick={() => setAdmin(String(adminDefault))}>{suite && !suite.vacant && suite.adminPct != null ? "Lease" : "Typical"} {adminDefault}%</button>}</span>
-            </label>
-            <label style={FIELD("2 1 220px")}>
-              <span style={LABEL}>Prepared for</span>
-              <input value={prospect} placeholder="Prospect (optional, for the PDF)" onChange={(e) => setProspect(e.target.value)} style={{ width: "100%", minWidth: 0 }} />
-              <span style={HINT} />
             </label>
           </div>
 
