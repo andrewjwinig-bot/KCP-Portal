@@ -170,13 +170,17 @@ export default function NnnQuotePage() {
         <>
           <section className="card" style={{ display: "grid", gap: 12 }}>
             <div className="pills">
-              <StatPill label="Base rent / SF" value={psf(Number(rent) || 0)} />
-              <StatPill label="NNN / SF" value={psf(quote.nnnPsf)} sub={`${cents(quote.nnnMonthly)} a month`} />
-              <StatPill label="All-in / SF" value={psf(quote.allInPsf)} total sub={`${cents(quote.allInMonthly)} a month · ${dollars(quote.allInAnnual)} a year`} />
+              {/* Each tile: the $/SF figure, its MONTHLY amount the same way, and
+                  the period in the label (owner: "monthly amounts for all … say
+                  what year … real or budgeted"). Base rent is what is quoted; the
+                  NNN is the budget year's estimate. */}
+              <StatPill label="Base Rent / SF · Quoted" value={psf(Number(rent) || 0)} sub={`${cents(quote.lines.find((l) => l.key === "base")?.monthly ?? 0)} / month`} />
+              <StatPill label={`NNN / SF · '${String(q.budgetYear).slice(2)} Budget`} value={psf(quote.nnnPsf)} sub={`${cents(quote.nnnMonthly)} / month`} />
+              <StatPill label={`All-in / SF · '${String(q.budgetYear).slice(2)}`} value={psf(quote.allInPsf)} total sub={`${cents(quote.allInMonthly)} / month`} />
             </div>
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520 }}>
-                <thead><tr><th style={thL}>Charge</th><th style={th}>$ / SF / yr</th><th style={th}>Monthly</th><th style={th}>Annual</th></tr></thead>
+                <thead><tr><th style={thL}>{`Charge · '${String(q.budgetYear).slice(2)} Est.`}</th><th style={th}>$ / SF / yr</th><th style={th}>Monthly</th><th style={th}>Annual</th></tr></thead>
                 <tbody>
                   {quote.lines.map((l) => (
                     <tr key={l.key} style={{ borderBottom: "1px solid var(--hairline)" }}>
