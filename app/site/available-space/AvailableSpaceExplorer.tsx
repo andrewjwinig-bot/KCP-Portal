@@ -5,7 +5,7 @@
 // the page — all live off the portal's current rent roll — narrowed by type,
 // property, size and a text search, and sorted by property or by size. The
 // filters ride in the URL (?type=office&size=1000-2500…) so a link can be sent
-// to a prospect. The table below is the site's own ListingsTable.
+// to a prospect. Styles: the `.as-*` rules at the end of site.css. The table below is the site's own ListingsTable.
 
 import { useEffect, useMemo, useState } from "react";
 import ListingsTable, { type ListingWithProperty } from "../_property/ListingsTable";
@@ -35,8 +35,6 @@ const fits = (l: ExplorerListing, min: number, max: number) => {
   return hi >= min && lo <= max;
 };
 
-const LABEL: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", color: "#64748b", marginBottom: 6 };
-const CONTROL: React.CSSProperties = { width: "100%", height: 42, border: "1px solid #cbd5e1", borderRadius: 6, padding: "0 12px", background: "#fff", color: "#0f172a", fontSize: 15 };
 
 export default function AvailableSpaceExplorer({ listings }: { listings: ExplorerListing[] }) {
   const [type, setType] = useState("all");
@@ -93,56 +91,56 @@ export default function AvailableSpaceExplorer({ listings }: { listings: Explore
 
   return (
     <div className="w-full">
-      <div className="bg-white" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 20, marginBottom: 28 }}>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }} role="tablist" aria-label="Property type">
+      <div className="as-panel">
+        <div className="as-chips" role="tablist" aria-label="Property type">
           {TYPES.map((t) => {
             const on = type === t.id;
             return (
               <button key={t.id} type="button" role="tab" aria-selected={on}
                 onClick={() => { setType(t.id); setProperty("all"); }}
-                style={{ height: 38, padding: "0 18px", borderRadius: 999, border: `1px solid ${on ? "#1e293b" : "#cbd5e1"}`, background: on ? "#1e293b" : "#fff", color: on ? "#fff" : "#0f172a", fontSize: 14, fontWeight: 500, cursor: "pointer" }}>
+                className={`as-chip${on ? " on" : ""}`}>
                 {t.label}
               </button>
             );
           })}
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14 }}>
+        <div className="as-fields">
           <label>
-            <span style={LABEL}>Search</span>
-            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suite, building, use…" style={CONTROL} />
+            <span className="as-label">Search</span>
+            <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suite, building, use…" className="as-control" />
           </label>
           <label>
-            <span style={LABEL}>Property</span>
-            <select value={property} onChange={(e) => setProperty(e.target.value)} style={CONTROL}>
+            <span className="as-label">Property</span>
+            <select value={property} onChange={(e) => setProperty(e.target.value)} className="as-control">
               <option value="all">All properties</option>
               {properties.filter(([, p]) => type === "all" || p.category === type).map(([slug, p]) => <option key={slug} value={slug}>{p.name}</option>)}
             </select>
           </label>
           <label>
-            <span style={LABEL}>Size</span>
-            <select value={size} onChange={(e) => setSize(e.target.value)} style={CONTROL}>
+            <span className="as-label">Size</span>
+            <select value={size} onChange={(e) => setSize(e.target.value)} className="as-control">
               {SIZES.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </label>
           <label>
-            <span style={LABEL}>Sort by</span>
-            <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} style={CONTROL}>
+            <span className="as-label">Sort by</span>
+            <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className="as-control">
               {SORTS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
             </select>
           </label>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: 12, marginTop: 16 }}>
-          <p className="text-slate-600" style={{ margin: 0 }} aria-live="polite">
+        <div className="as-summary">
+          <p className="text-slate-600" aria-live="polite">
             <strong className="text-slate-800">{shown.length}</strong> {shown.length === 1 ? "space" : "spaces"}
             {shown.length > 0 && <> · {totalSf.toLocaleString("en-US")} SF across {propCount} {propCount === 1 ? "property" : "properties"}</>}
           </p>
-          {filtered && <button type="button" onClick={reset} className="text-slate-600 underline" style={{ background: "none", border: 0, cursor: "pointer", fontSize: 14 }}>Clear filters</button>}
+          {filtered && <button type="button" onClick={reset} className="as-link text-slate-600">Clear filters</button>}
         </div>
       </div>
 
       {shown.length === 0 ? (
-        <div className="bg-white text-slate-600" style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 28, textAlign: "center" }}>
-          No space matches these filters right now. <button type="button" onClick={reset} className="underline" style={{ background: "none", border: 0, cursor: "pointer", color: "inherit", fontSize: "inherit" }}>Show everything available</button>
+        <div className="as-empty text-slate-600">
+          No space matches these filters right now. <button type="button" onClick={reset} className="as-link">Show everything available</button>
         </div>
       ) : (
         <ListingsTable listings={shown} hidePropertyHeaders={sort !== "property"} />

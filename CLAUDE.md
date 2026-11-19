@@ -1306,8 +1306,8 @@ handoff's screenshot crop.
   and sort by property or size — sorting by size is one table across every
   property, each space led by its property. A live count ("13 spaces · 7,663
   SF across 4 properties") and Clear filters; the filters ride in the URL so a
-  filtered view can be sent to a prospect. Inline styles where site.css has no
-  class (no Tailwind compiler here).
+  filtered view can be sent to a prospect. Styled by scoped `.as-*` rules at
+  the end of site.css (no Tailwind compiler here).
 - **THE WEBSITE'S CENTRE LINKS GO TO THE DESIGNED PAGES** (owner: "the new
   pages i built arent loading"): `DESIGNED_PAGES` / `propertyPath` in
   `lib/site/paths.ts` map the website's slug (`brookwood-shopping-center`) to
