@@ -1913,6 +1913,15 @@ FONT / XF / cell records. ONE contact per address, its `skyline` tags merged
 re-import of the same file adds no addresses but TAGS the contacts already
 there; the banner reports suites tagged and how many tenants still have no
 email (`stillMissing`).
+**Not every roll line needs an email** (owner: "tesla is not a tenant and rite
+aid is in default"; "gym fees and out front media arent suites"): a row's
+**No email needed** sets it aside (`emailWaivers.ts` / `emailWaiverStore.ts`,
+`tenant-email-waivers`) for THAT tenant in that suite — a new tenant there is
+asked about again — listed under No Email Needed with Undo. Seeded: Tesla, Rite
+Aid (in default), gym fees, Outfront Media (`SEEDED_WAIVERS`). The Office
+Works' shared rooms (reception, admin office, conference, break, mail / copy)
+never list — `isSharedSpace`, the website's own rule. Pinned by
+`emailWaivers.test.ts`.
 
 # Open credits — Skyline's Credit Balance report, itemized
 

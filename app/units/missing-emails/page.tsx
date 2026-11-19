@@ -23,7 +23,8 @@ type Row = {
   unitRef: string; propertyCode: string; propertyName: string; suite: string; tenantName: string;
   group: Group; sqft: number | null; skylineContact: string | null; skylinePhone: string | null;
 };
-type Data = { group: Group | null; fixed: boolean; rows: Row[] };
+type Waived = Omit<Row, "skylineContact" | "skylinePhone"> & { reason: string };
+type Data = { group: Group | null; fixed: boolean; rows: Row[]; waived?: Waived[] };
 type ImportResult = { source?: "skyline"; asContacts?: number; unchanged?: number; updated?: number; stillMissing?: number; tenants: number; added: number; problems: { row: number; unitRef: string; problem: string }[] };
 
 const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true, style: { verticalAlign: "-3px", flexShrink: 0 } } as const;
@@ -55,6 +56,12 @@ export default function MissingEmailsPage() {
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [rows]);
   const left = rows.filter((r) => !done[r.unitRef]).length;
+  const waived = data?.waived ?? [];
+  const setAside = async (unitRef: string, action: "waive" | "unwaive", reason?: string) => {
+    const r = await fetch("/api/suites/missing-emails", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, unitRef, reason }) }).catch(() => null);
+    if (!r?.ok) { setError("That did not save. Try again."); return; }
+    load(shownGroup);
+  };
 
   const importFile = async (f: File) => {
     setImporting(true); setResult(null); setError(null);
@@ -114,11 +121,24 @@ export default function MissingEmailsPage() {
                       <tr style={{ background: "var(--tint-brand-bg)", borderTop: "2px solid var(--border)" }}>
                         <td colSpan={4} style={{ ...tdL, fontWeight: 800 }}><code>{code}</code> {ts[0].propertyName} <span className="muted" style={{ fontWeight: 400 }}>· {ts.filter((t) => !done[t.unitRef]).length} to add</span></td>
                       </tr>
-                      {ts.map((t) => <EmailRow key={t.unitRef} t={t} added={done[t.unitRef]} onAdded={(e) => setDone((d) => ({ ...d, [t.unitRef]: e }))} />)}
+                      {ts.map((t) => <EmailRow key={t.unitRef} t={t} added={done[t.unitRef]} onAdded={(e) => setDone((d) => ({ ...d, [t.unitRef]: e }))} onWaive={() => setAside(t.unitRef, "waive")} />)}
                     </Fragment>
                   ))}
                 </tbody>
               </table>
+            </section>
+          )}
+          {waived.length > 0 && (
+            <section className="card">
+              <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 6 }}>No Email Needed</div>
+              <div className="muted" style={{ fontSize: "var(--fs-14)", marginBottom: 6 }}>On the rent roll but not a tenant to write to. A new tenant in one of these suites is asked about again.</div>
+              {waived.map((w) => (
+                <div key={w.unitRef} className="task-row" style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 2px", borderBottom: "1px solid var(--hairline)" }}>
+                  <span style={{ flex: 1, minWidth: 0 }}><span style={{ fontWeight: 600 }}>{w.tenantName}</span> <code style={{ fontSize: "var(--fs-12)" }}>{w.unitRef}</code></span>
+                  <span className="muted" style={{ fontSize: "var(--fs-14)" }}>{w.reason}</span>
+                  <button className="btn sm" onClick={() => setAside(w.unitRef, "unwaive")}>Undo</button>
+                </div>
+              ))}
             </section>
           )}
         </>
@@ -127,7 +147,7 @@ export default function MissingEmailsPage() {
   );
 }
 
-function EmailRow({ t, added, onAdded }: { t: Row; added?: string; onAdded: (emails: string) => void }) {
+function EmailRow({ t, added, onAdded, onWaive }: { t: Row; added?: string; onAdded: (emails: string) => void; onWaive: () => void }) {
   const [email, setEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -161,7 +181,12 @@ function EmailRow({ t, added, onAdded }: { t: Row; added?: string; onAdded: (ema
         )}
       </td>
       <td style={{ ...tdL, whiteSpace: "nowrap" }}>
-        {!added && <button className="btn sm" disabled={saving || !email.trim()} onClick={save}>{saving ? "Saving…" : "Save"}</button>}
+        {!added && (
+          <span style={{ display: "inline-flex", gap: 6 }}>
+            <button className="btn sm" disabled={saving || !email.trim()} onClick={save}>{saving ? "Saving…" : "Save"}</button>
+            <button className="btn sm" disabled={saving} onClick={onWaive}>No email needed</button>
+          </span>
+        )}
       </td>
     </tr>
   );

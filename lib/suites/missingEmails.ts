@@ -11,6 +11,9 @@ import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { currentAging } from "@/lib/statements/agingStore";
 import { camRecipientEmails, emptyContact } from "./contacts";
 import type { SkylineTag } from "./skylineEmailList";
+import { waiverFor } from "./emailWaivers";
+import { isSharedSpace, OFFICE_WORKS_CODE } from "@/lib/officeWorks/offices";
+import { getEmailWaivers } from "./emailWaiverStore";
 import { getOrEmptySuiteContacts, getSuiteContactsMap, saveSuiteContacts } from "./contactsStorage";
 
 /** Whose tenants: Harry — shopping centres and residential; Nancy — office. */
@@ -31,8 +34,19 @@ export type MissingEmailRow = {
   skylineContact: string | null; skylinePhone: string | null;
 };
 
+export type WaivedRow = Omit<MissingEmailRow, "skylineContact" | "skylinePhone"> & { reason: string };
+
+/** Tenants with no email — less those set aside as needing none, which are
+ *  returned apart (`waived`) so the page can list them and undo. */
 export async function tenantsWithoutEmail(group?: ContactGroup): Promise<MissingEmailRow[]> {
-  const [roll, aging] = await Promise.all([resolveCurrentRentroll(), currentAging().catch(() => ({ tenants: [], coverage: {} }))]);
+  return (await missingAndWaived(group)).rows;
+}
+
+export async function missingAndWaived(group?: ContactGroup): Promise<{ rows: MissingEmailRow[]; waived: WaivedRow[] }> {
+  const [roll, aging, waivers] = await Promise.all([
+    resolveCurrentRentroll(), currentAging().catch(() => ({ tenants: [], coverage: {} })),
+    getEmailWaivers().catch(() => ({ waivers: [], cleared: [] })),
+  ]);
   const units: Omit<MissingEmailRow, "skylineContact" | "skylinePhone">[] = [];
   for (const p of roll?.properties ?? []) {
     const g = contactGroupOf(p.propertyCode);
@@ -41,6 +55,10 @@ export async function tenantsWithoutEmail(group?: ContactGroup): Promise<Missing
     for (const u of p.units ?? []) {
       const name = (u.occupantName ?? "").trim();
       if (u.isVacant || u.amenity || !name || /^vacant$/i.test(name)) continue;
+      // The Office Works' shared rooms (reception, admin office, conference
+      // rooms, break room, mail / copy room) are on its roll but are not
+      // tenants (owner) — the same rule its website uses.
+      if (p.propertyCode === OFFICE_WORKS_CODE && isSharedSpace(u.unitRef.slice(p.propertyCode.length + 1), name)) continue;
       units.push({
         unitRef: u.unitRef, propertyCode: p.propertyCode, propertyName: def?.name ?? p.propertyCode,
         suite: u.unitRef.slice(p.propertyCode.length + 1) || u.unitRef, tenantName: name, group: g, sqft: u.sqft || null,
@@ -51,12 +69,16 @@ export async function tenantsWithoutEmail(group?: ContactGroup): Promise<Missing
   for (let i = units.length - 1; i >= 0; i--) { const k = units[i].unitRef.toUpperCase(); if (seen.has(k)) units.splice(i, 1); else seen.add(k); }
   const contacts = await getSuiteContactsMap(units.map((u) => u.unitRef));
   const skyline = new Map<string, { contact: string | null; phone: string | null }>(aging.tenants.map((t) => [t.unitRef.toUpperCase(), { contact: t.contact, phone: t.phone }] as [string, { contact: string | null; phone: string | null }]));
-  return units
-    .filter((u) => !camRecipientEmails(contacts[u.unitRef] ?? []))
-    .map((u) => {
-      const s = skyline.get(u.unitRef.toUpperCase());
-      return { ...u, skylineContact: s?.contact ?? null, skylinePhone: s?.phone ?? null };
-    });
+  const rows: MissingEmailRow[] = [];
+  const waived: WaivedRow[] = [];
+  for (const u of units) {
+    if (camRecipientEmails(contacts[u.unitRef] ?? [])) continue;
+    const reason = waiverFor(waivers, u.unitRef, u.tenantName);
+    if (reason) { waived.push({ ...u, reason }); continue; }
+    const s = skyline.get(u.unitRef.toUpperCase());
+    rows.push({ ...u, skylineContact: s?.contact ?? null, skylinePhone: s?.phone ?? null });
+  }
+  return { rows, waived };
 }
 
 const EMAIL = /^[^\s@,;<>]+@[^\s@,;<>]+\.[a-z]{2,}$/i;
