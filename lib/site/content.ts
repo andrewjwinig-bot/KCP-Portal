@@ -57,6 +57,10 @@ export type SiteListing = {
   details: { text: string }[] | null;
   images: SiteImage[] | null;
   requestMoreInfoEmail: string | null;
+  /** Who to call about the space — filled from the property's leasing contact
+   *  (liveListings.ts `withContact`); the listing's big call-out. */
+  contactName?: string | null;
+  contactPhone?: string | null;
 };
 
 export type SiteCategoryInfo = { slug: SiteCategory; title: string; description: PortableBlock[] | string | null };

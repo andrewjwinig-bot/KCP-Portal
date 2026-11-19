@@ -62,6 +62,9 @@ async function centreListings(siteSlug: string, designedSlug: string): Promise<S
  *  after any photo or floor plan of the space itself. A designed centre's
  *  plan and hero are its page's own. */
 function propertyImages(siteSlug: string): SiteImage[] {
+  // The Interplex and The Office Works listings carry their own photo and
+  // plan (rollListings.ts); the CMS site plan is the same campus map again.
+  if (siteSlug === INTERPLEX_SLUG || siteSlug === OFFICE_WORKS_SLUG) return [];
   const p = SITE_PROPERTIES.find((x) => x.slug === siteSlug);
   const name = p?.name ?? "Property";
   const d = SITE_TO_DESIGNED[siteSlug] ? DESIGNED[SITE_TO_DESIGNED[siteSlug]] : null;
@@ -72,6 +75,29 @@ function propertyImages(siteSlug: string): SiteImage[] {
     ...(plan ? [{ url: plan, alt: `Site plan of ${name}` }] : []),
     ...(photo ? [{ url: photo, alt: p?.mainImageAlt || name }] : []),
   ];
+}
+
+/** The leasing people, by the email a listing carries. */
+const CONTACTS: Record<string, { name: string; phone: string }> = {
+  "nfox@kormancommercial.com": { name: "Nancy Fox", phone: "(215) 244-5175" },
+  "hfeldman@kormancommercial.com": { name: "Harry Feldman", phone: "(215) 244-5148" },
+};
+
+/** Each listing's call-out: the property's leasing contact (name, phone,
+ *  email), else the person behind the listing's email; retail defaults to
+ *  Harry, office to Nancy. */
+export function withContact(listings: SiteListing[]): SiteListing[] {
+  return listings.map((l) => {
+    const p = SITE_PROPERTIES.find((x) => x.slug === l.property);
+    const email = l.requestMoreInfoEmail || p?.leasingInquiryEmail || (p?.category === "office" ? "nfox@kormancommercial.com" : "hfeldman@kormancommercial.com");
+    const known = CONTACTS[email.toLowerCase()];
+    return {
+      ...l,
+      requestMoreInfoEmail: email,
+      contactName: l.contactName ?? (p?.leasingInquiryEmail === email ? p?.leasingInquiryName : null) ?? known?.name ?? null,
+      contactPhone: l.contactPhone ?? (p?.leasingInquiryEmail === email ? p?.leasingInquiryPhone : null) ?? known?.phone ?? null,
+    };
+  });
 }
 
 export function withPropertyImages(listings: SiteListing[]): SiteListing[] {
@@ -119,12 +145,12 @@ export async function liveSiteListings(): Promise<SiteListing[]> {
   }
   // A property neither the designed pages nor the roll covers keeps its CMS copy.
   for (const l of SITE_LISTINGS) if (!bySite.has(l.property) && !isRollProperty(l.property)) out.push(l);
-  return withPropertyImages(out);
+  return withContact(withPropertyImages(out));
 }
 
 export async function liveListingsFor(slug: string): Promise<SiteListing[]> {
   const d = SITE_TO_DESIGNED[slug];
-  if (d) { const l = await centreListings(slug, d); if (l) return withPropertyImages(l); }
-  if (isRollProperty(slug)) return withPropertyImages((await rollListings())?.get(slug) ?? []);
-  return withPropertyImages(SITE_LISTINGS.filter((l) => l.property === slug));
+  if (d) { const l = await centreListings(slug, d); if (l) return withContact(withPropertyImages(l)); }
+  if (isRollProperty(slug)) return withContact(withPropertyImages((await rollListings())?.get(slug) ?? []));
+  return withContact(withPropertyImages(SITE_LISTINGS.filter((l) => l.property === slug)));
 }

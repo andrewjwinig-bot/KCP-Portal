@@ -1357,6 +1357,21 @@ handoff's screenshot crop.
   photo and the campus map; an Office Works office the floor plan and an
   office photo. A PDF floor plan is never handed to an <img> — that was why
   the centre listings showed nothing.
+- **AN INTERPLEX LISTING LEADS WITH ITS QUICK FLOORPLATE** (owner: "show it
+  on the floorplate with the rest of the area just greyed out … since we have
+  that from the portal"; `lib/site/floorplate.ts`, `GET
+  /api/website/floorplate?unit=`): the suite's floor from the portal's mapped
+  floor plans (`lib/buildings/plans`), the floor greyed, the suite in navy with
+  its number — an SVG with the floor image embedded, served only for a vacancy
+  the listings carry (public/buildings stays behind sign-in). Then the
+  building photo and the campus map; the Interplex and The Office Works take
+  NO property extras (the CMS site plan was the campus map twice). A plan
+  image is shown whole (`object-contain`), never cropped. **Every listing ends
+  in the LEASING CONTACT CALL-OUT** (`ContactCallout` in `ListingsTable.tsx`,
+  `.as-contact` in site.css; owner: "make that the big call out"): name, phone
+  and email with Call / Email buttons, from `withContact` (liveListings.ts —
+  the property's leasing contact; Nancy Fox for office, Harry Feldman for
+  retail).
 - **THE WEBSITE'S CENTRE LINKS GO TO THE DESIGNED PAGES** (owner: "the new
   pages i built arent loading"): `DESIGNED_PAGES` / `propertyPath` in
   `lib/site/paths.ts` map the website's slug (`brookwood-shopping-center`) to
