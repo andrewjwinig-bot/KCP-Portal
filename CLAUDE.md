@@ -282,7 +282,15 @@ touched UI to it.
   to sit under the title), the pickers (`HeaderSelect`, property first) on the
   left of the controls row, the `actions` on the right (import first, menus,
   the one primary action last — on the title's row when there are no pickers),
-  then ONE `MetaLine`. Never a paragraph under a title, a boxed `select-brand`
+  then ONE `MetaLine`. **A property in a picker, header or option is
+  `propertyLabel(code, name)` — "9510 · Shops of Lafayette Hill" — and a
+  tenant `tenantLabel(suite, name)` — "104 · Shear Sensation"**
+  (`HeaderSelect.tsx`; owner: "a lot of inconsistencies in how we do tenants
+  and property dropdowns"). Never "—", never a page's own copy of
+  `HeaderSelect` (four pages had one and drifted), never pickers boxed in a
+  card under the title — `noDrift.test.ts` fails the build on each and caps
+  the pages still hand-building a title (lower `HAND_BUILT_TITLES_MAX` as they
+  move). Never a paragraph under a title, a boxed `select-brand`
   beside it, a row of buttons on its own line, or a text "+" on a button (the
   Lucide `Plus`). The KORMAN wordmark is hidden in the new look (the sidebar
   carries it). An Export `DownloadMenu` is a white menu, not navy — `variant`
@@ -2834,10 +2842,12 @@ roll's base rent $/SF and the unit page's CAM admin fee, both typeable, a
 centre's typical fee. **Parkwood (7010) quotes by POT** (`poolParts` on the
 draft's estimate): an office suite (a 7010O recon tenant, or suite 2xx) prices
 off the office pool and office GLA, a retail suite off the retail — trend
-included. **Export → PDF for the tenant / Print** (`nnnQuotePdf.ts`, jsPDF in the
+included. The centre and suite are the HEADER'S pickers (`PageHeader`); Copy Quote is
+an icon. The ASSISTANT quotes too (`nnn_quote`, `lib/assistant/nnnQuote.ts`,
+for whoever opens the page): the same `loadNnnQuote` + `quoteNnn`, a suite by
+number or tenant name. **Export → PDF for the tenant / Print** (`nnnQuotePdf.ts`, jsPDF in the
 browser, the tenant statements' letterhead): tiles, the charges, NNN over the
-years, the basis and "not an offer to lease"; an optional "Prepared for" names
-the prospect. Only centres with CAM recons carry history (1100, 2300, 4500, 7010,
+years, the basis and "not an offer to lease". Only centres with CAM recons carry history (1100, 2300, 4500, 7010,
 9510); 9000 is gross and says so. Math pure in `lib/leasing/nnnQuote.ts`
 (pinned by its test), data in `nnnQuoteLoad.ts` (a centre's draft kept 15 min).
 
