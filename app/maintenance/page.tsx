@@ -1349,9 +1349,10 @@ function EmailTenantComposer({
     "",
     "[ Add your update here ]",
     "",
+    // No name / company under "Thanks," — the email's own signature block
+    // (name + Korman Commercial Properties) follows it (owner: "delete this
+    // repetitive row").
     "Thanks,",
-    staffName(author),
-    "Korman Commercial Operations",
   ].join("\n");
 
   const [subject, setSubject] = useState(defaultSubject);
@@ -1369,8 +1370,6 @@ function EmailTenantComposer({
       "[ Add your update here ]",
       "",
       "Thanks,",
-      staffName(author),
-      "Korman Commercial Operations",
     ].join("\n"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request.id, author]);

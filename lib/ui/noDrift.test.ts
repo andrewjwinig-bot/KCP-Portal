@@ -104,4 +104,5 @@ describe("page headers", () => {
     expect(n, `${n} pages hand-build a title — use PageHeader (or lower the max).`).toBeLessThanOrEqual(HAND_BUILT_TITLES_MAX);
   });
 });
-const HAND_BUILT_TITLES_MAX = 10;
+// 11: Tanya's dashboard (PayablesOverview) joins the deliberate dashboards.
+const HAND_BUILT_TITLES_MAX = 11;

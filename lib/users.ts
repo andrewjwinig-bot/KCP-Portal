@@ -56,6 +56,9 @@ export const OPEN_CREDITS_PAGE = "/tenant-statements/credits";
 /** Philadelphia U&O (owner, 11/2026): Drew files; Greg, Harry and Nancy mark
  *  who is delinquent ("let harry, nancy, and greg mark as delinquent"). */
 export const UO_PAGE = "/uo-tax";
+/** Every invoice sent to AvidXchange, all four flows (owner: "give tanya all
+ *  invoice history"). */
+export const INVOICE_HISTORY_PAGE = "/invoices";
 /** A cardholder's own credit-card charges (Greg). NOT /expenses — that grant
  *  is the whole statement (`/api/expenses/working`'s full access). */
 export const MY_CARD_PAGE = "/expenses/mine";
@@ -130,11 +133,13 @@ export const USERS: Record<UserId, UserDef> = {
       "tenant-statements",
       "investor-k1",
       "uo-tax",
+      "invoice-history",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
       "/budget-inputs",
       UO_PAGE,
+      INVOICE_HISTORY_PAGE,
       "/tracker",
       "/properties",
       "/investors",
@@ -337,9 +342,9 @@ export const USERS: Record<UserId, UserDef> = {
   tanya: {
     id: "tanya",
     label: "TANYA",
-    navKeys: new Set([...universalNav, "tenant-statements", "open-credits", "uo-tax", "expenses-history", "allocated", "commissions", "commissions-retail"]),
+    navKeys: new Set([...universalNav, "tenant-statements", "open-credits", "uo-tax", "expenses-history", "allocated", "commissions", "commissions-retail", "invoice-history"]),
     allowedPathPrefixes: [
-      "/dashboard", "/properties", "/rentroll", "/units", "/tenant-statements", UO_PAGE,
+      "/dashboard", "/properties", "/rentroll", "/units", "/tenant-statements", UO_PAGE, INVOICE_HISTORY_PAGE,
       "/expenses/history", "/allocated-invoicer", "/commissions",
     ],
     defaultRentRollCategory: "All",
@@ -472,6 +477,7 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   ["/api/communications", "/communications"],
   // Philadelphia U&O — the returns, the delinquent review, the JE.
   ["/api/uo", UO_PAGE],
+  ["/api/invoice-history", INVOICE_HISTORY_PAGE],
   ["/api/commissions/retail", "/commissions/retail"],
   // The quarter's sent-log (dates only) — Harry's retail reminder reads it too.
   ["/api/commissions/avidbill-sent", ["/commissions", "/commissions/retail"]],
@@ -539,6 +545,18 @@ const VIEW_ONLY_API: [apiPrefix: string, writePage: string][] = [["/api/tenant-s
 /** Server-side authorization for a request path. Pages use isPathAllowed;
  *  sensitive API groups map to their governing page; everything else stays
  *  open to any signed-in user. */
+/** Logins that never see payroll by employee (owner, 11/2026: "make sure she
+ *  doesnt see any per employee payroll allocations"). The payroll APIs below
+ *  were open to any signed-in login (only the pages were gated): the employee
+ *  allocation workbook, the pay periods, the payroll parse and the invoice
+ *  builders. A payroll INVOICE (per property, no names) stays readable through
+ *  Invoice History. */
+export const NO_PAYROLL_USERS: ReadonlySet<UserId> = new Set<UserId>(["tanya", "tami"]);
+const PAYROLL_APIS = ["/api/payroll", "/api/periods", "/api/parse-payroll", "/api/generate-all", "/api/generate-pdf"];
+/** Exactly `/api/allocation` — the employee allocation workbook; its sub-routes are the Allocated Invoicer's. */
+const isPayrollApi = (pathname: string) =>
+  pathname === "/api/allocation" || pathname === "/api/allocation/" || PAYROLL_APIS.some((p) => underPrefix(pathname, p));
+
 export function authorizeRequest(userId: UserId, pathname: string, method = "GET"): boolean {
   // Profile-switchers (admin / Drew) may view ANY user's profile, so the server
   // grants them full access. The signed cookie carries the switcher — not the
@@ -548,6 +566,7 @@ export function authorizeRequest(userId: UserId, pathname: string, method = "GET
   // client already gates faithfully to the viewed profile; elevated paths
   // (/history, /audit) stay behind the separate admin-auth layer in middleware.
   if (canSwitchUsers(userId)) return true;
+  if (NO_PAYROLL_USERS.has(userId) && (isPayrollApi(pathname) || pathname === "/" || underPrefix(pathname, "/history"))) return false;
   if (READ_ONLY_USERS.has(userId) && pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase())
       && !READ_ONLY_WRITES_ALLOWED.some((p) => underPrefix(pathname, p))) return false;
   const scope = WRITE_SCOPE[userId];

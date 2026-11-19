@@ -230,6 +230,27 @@ export function statusEmail(a: StatusArgs): { subject: string; html: string; tex
 
 // ─── A message staff write to a tenant from a request ────────────────────────
 
+/** Company lines a typed sign-off might end with. */
+const COMPANY_LINE = /^(korman commercial (operations|properties)|kcp property management|kcp|korman)$/i;
+
+/** The letter's own signature block (name + Korman Commercial Properties)
+ *  follows the body, so a sign-off typed into the body — "Jay / Korman
+ *  Commercial Operations" under "Thanks," — printed twice (owner: "delete
+ *  this repetitive row … on outgoing emails"). Trailing lines that are the
+ *  sender's name or a company line are dropped; the closing ("Thanks,") and
+ *  everything above it stays. */
+export function withoutTypedSignature(body: string, signedBy: string): string {
+  const lines = String(body ?? "").replace(/\s+$/, "").split("\n");
+  const name = signedBy.trim().toLowerCase();
+  const first = name.split(/\s+/)[0] ?? "";
+  const isSig = (l: string) => {
+    const t = l.trim().replace(/[.,]$/, "").toLowerCase();
+    return !!t && (t === name || t === first || COMPANY_LINE.test(t));
+  };
+  while (lines.length > 1 && isSig(lines[lines.length - 1])) lines.pop();
+  return lines.join("\n").replace(/\s+$/, "");
+}
+
 /** The staff member's own words in the letter layout: logo, a slim band
  *  naming what it is about, the message, their name, then the details. */
 export function staffMessageEmail(a: {
@@ -237,7 +258,7 @@ export function staffMessageEmail(a: {
 }): { html: string; text: string } {
   const s: Shell = {
     propertyCode: a.propertyCode, subject: a.subject, eyebrow: a.eyebrow, hello: "", accent: "", sub: "",
-    details: a.details, boxLabel: "", boxText: "", emergency: false, letter: { body: a.body, signedBy: a.signedBy },
+    details: a.details, boxLabel: "", boxText: "", emergency: false, letter: { body: withoutTypedSignature(a.body, a.signedBy), signedBy: a.signedBy },
   };
   return { html: shell(s), text: textOf(s, "") };
 }

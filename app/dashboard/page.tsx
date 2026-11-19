@@ -22,6 +22,7 @@ import ImportsToDoCard from "./ImportsToDoCard";
 import { sameTenant } from "@/lib/leasing/confirmedMoveouts";
 import NotPostedCard from "./NotPostedCard";
 import ApOutboxCard from "./ApOutboxCard";
+import PayablesOverview from "./PayablesOverview";
 import MoveOutsCard from "./MoveOutsCard";
 import NewTenantsCard from "./NewTenantsCard";
 import DrewTasksThisWeek from "./DrewTasksThisWeek";
@@ -133,6 +134,9 @@ export default function DashboardPage() {
   if (user.id === "maint") return <MaintenanceOverview />;
   // Tami: open credits and open A/R only — a narrow view into receivables.
   if (user.id === "tami") return <ReceivablesOverview />;
+  // Tanya: what went to AvidXchange and the month's U&O — no occupancy or
+  // expiring-tenant cards.
+  if (user.id === "tanya") return <PayablesOverview />;
   return <DashboardInner />;
 }
 

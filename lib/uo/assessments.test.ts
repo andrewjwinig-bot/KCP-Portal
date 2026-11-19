@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { assessmentChanges, cityQuery, lineOne, mergeCity, parseCityRows, resolveAssessed, uoParcels, yearsToCheck } from "./assessments";
+import { alarmDue, assessmentAlarm, missingFor, refreshDue, assessmentChanges, cityQuery, lineOne, mergeCity, parseCityRows, resolveAssessed, uoParcels, yearsToCheck } from "./assessments";
 
 // 7010 Parkwood: the budget carries 2026 (11,292,000) and 2027 (13,174,000).
 const P = "882078060";
@@ -57,5 +57,47 @@ describe("U&O assessed values, every year", () => {
     const q = cityQuery(["882078060"], [2030]);
     expect(q).toContain("'882078060'");
     expect(q).toContain("'2030'");
+  });
+});
+
+describe("once a year, and the alarm when it stops", () => {
+  const all = (year: number) => Object.fromEntries(uoParcels().map((p) => [`${p}:${year}`, 1_000_000]));
+  const at = (iso: string) => new Date(`${iso}T15:00:00Z`);
+
+  it("the budget's seed covers 2026 and 2027 for every U&O parcel", () => {
+    expect(missingFor(2026, {})).toEqual([]);
+    expect(missingFor(2027, {})).toEqual([]);
+    expect(missingFor(2028, {}).length).toBe(uoParcels().length);
+  });
+
+  it("reads from April until next year is in, then stops for the year", () => {
+    expect(refreshDue({ values: {} }, at("2027-02-10"))).toBe(false);
+    expect(refreshDue({ values: {} }, at("2027-04-02"))).toBe(true);
+    expect(refreshDue({ values: {}, checkedAt: "2027-04-02T15:00:00Z" }, at("2027-04-20"))).toBe(false);
+    expect(refreshDue({ values: {}, checkedAt: "2027-04-02T15:00:00Z" }, at("2027-05-02"))).toBe(true);
+    expect(refreshDue({ values: {}, checkedAt: "2027-10-01T15:00:00Z" }, at("2027-10-08"))).toBe(true);
+    expect(refreshDue({ values: all(2028) }, at("2027-06-01"))).toBe(false);
+  });
+
+  it("a year with no value reads weekly whatever the month", () => {
+    expect(refreshDue({ values: {} }, at("2028-02-01"))).toBe(true);
+    expect(refreshDue({ values: {}, checkedAt: "2028-02-01T15:00:00Z" }, at("2028-02-05"))).toBe(false);
+  });
+
+  it("warns from October when next year is missing, and is loud once a return is stale", () => {
+    expect(assessmentAlarm({ values: {} }, at("2027-09-30"))).toBeNull();
+    const w = assessmentAlarm({ values: {} }, at("2027-10-01"))!;
+    expect(w).toMatchObject({ level: "warning", year: 2028 });
+    expect(w.parcels).toContain("7010 Shopping Center");
+    const d = assessmentAlarm({ values: {}, error: "The City's open data answered 500." }, at("2028-01-03"))!;
+    expect(d.level).toBe("danger");
+    expect(d.text).toContain("answered 500");
+    expect(assessmentAlarm({ values: all(2028) }, at("2028-01-03"))).toBeNull();
+  });
+
+  it("repeats the alarm every week until it clears", () => {
+    expect(alarmDue(undefined, at("2028-01-03"))).toBe(true);
+    expect(alarmDue("2028-01-03T15:00:00Z", at("2028-01-08"))).toBe(false);
+    expect(alarmDue("2028-01-03T15:00:00Z", at("2028-01-10"))).toBe(true);
   });
 });

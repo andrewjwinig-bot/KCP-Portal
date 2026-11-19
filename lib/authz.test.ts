@@ -200,3 +200,29 @@ describe("Tenant Notices — Greg approves and sends the month's notices", () =>
     }
   });
 });
+
+describe("Tanya — invoices and receivables, never payroll by employee", () => {
+  it("reads every invoice archive and U&O, writes only receivables", () => {
+    expect(authorizeRequest("tanya", "/api/invoice-history")).toBe(true);
+    expect(authorizeRequest("tanya", "/invoices")).toBe(true);
+    expect(authorizeRequest("tanya", "/api/uo")).toBe(true);
+    expect(authorizeRequest("tanya", "/api/allocation/history")).toBe(true);
+    expect(authorizeRequest("tanya", "/api/uo", "POST")).toBe(false);
+    expect(authorizeRequest("tanya", "/api/tenant-statements/receipts", "POST")).toBe(true);
+  });
+  it("never reaches the per-employee payroll data", () => {
+    for (const u of ["tanya", "tami"] as const) {
+      expect(authorizeRequest(u, "/api/allocation")).toBe(false);
+      expect(authorizeRequest(u, "/api/payroll")).toBe(false);
+      expect(authorizeRequest(u, "/api/periods")).toBe(false);
+      expect(authorizeRequest(u, "/api/parse-payroll")).toBe(false);
+      expect(authorizeRequest(u, "/api/generate-all")).toBe(false);
+      expect(authorizeRequest(u, "/api/financials/budgets/payroll")).toBe(false);
+    }
+    expect(authorizeRequest("harry", "/api/allocation")).toBe(true);
+  });
+  it("others without the page do not see invoice history", () => {
+    expect(authorizeRequest("nancy", "/api/invoice-history")).toBe(false);
+    expect(authorizeRequest("greg", "/api/invoice-history")).toBe(false);
+  });
+});

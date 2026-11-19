@@ -26,6 +26,7 @@ type Data = {
   month: string; record: UoMonth; properties: UoPropertyView[]; candidates: UoCandidate[];
   rollMonth: string | null; statementPeriod: string | null; statementAsOf: string | null; agingAsOf: string | null;
   cityCheckedAt: string | null; cityError: string | null;
+  cityAlarm: { level: "warning" | "danger"; title: string; text: string } | null;
   stage: "not-open" | "review" | "ready" | "filed" | "overdue";
   dates: { reviewOpens: string; fileBy: string; due: string };
   canReview: boolean; canFile: boolean;
@@ -165,6 +166,11 @@ export default function UoTaxPage() {
     <main className="page">
       {header}
       {error && <StatusBanner tone="danger" title="Something went wrong" style={{ marginBottom: 12 }}>{error}</StatusBanner>}
+      {data.cityAlarm && (
+        <StatusBanner tone={data.cityAlarm.level} icon={data.cityAlarm.level === "warning" ? "clock" : undefined} title={data.cityAlarm.title} style={{ marginBottom: 12 }}>
+          {data.cityAlarm.text}
+        </StatusBanner>
+      )}
       <div style={{ marginBottom: 14 }}>{stageBanner}</div>
 
       <div className="pills" style={{ marginBottom: 14 }}>
