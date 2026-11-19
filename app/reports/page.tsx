@@ -11,6 +11,7 @@ import { ChevronRight } from "lucide-react";
 
 import { Fragment, useMemo, useState } from "react";
 import { Pill, reportFormatTone } from "@/app/components/Pill";
+import { PageHeader } from "@/app/components/PageHeader";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
 import { useUser } from "@/app/components/UserProvider";
 import { isPathAllowed } from "@/lib/users";
@@ -30,16 +31,11 @@ export default function ReportsPage() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ marginBottom: 4 }}>Reports</h1>
-          <p className="muted small" style={{ margin: 0 }}>
-            Every report in the portal, in one place. Open one to run it for a property and period, then use its <b>Download</b> menu.
-          </p>
-        </div>
-        <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a report…"
-          aria-label="Find a report" style={{ width: 260 }} />
-      </div>
+      <PageHeader title="Reports"
+        info={<>Every report in the portal, in one place. Open one to run it for a property and period, then use its <b>Download</b> menu.</>} />
+
+      <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a report…"
+        aria-label="Find a report" style={{ width: "100%", maxWidth: 320 }} />
 
       <div className="card" style={{ padding: 0, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 640 }}>

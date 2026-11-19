@@ -2,6 +2,8 @@
 import { DisplayMenu, CheckRow, MenuSection } from "@/app/components/DisplayMenu";
 import { ChevronDown, ChevronUp, FileText } from "lucide-react";
 import LoadingState from "@/app/components/LoadingState";
+import { PageHeader } from "@/app/components/PageHeader";
+import { MetaLine } from "@/app/components/LastImported";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -299,28 +301,9 @@ export default function UnitInfoIndexPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <h1 style={{ margin: 0 }}>Unit Info</h1>
-            <div style={{ fontSize: "var(--fs-12)", color: "var(--muted)", marginTop: 2 }}>
-              Floorplans &amp; physical suite specs — tenant &amp; lease details live on the Rent Roll.
-            </div>
-          </div>
-          <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)" }}>
-            {loading
-              ? "Loading…"
-              : `${total} unit${total === 1 ? "" : "s"} · ${byCategory.reduce((n, c) => n + c.groups.length, 0)} propert${byCategory.reduce((n, c) => n + c.groups.length, 0) === 1 ? "y" : "ies"}${withPlans ? ` · ${withPlans} with floorplan` : ""}`}
-          </span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search by tenant, unit, or property…"
-            style={{ flex: "1 1 260px", maxWidth: 420 }}
-          />
+      <PageHeader title="Unit Info"
+        info={<>Floorplans &amp; physical suite specs — tenant &amp; lease details live on the Rent Roll.</>}
+        actions={
           <DisplayMenu>
             <CheckRow label="Vacant only" checked={vacantOnly} onChange={setVacantOnly} />
             <MenuSection label="Columns">
@@ -329,8 +312,20 @@ export default function UnitInfoIndexPage() {
               ))}
             </MenuSection>
           </DisplayMenu>
-        </div>
-      </header>
+        }
+        meta={<MetaLine>
+          {loading
+            ? "Loading…"
+            : `${total} unit${total === 1 ? "" : "s"} · ${byCategory.reduce((n, c) => n + c.groups.length, 0)} propert${byCategory.reduce((n, c) => n + c.groups.length, 0) === 1 ? "y" : "ies"}${withPlans ? ` · ${withPlans} with floorplan` : ""}`}
+        </MetaLine>} />
+
+      <input
+        type="text"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search by tenant, unit, or property…"
+        style={{ width: "100%", maxWidth: 420 }}
+      />
 
       {loading ? (
         <LoadingState status="Loading units…" rows={5} />
