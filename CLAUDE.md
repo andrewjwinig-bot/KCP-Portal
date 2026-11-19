@@ -1287,6 +1287,27 @@ handoff's screenshot crop.
   Good Treats' leased 1,228 SF at 1100 and Petroski's 210 at Parkwood). A CMS
   listing of the same SF lends its photos / details. Properties with no
   designed page keep their CMS listings. Pinned by `liveListings.test.ts`.
+- **EVERY OTHER PROPERTY'S AVAILABILITIES ARE THE CURRENT RENT ROLL'S TOO**
+  (owner, 11/2026: "sync the available-space page with the vacancies from the
+  portal … with most current rent roll"; `lib/site/rollListings.ts`, pinned by
+  its test). The Interplex lists every vacant suite in the ten buildings (the
+  park page's own `spacesFromRoll`, `WEBSITE_HIDDEN_UNITS` respected), The
+  Office Works each open office on its plan (`planFromRoll`), and the
+  single-tenant retail (`SITE_ROLL_CODE`: 7200, 5600, 8200 → the Four Seasons
+  listing, 1500, 7300) any vacant suite on its roll — all off
+  `resolveCurrentRentroll`. The vendor CMS copy is listed only for a property
+  neither the designed pages nor the roll covers; a CMS listing of the same
+  size lends photos / details. No roll reachable → those properties list
+  nothing, never stale copy.
+- **THE AVAILABLE SPACE PAGE FILTERS AND SORTS** (owner: "sort and filter by
+  various metrics to be more useful to prospective tenants";
+  `app/site/available-space/AvailableSpaceExplorer.tsx`): All / Office /
+  Retail, property, size band, a text search (suite, building, use, details)
+  and sort by property or size — sorting by size is one table across every
+  property, each space led by its property. A live count ("13 spaces · 7,663
+  SF across 4 properties") and Clear filters; the filters ride in the URL so a
+  filtered view can be sent to a prospect. Inline styles where site.css has no
+  class (no Tailwind compiler here).
 - **THE WEBSITE'S CENTRE LINKS GO TO THE DESIGNED PAGES** (owner: "the new
   pages i built arent loading"): `DESIGNED_PAGES` / `propertyPath` in
   `lib/site/paths.ts` map the website's slug (`brookwood-shopping-center`) to

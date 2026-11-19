@@ -2,6 +2,9 @@ import "server-only";
 import { SITE_LISTINGS, type SiteListing } from "./content";
 import { liveDesignedSuites } from "@/lib/centers/designed/render";
 import { FLYERS, spaceLabel } from "@/lib/centers/designed/flyer";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
+import { SITE_PROPERTIES } from "./content";
+import { INTERPLEX_SLUG, OFFICE_WORKS_SLUG, SITE_ROLL_CODE, interplexListings, isRollProperty, officeWorksListings, singleTenantListings, withCmsCopy, type RollProperty } from "./rollListings";
 
 // The website's availability listings for the shopping centres come from the
 // PORTAL, not the copy cloned from the vendor's CMS: each centre's designed
@@ -51,24 +54,46 @@ async function centreListings(siteSlug: string, designedSlug: string): Promise<S
     });
 }
 
-/** Every listing on the website: live for the designed centres, the CMS copy elsewhere. */
+/** The non-centre properties' listings off the CURRENT rent roll
+ *  (rollListings.ts). Null when no roll is reachable — those properties then
+ *  list nothing rather than stale CMS copy. */
+async function rollListings(): Promise<Map<string, SiteListing[]> | null> {
+  const roll = await resolveCurrentRentroll().catch(() => null);
+  if (!roll) return null;
+  const props = roll.properties as unknown as RollProperty[];
+  const email = (slug: string) => SITE_PROPERTIES.find((p) => p.slug === slug)?.leasingInquiryEmail ?? null;
+  const out = new Map<string, SiteListing[]>();
+  out.set(INTERPLEX_SLUG, interplexListings(props, email(INTERPLEX_SLUG) ?? "nfox@kormancommercial.com"));
+  out.set(OFFICE_WORKS_SLUG, officeWorksListings(props, email(OFFICE_WORKS_SLUG) ?? "nfox@kormancommercial.com"));
+  for (const slug of Object.keys(SITE_ROLL_CODE)) out.set(slug, singleTenantListings(slug, props, email(slug) ?? "hfeldman@kormancommercial.com"));
+  for (const [k, v] of out) out.set(k, withCmsCopy(v, SITE_LISTINGS));
+  return out;
+}
+
+/** Every listing on the website, from the portal: the designed centres'
+ *  synced suites and every other property's vacancies on the current rent
+ *  roll. The vendor CMS copy is listed only for a property neither covers. */
 export async function liveSiteListings(): Promise<SiteListing[]> {
-  const live = await Promise.all(Object.entries(SITE_TO_DESIGNED).map(([site, d]) => centreListings(site, d).then((l) => [site, l] as const)));
-  const bySite = new Map(live);
+  const [live, fromRoll] = await Promise.all([
+    Promise.all(Object.entries(SITE_TO_DESIGNED).map(([site, d]) => centreListings(site, d).then((l) => [site, l] as const))),
+    rollListings(),
+  ]);
+  const bySite = new Map<string, SiteListing[] | null>(live);
+  for (const [k, v] of fromRoll ?? []) bySite.set(k, v);
   const out: SiteListing[] = [];
-  const done = new Set<string>();
-  for (const l of SITE_LISTINGS) {
-    const liveFor = bySite.get(l.property);
-    if (liveFor) {
-      if (!done.has(l.property)) { out.push(...liveFor); done.add(l.property); }
-    } else out.push(l);
+  for (const [site, l] of bySite) {
+    if (l) out.push(...l);
+    // A designed page that could not be built keeps the CMS copy, as before.
+    else if (!isRollProperty(site)) out.push(...SITE_LISTINGS.filter((c) => c.property === site));
   }
-  for (const [site, l] of bySite) if (l && !done.has(site)) out.push(...l);
+  // A property neither the designed pages nor the roll covers keeps its CMS copy.
+  for (const l of SITE_LISTINGS) if (!bySite.has(l.property) && !isRollProperty(l.property)) out.push(l);
   return out;
 }
 
 export async function liveListingsFor(slug: string): Promise<SiteListing[]> {
   const d = SITE_TO_DESIGNED[slug];
   if (d) { const l = await centreListings(slug, d); if (l) return l; }
+  if (isRollProperty(slug)) return (await rollListings())?.get(slug) ?? [];
   return SITE_LISTINGS.filter((l) => l.property === slug);
 }
