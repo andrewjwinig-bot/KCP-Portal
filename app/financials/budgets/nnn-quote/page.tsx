@@ -16,12 +16,14 @@ import { StatPill } from "@/app/components/Pill";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import LoadingState from "@/app/components/LoadingState";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { drawNnnQuote } from "@/lib/leasing/nnnQuotePdf";
 import { quoteNnn, type NnnYear, type Pools } from "@/lib/leasing/nnnQuote";
 
 type Pot = "retail" | "office";
 type Suite = { unitRef: string; suite: string; sqft: number; vacant: boolean; tenant: string; pot: Pot; baseRentPsf: number | null; adminPct: number | null };
 type PotQuote = { gla: number; pools: Pools | null; adminPct: number; trend: NnnYear[] };
-type Quote = { code: string; name: string; budgetYear: number; gross: boolean; pots: { retail: PotQuote; office?: PotQuote }; suites: Suite[] };
+type Quote = { code: string; name: string; address?: string; budgetYear: number; gross: boolean; pots: { retail: PotQuote; office?: PotQuote }; suites: Suite[] };
 
 const psf = (n: number) => `$${n.toFixed(2)}`;
 const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
@@ -44,6 +46,7 @@ export default function NnnQuotePage() {
   const [admin, setAdmin] = useState("");
   const [sfText, setSfText] = useState("");
   const [copied, setCopied] = useState(false);
+  const [prospect, setProspect] = useState("");
 
   useEffect(() => {
     fetch("/api/financials/budgets/nnn-quote", { cache: "no-store" }).then((r) => r.json()).then((j) => {
@@ -90,6 +93,23 @@ export default function NnnQuotePage() {
   const rentIsCurrent = !!suite && !suite.vacant && suite.baseRentPsf != null && Number(rent) === suite.baseRentPsf;
   const adminDefault = suite && !suite.vacant && suite.adminPct != null ? suite.adminPct : pot?.adminPct ?? 0;
 
+  // The quote as a one-page PDF for the prospect (owner: "add a print/PDF
+  // version of the quote for tenants") — drawn from the figures on screen.
+  const quotePdf = async (mode: "download" | "print") => {
+    if (!quote || !q || !suite) return;
+    const { jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "pt", format: "letter" });
+    drawNnnQuote(doc, {
+      centre: q.name, address: q.address, suite: suite.suite, sqft, budgetYear: q.budgetYear,
+      preparedFor: prospect.trim() || undefined, quote, trend: pot?.trend,
+      dateLabel: new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }),
+    });
+    const name = `${q.name} Suite ${suite.suite} - Estimated Occupancy Costs${prospect.trim() ? ` - ${prospect.trim()}` : ""}.pdf`.replace(/[\\/:*?"<>|]/g, "");
+    if (mode === "download") { doc.save(name); return; }
+    doc.autoPrint();
+    window.open(URL.createObjectURL(doc.output("blob")), "_blank");
+  };
+
   const copyQuote = async () => {
     if (!quote || !q || !suite) return;
     const lines = [
@@ -107,7 +127,13 @@ export default function NnnQuotePage() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <PageHeader title="NNN Quote"
         info={<>Pick a suite and type the base rent you are quoting — a current tenant&apos;s suite starts at their rent and admin fee today, both typeable. CAM, insurance and real estate taxes are the {q?.budgetYear ?? "budget year"} budget&apos;s recoverable expenses for the centre times the suite&apos;s share of its square footage (the budget&apos;s &ldquo;NNN / SF&rdquo;), plus the CAM admin fee most of the centre&apos;s leases carry. A new lease&apos;s own terms — a cap, an exclusion, a stipulated share — are not applied.</>}
-        actions={quote && suite ? <button className="btn" onClick={copyQuote}><Copy size={16} strokeWidth={1.75} aria-hidden /> {copied ? "Copied" : "Copy Quote"}</button> : undefined}
+        actions={quote && suite ? <>
+          <button className="btn" onClick={copyQuote}><Copy size={16} strokeWidth={1.75} aria-hidden /> {copied ? "Copied" : "Copy Quote"}</button>
+          <DownloadMenu label="Export" items={[
+            { label: "PDF for the tenant", description: "One page: the charges, the all-in and NNN over the years", onClick: () => void quotePdf("download") },
+            { label: "Print", description: "Opens the same PDF ready to print", onClick: () => void quotePdf("print") },
+          ]} />
+        </> : undefined}
         meta={q && !q.gross && pot?.pools ? <MetaLine><span>{q.budgetYear} budget{mixed ? ` · ${suite?.pot === "office" ? "Office" : "Retail"} pool` : ""} · GLA {pot.gla.toLocaleString("en-US")} SF · NNN {psf((pot.pools.cam + pot.pools.ins + pot.pools.ret) / pot.gla)} / SF before admin fee</span></MetaLine> : undefined} />
 
       {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
@@ -150,6 +176,11 @@ export default function NnnQuotePage() {
               <span style={HINT}>{Number(admin) === adminDefault
                 ? (suite && !suite.vacant && suite.adminPct != null ? "Their lease" : "Centre typical")
                 : <button type="button" className="text-link" style={{ background: "none", border: 0, padding: 0, fontSize: "inherit", cursor: "pointer" }} onClick={() => setAdmin(String(adminDefault))}>{suite && !suite.vacant && suite.adminPct != null ? "Lease" : "Typical"} {adminDefault}%</button>}</span>
+            </label>
+            <label style={FIELD("2 1 220px")}>
+              <span style={LABEL}>Prepared for</span>
+              <input value={prospect} placeholder="Prospect (optional, for the PDF)" onChange={(e) => setProspect(e.target.value)} style={{ width: "100%", minWidth: 0 }} />
+              <span style={HINT} />
             </label>
           </div>
 
