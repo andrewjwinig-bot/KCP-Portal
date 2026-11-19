@@ -5,7 +5,7 @@
 // their own, some with the KORMAN wordmark, some without. One shape now:
 //
 //   Title (i)                                        [Import] [Display] [Export]
-//   [Property picker] [Period picker]          <- only when the page has pickers
+//   [Property picker] [Period picker] ...  <- a white card, only when the page has pickers
 //   Imported Nov 10 by Drew · GL ties          <- the ONE muted meta line
 //
 // - `info` is what the page IS / how to use it — the paragraph that used to
@@ -35,9 +35,12 @@ export function PageHeader({ title, info, infoLabel, actions, pickers, meta, chi
 }) {
   const row: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" };
   const group: React.CSSProperties = { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" };
+  // A page with pickers draws them in ONE white card under the title, with
+  // the actions, the meta line and anything the header carries (its KPI
+  // tiles) — owner: the pickers sit inside the white box on every page.
+  const drop = dragging ? { outline: "2px dashed var(--brand)", outlineOffset: 6, borderRadius: 12 } : undefined;
   return (
-    <header className="page-header" {...(dropHandlers ?? {})}
-      style={dragging ? { outline: "2px dashed var(--brand)", outlineOffset: 6, borderRadius: 12 } : undefined}>
+    <header className="page-header" {...(dropHandlers ?? {})} style={pickers ? { display: "grid", gap: 14 } : drop}>
       <div style={row}>
         <div style={{ ...group, gap: 12, minWidth: 0 }}>
           <h1 style={{ margin: 0, overflowWrap: "anywhere" }}>{title}</h1>
@@ -45,14 +48,21 @@ export function PageHeader({ title, info, infoLabel, actions, pickers, meta, chi
         </div>
         {!pickers && actions && <div style={group}>{actions}</div>}
       </div>
-      {pickers && (
-        <div style={{ ...row, marginTop: 14 }}>
-          <div style={group}>{pickers}</div>
-          {actions && <div style={group}>{actions}</div>}
+      {pickers ? (
+        <div className="card" style={{ display: "grid", gap: 10, ...(drop ?? {}) }}>
+          <div style={row}>
+            <div style={group}>{pickers}</div>
+            {actions && <div style={group}>{actions}</div>}
+          </div>
+          {meta}
+          {children}
         </div>
+      ) : (
+        <>
+          {meta}
+          {children}
+        </>
       )}
-      {meta}
-      {children}
     </header>
   );
 }
