@@ -1,5 +1,6 @@
 "use client";
 import { StatusBanner } from "@/app/components/StatusBanner";
+import { useActionItems } from "@/app/components/useActionItems";
 import { heldAmount } from "@/lib/deposits/deposits";
 import { ChevronRight, X } from "lucide-react";
 
@@ -24,8 +25,6 @@ import ApOutboxCard from "./ApOutboxCard";
 import MoveOutsCard from "./MoveOutsCard";
 import NewTenantsCard from "./NewTenantsCard";
 import DrewTasksThisWeek from "./DrewTasksThisWeek";
-import TenantEmailsDueCard from "./TenantEmailsDueCard";
-import TenantNoticesReminder from "./TenantNoticesReminder";
 import CommissionsReminder from "./CommissionsReminder";
 import AnnualStatementReminder from "./AnnualStatementReminder";
 import DailyDigestModal from "./DailyDigestModal";
@@ -138,6 +137,7 @@ export default function DashboardPage() {
 function DashboardInner() {
   const router = useRouter();
   const { user } = useUser();
+  const actionItems = useActionItems(user);
   const [rentroll, setRentroll] = useState<RentRollData | null>(null);
   const [loading, setLoading] = useState(true);
   const [checkedByYear, setCheckedByYear] = useState<Record<number, Record<string, boolean>>>({});
@@ -881,8 +881,17 @@ function DashboardInner() {
                 <AnnualStatementReminder />
               )}
 
-              {/* The month's tenant notices, waiting for Greg's approval. */}
-              {user.navKeys.has("tenant-notices") && <TenantNoticesReminder />}
+              {/* Everyone's open action items — the SAME list the sidebar counts
+                  (useActionItems): tenant notices and seasonal emails to send,
+                  charges to code, close-outs, batches not sent to AvidXchange,
+                  receipts ready to apply. */}
+              {actionItems.map((a) => (
+                <StatusBanner key={a.id} compact tone={a.tone} icon={a.tone === "warning" ? "clock" : undefined} style={{ flex: "1 1 260px", minWidth: 0 }}
+                  title={a.title}
+                  actions={a.href !== "/dashboard" ? <Link className="btn sm" href={a.href} style={{ textDecoration: "none" }}>Open</Link> : undefined}>
+                  {a.sub}
+                </StatusBanner>
+              ))}
 
               {showBankRec && (() => {
                 const id = `bank-stmt-${bankStmt.period}`;
@@ -1000,7 +1009,6 @@ function DashboardInner() {
         {(user.id === "drew" || user.id === "harry" || user.id === "marie" || isAdmin) && <ApOutboxCard order={-1} />}
         {!(queueOn) && (user.id === "drew" || user.id === "harry" || user.id === "nancy" || user.id === "marie" || isAdmin) && <MoveOutsCard order={-1} />}
         {(user.id === "harry" || isAdmin) && <NewTenantsCard order={-1} />}
-        {(user.id === "greg" || isAdmin) && <TenantEmailsDueCard order={-1} />}
 
         {/* ── New Bank Transfers — surface recent transfers for admin /
              drew / harry / marie. Each card is dismissible. ── */}

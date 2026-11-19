@@ -1,6 +1,6 @@
 "use client";
 
-import { fetchPendingNotices } from "../dashboard/TenantNoticesReminder";
+import { badgesByNav, useActionItems } from "./useActionItems";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
@@ -898,18 +898,13 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
     return () => { alive = false; clearInterval(timer); };
   }, [canSeeMaintenance]);
 
-  // Tenant notices waiting for approval: a badge on Tenant Notices (owner:
-  // "there is no icon with # on the sidebar for it when there should be").
-  const canSeeNotices = user.navKeys.has("tenant-notices");
-  const [noticesPending, setNoticesPending] = useState(0);
-  useEffect(() => {
-    if (!canSeeNotices) { setNoticesPending(0); return; }
-    let alive = true;
-    const load = () => { fetchPendingNotices().then((p) => { if (alive) setNoticesPending(p?.toSend ?? 0); }); };
-    load();
-    const timer = setInterval(load, 5 * 60000);
-    return () => { alive = false; clearInterval(timer); };
-  }, [canSeeNotices]);
+  // Everyone's open ACTION ITEMS — the same list the dashboard's Action Items
+  // strip shows (`useActionItems`), so a reminder there always carries a count
+  // here: Tenant Notices, Tenant Emails, charges to code, close-outs to
+  // approve, a batch not sent to AvidXchange, a quarter's CAM not sent,
+  // receipts ready to apply.
+  const actionItems = useActionItems(authed ? user : null);
+  const actionBadges = useMemo(() => badgesByNav(actionItems), [actionItems]);
 
   // Personal to-do count → folded into the Task Tracker badge (the personal list
   // now lives on the Tracker page + dashboard card, not its own nav item).
@@ -1029,10 +1024,10 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
   function badgeFor(item: (typeof NAV)[number]): number {
     if (item.label === "Reservations") return reservationPending;
     if (item.label === "Requests") return maintenancePending;
-    if (item.label === "Tenant Notices") return noticesPending;
     if (item.label === "Task Tracker") return tasksThisWeek + todoBadge;
-    if (!item.external && importsDue[item.href]) return importsDue[item.href].n;
-    return 0;
+    const action = item.external ? 0 : actionBadges[item.href] ?? 0;
+    if (!item.external && importsDue[item.href]) return importsDue[item.href].n + action;
+    return action;
   }
 
   return (
