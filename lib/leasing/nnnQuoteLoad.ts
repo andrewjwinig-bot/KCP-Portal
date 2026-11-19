@@ -66,7 +66,7 @@ export async function loadNnnQuote(code: string, budgetYear: number): Promise<Nn
 
   // Past years' actual pools: each reconciled year (live — the recon's FINAL),
   // and the frozen years before it.
-  const years: { year: number; kind: "actual" | "budget"; pools: Partial<Pools> }[] = [];
+  const years: { year: number; kind: NnnYear["kind"]; pools: Partial<Pools> }[] = [];
   const fixture = RETAIL_RECON_FIXTURES[code];
   for (const y of Object.keys(fixture?.byYear ?? {}).map(Number)) {
     const r = await loadRetailRecon(code, y).catch(() => null);
@@ -81,6 +81,11 @@ export async function loadNnnQuote(code: string, budgetYear: number): Promise<Nn
       years.push({ year: Number(y), kind: "actual", pools: { cam, ins: hist.ins[y], ret: hist.ret[y] } });
     }
   }
+  // This year on its reprojection — actual to date + budget for the rest —
+  // unless a reconciliation already closed it.
+  const basis = draft?.reimbursementEstimate?.basisPools;
+  const basisYear = draft?.basisYear ?? budgetYear - 1;
+  if (basis && !years.some((y) => y.year === basisYear)) years.push({ year: basisYear, kind: "reprojection", pools: basis });
   if (pools) years.push({ year: budgetYear, kind: "budget", pools });
 
   const adminPct = typicalAdminFee(

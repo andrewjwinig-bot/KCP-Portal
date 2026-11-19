@@ -2824,7 +2824,9 @@ applied. Copy Quote puts the lines and the all-in on the clipboard. **NNN Over
 the Years** (owner: "so he can talk to them about the trends … some
 properties theyve come down"): each reconciled year's actual pools
 (`loadRetailRecon`) and the frozen years before it (`RETAIL_EXPENSE_HISTORY`),
-then the budget year — every year per SF of TODAY'S GLA, so the change is the
+THIS year on its REPROJECTION (the draft's basis pools, `basisPools` on the
+estimate — owner: "for 2026 can you pull reprojections … almost a full years
+expenses in"), then the budget year — every year per SF of TODAY'S GLA, so the change is the
 cost. Only centres with CAM recons carry history (1100, 2300, 4500, 7010,
 9510); 9000 is gross and says so. Math pure in `lib/leasing/nnnQuote.ts`
 (pinned by its test), data in `nnnQuoteLoad.ts` (a centre's draft kept 15 min).

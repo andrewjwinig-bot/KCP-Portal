@@ -47,13 +47,13 @@ export function quoteNnn(pools: Pools, gla: number, sqft: number, baseRentPsf: n
   };
 }
 
-export type NnnYear = { year: number; kind: "actual" | "budget"; cam: number; ins: number; ret: number; total: number;
+export type NnnYear = { year: number; kind: "actual" | "reprojection" | "budget"; cam: number; ins: number; ret: number; total: number;
   /** A year missing a category's actual (the seed has no INS / RET for it). */
   partial?: boolean };
 
 /** Each year's pools as $/SF of ONE GLA (today's), so the trend is the cost
  *  moving, not the denominator. */
-export function nnnTrend(years: { year: number; kind: "actual" | "budget"; pools: Partial<Pools> }[], gla: number): NnnYear[] {
+export function nnnTrend(years: { year: number; kind: NnnYear["kind"]; pools: Partial<Pools> }[], gla: number): NnnYear[] {
   if (!(gla > 0)) return [];
   return years
     .map(({ year, kind, pools }) => {

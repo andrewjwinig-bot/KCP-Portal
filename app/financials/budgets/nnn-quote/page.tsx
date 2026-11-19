@@ -11,7 +11,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Copy, TrendingDown, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/app/components/PageHeader";
-import { HeaderSelect } from "@/app/components/HeaderSelect";
 import { MetaLine } from "@/app/components/LastImported";
 import { StatPill } from "@/app/components/Pill";
 import { StatusBanner } from "@/app/components/StatusBanner";
@@ -25,6 +24,7 @@ type Quote = { code: string; name: string; budgetYear: number; gross: boolean; g
 const psf = (n: number) => `$${n.toFixed(2)}`;
 const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 const cents = (n: number) => `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const FIELD: React.CSSProperties = { display: "grid", gap: 6, minWidth: 0 };
 const LABEL: React.CSSProperties = { fontSize: "var(--fs-12)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--muted)" };
 
 export default function NnnQuotePage() {
@@ -84,43 +84,47 @@ export default function NnnQuotePage() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <PageHeader title="NNN Quote"
         info={<>Pick a suite and type the base rent you are quoting. CAM, insurance and real estate taxes are the {q?.budgetYear ?? "budget year"} budget&apos;s recoverable expenses for the centre times the suite&apos;s share of its square footage (the budget&apos;s &ldquo;NNN / SF&rdquo;), plus the CAM admin fee most of the centre&apos;s leases carry. A new lease&apos;s own terms — a cap, an exclusion, a stipulated share — are not applied.</>}
-        pickers={properties.length > 0 && (
-          <HeaderSelect value={code} onChange={setCode} ariaLabel="Centre" displayLabel={properties.find((p) => p.code === code)?.name ?? "Centre"}>
-            {properties.map((p) => <option key={p.code} value={p.code}>{p.code} · {p.name}</option>)}
-          </HeaderSelect>
-        )}
         actions={quote && suite ? <button className="btn" onClick={copyQuote}><Copy size={16} strokeWidth={1.75} aria-hidden /> {copied ? "Copied" : "Copy Quote"}</button> : undefined}
         meta={q && !q.gross && q.pools ? <MetaLine><span>{q.budgetYear} budget · GLA {q.gla.toLocaleString("en-US")} SF · NNN {psf((q.pools.cam + q.pools.ins + q.pools.ret) / q.gla)} / SF before admin fee</span></MetaLine> : undefined} />
 
       {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
-      {loading && <LoadingState status="Reading the centre's budget" context="Recoverable expenses and the rent roll" />}
 
-      {q && q.gross && <StatusBanner tone="info" title={`${q.name} is leased gross`}>Tenants pay their own utilities and no CAM, insurance or tax estimates — quote the base rent alone.</StatusBanner>}
-      {q && !q.gross && !q.pools && <StatusBanner tone="warning" title="No budget to quote from">The {q.budgetYear} budget draft for {q.name} could not be built, so there are no pools to estimate from.</StatusBanner>}
-
-      {q && !q.gross && q.pools && (
+      {/* ONE card: every input in one row (owner: "why is property name
+          outside of the box altogether?"), each field its own column so a
+          long suite option never runs into the next box. */}
+      {properties.length > 0 && (
         <section className="card" style={{ display: "grid", gap: 14 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, alignItems: "end" }}>
-            <label style={{ display: "grid", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, alignItems: "end" }}>
+            <label style={FIELD}>
+              <span style={LABEL}>Centre</span>
+              <select className="select-brand" value={code} onChange={(e) => setCode(e.target.value)} style={{ width: "100%", minWidth: 0 }}>
+                {properties.map((p) => <option key={p.code} value={p.code}>{p.code} · {p.name}</option>)}
+              </select>
+            </label>
+            <label style={FIELD}>
               <span style={LABEL}>Suite</span>
-              <select value={unitRef} onChange={(e) => { setUnitRef(e.target.value); setSfText(""); }}>
+              <select value={unitRef} disabled={!q || q.gross || !q.pools} onChange={(e) => { setUnitRef(e.target.value); setSfText(""); }} style={{ width: "100%", minWidth: 0 }}>
                 {vacant.length > 0 && <optgroup label="Vacant">{vacant.map((s) => <option key={s.unitRef} value={s.unitRef}>{s.suite} · {s.sqft.toLocaleString("en-US")} SF</option>)}</optgroup>}
                 {leased.length > 0 && <optgroup label="Leased">{leased.map((s) => <option key={s.unitRef} value={s.unitRef}>{s.suite} · {s.tenant} · {s.sqft.toLocaleString("en-US")} SF</option>)}</optgroup>}
               </select>
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label style={FIELD}>
               <span style={LABEL}>Square feet</span>
-              <input inputMode="numeric" value={sfText} placeholder={suite ? suite.sqft.toLocaleString("en-US") : ""} onChange={(e) => setSfText(e.target.value)} />
+              <input inputMode="numeric" value={sfText} placeholder={suite ? suite.sqft.toLocaleString("en-US") : ""} onChange={(e) => setSfText(e.target.value)} style={{ width: "100%", minWidth: 0 }} />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label style={FIELD}>
               <span style={LABEL}>Base rent $ / SF / yr</span>
-              <input inputMode="decimal" value={rent} placeholder="e.g. 24.00" onChange={(e) => setRent(e.target.value)} autoFocus />
+              <input inputMode="decimal" value={rent} placeholder="e.g. 24.00" onChange={(e) => setRent(e.target.value)} autoFocus style={{ width: "100%", minWidth: 0 }} />
             </label>
-            <label style={{ display: "grid", gap: 6 }}>
+            <label style={FIELD}>
               <span style={LABEL}>CAM admin fee %</span>
-              <input inputMode="decimal" value={admin} onChange={(e) => setAdmin(e.target.value)} />
+              <input inputMode="decimal" value={admin} onChange={(e) => setAdmin(e.target.value)} style={{ width: "100%", minWidth: 0 }} />
             </label>
           </div>
+
+          {loading && <LoadingState status="Reading the centre's budget" context="Recoverable expenses and the rent roll" />}
+          {q && q.gross && <StatusBanner compact tone="info" title={`${q.name} is leased gross`}>Tenants pay their own utilities and no CAM, insurance or tax estimates — quote the base rent alone.</StatusBanner>}
+          {q && !q.gross && !q.pools && <StatusBanner compact tone="warning" title="No budget to quote from">The {q.budgetYear} budget draft for {q.name} could not be built, so there are no pools to estimate from.</StatusBanner>}
 
           {quote && (
             <>
@@ -166,7 +170,8 @@ export default function NnnQuotePage() {
  *  … some properties theyve come down"). All years on today's GLA, so the
  *  change is the cost, not the denominator. */
 function TrendCard({ trend }: { trend: NnnYear[] }) {
-  const actual = trend.filter((t) => t.kind === "actual" && !t.partial);
+  // The move up to THIS year (actuals and its reprojection), not the budget.
+  const actual = trend.filter((t) => t.kind !== "budget" && !t.partial);
   const first = actual[0], last = actual[actual.length - 1];
   const move = first && last && first !== last ? last.total - first.total : null;
   return (
@@ -189,7 +194,7 @@ function TrendCard({ trend }: { trend: NnnYear[] }) {
               const d = prev && !prev.partial && !t.partial ? t.total - prev.total : null;
               return (
                 <tr key={`${t.year}-${t.kind}`} style={{ borderBottom: "1px solid var(--hairline)" }}>
-                  <td style={{ ...tdL, fontWeight: 600 }}>{t.year} <span className="muted" style={{ fontWeight: 400 }}>{t.kind === "budget" ? "budget" : "actual"}{t.partial ? " · partial" : ""}</span></td>
+                  <td style={{ ...tdL, fontWeight: 600 }}>{t.year} <span className="muted" style={{ fontWeight: 400 }}>{t.kind === "budget" ? "budget" : t.kind === "reprojection" ? "reprojection" : "actual"}{t.partial ? " · partial" : ""}</span></td>
                   <td style={td}>{t.cam.toFixed(2)}</td>
                   <td style={td}>{t.partial && !t.ins ? "—" : t.ins.toFixed(2)}</td>
                   <td style={td}>{t.partial && !t.ret ? "—" : t.ret.toFixed(2)}</td>
@@ -203,7 +208,7 @@ function TrendCard({ trend }: { trend: NnnYear[] }) {
           </tbody>
         </table>
       </div>
-      <div className="muted" style={{ fontSize: "var(--fs-13)" }}>Actual years are the reconciled CAM, insurance and tax pools; every year is per SF of today&apos;s GLA, so the change is the cost moving.</div>
+      <div className="muted" style={{ fontSize: "var(--fs-13)" }}>Actual years are the reconciled CAM, insurance and tax pools; the current year is its reprojection (actual to date, budget for the months still to post); every year is per SF of today&apos;s GLA, so the change is the cost moving.</div>
     </section>
   );
 }
