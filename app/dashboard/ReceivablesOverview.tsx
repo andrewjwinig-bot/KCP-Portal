@@ -112,11 +112,11 @@ export default function ReceivablesOverview() {
               : dataThrough.imported ? <> · imported {new Date(dataThrough.imported).toLocaleDateString("en-US", { timeZone: "America/New_York", month: "short", day: "numeric", year: "numeric" })}</> : null} — open items only</> : "Open credits and open A/R from the latest Laser Statement."}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <QuickLinks compact />
           <Link className="btn primary" href="/tenant-statements" style={{ textDecoration: "none" }}>Receivables<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
         </div>
       </header>
-      <QuickLinks />
 
       {error && <div className="card muted small">{error}</div>}
       {!data && !error && <div className="card muted small">Loading…</div>}

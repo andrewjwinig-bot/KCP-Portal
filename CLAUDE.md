@@ -474,10 +474,12 @@ show ONLY for Drew, Randy, Harry, Alison and admin (`BANKING_USERS`; owner:
 `app/dashboard/QuickLinks.tsx` as LOGO-ONLY tiles (`.quick-link`: the SHORT
 logo mark, 128px squares in `public/quick-links/`; the name on hover via
 `data-tip` — owner: "just show the logos … without the app name"), new tab:
-a "Quick Links" card at the TOP of the Work Queue's right column (`card`;
-owner: "grouped like where Bank Balance task is on the right"), and a bare
-row under the header on the classic dashboard, Tami's Receivables and the
-service dashboard. A new link is ONE
+a "Quick Links" card at the TOP of Drew's Work Queue's right column (`card`;
+owner: "grouped like where Bank Balance task is on the right"), and for
+everyone else in the TOP-RIGHT CORNER of the dashboard header (`compact`;
+owner: "could quick links go up in the top right corner … for others too";
+"drews are good where they are") — the main dashboard, Tami's Receivables and
+the service dashboard. A new link is ONE
 entry in that list (`quickLinks.test.ts` checks the bank audience and that
 every icon exists). The long wordmarks are not used — a tile is too small.
 
