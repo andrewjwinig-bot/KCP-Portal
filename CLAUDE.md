@@ -2827,7 +2827,14 @@ properties theyve come down"): each reconciled year's actual pools
 THIS year on its REPROJECTION (the draft's basis pools, `basisPools` on the
 estimate — owner: "for 2026 can you pull reprojections … almost a full years
 expenses in"), then the budget year — every year per SF of TODAY'S GLA, so the change is the
-cost. Only centres with CAM recons carry history (1100, 2300, 4500, 7010,
+cost. **A current tenant's suite starts from THEIR rent and admin fee**
+(owner: "pull their current base rent but allow user to override"): the rent
+roll's base rent $/SF and the unit page's CAM admin fee, both typeable, a
+"Current $x" / "Lease x%" link puts them back; a vacancy starts blank at the
+centre's typical fee. **Parkwood (7010) quotes by POT** (`poolParts` on the
+draft's estimate): an office suite (a 7010O recon tenant, or suite 2xx) prices
+off the office pool and office GLA, a retail suite off the retail — trend
+included. Only centres with CAM recons carry history (1100, 2300, 4500, 7010,
 9510); 9000 is gross and says so. Math pure in `lib/leasing/nnnQuote.ts`
 (pinned by its test), data in `nnnQuoteLoad.ts` (a centre's draft kept 15 min).
 

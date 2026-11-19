@@ -191,6 +191,9 @@ export type ReimbursementEstimate = {
   /** The same pools on this year's REPROJECTION (actual to date + budget for
    *  the rest) — the draft's "basis" (set by the draft). */
   basisPools?: Coverage3;
+  /** A MIXED centre (7010): the same pools split into the retail and office
+   *  pots — the NNN Quote prices an office suite off the office pot. */
+  poolParts?: { retail: { pools: Coverage3; basis: Coverage3 }; office: { pools: Coverage3; basis: Coverage3 } };
   /** The RECON year's own recovery: what tenants were due against the pool
    *  it was figured on — the ratio the budget's should resemble. */
   reconCoverage?: { due: Coverage3; pool: Coverage3 };
