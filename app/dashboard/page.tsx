@@ -766,7 +766,8 @@ function DashboardInner() {
         )}
 
         {/* ── Debt Summary (Alison) — full width, sits with the occupancy panel ── */}
-        {isAlison && <BankBalancesCard order={-2} />}
+        {/* Under Portfolio Occupancy (owner) — same order, so the page order decides. */}
+        {isAlison && <BankBalancesCard order={-1} />}
         {isAlison && <DebtSummaryCard order={-1} />}
 
         {/* ── Management Fees chart (Alison) — the report is reference, so its chart lives here ── */}

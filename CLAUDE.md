@@ -573,7 +573,7 @@ Monthly Review is TRIMMED (`embedded`): no occupancy tiles (the Portfolio
 Occupancy card's) and no Financial / Operations cards — one row (NOI · YTD with
 its budget variance, open service requests with the month's new / completed),
 then By Group; the full view / print keeps everything. **Alison's dashboard
-leads with Bank Balances** (`BankBalancesCard` — the page's tiles and groups
+carries Bank Balances under Portfolio Occupancy** (`BankBalancesCard` — the page's tiles and groups
 through the SAME `balanceSummary`, `lib/financials/bank-balances/summary.ts`,
 which the page's tiles now read too).
 
