@@ -54,8 +54,9 @@ const ceilingOf = (pool: number, reconRatio: number | null) => pool * Math.max(1
 
 /** Record the budget's recoverable pools on the estimate, for the check. The
  *  estimates themselves are left exactly as the methodology produced them. */
-export function attachPools(est: ReimbursementEstimate, pools: Coverage3): void {
+export function attachPools(est: ReimbursementEstimate, pools: Coverage3, basisPools?: Coverage3): void {
   est.pools = pools;
+  if (basisPools) est.basisPools = basisPools;
 }
 
 /** The check as it stands (after any hand-set estimates), per group. */

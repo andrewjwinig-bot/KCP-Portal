@@ -1285,6 +1285,11 @@ async function buildDraftCore(key: string, budgetYear: number, growthPct: number
   // leased NNN centre past 100%).
   if (reimbursementEstimate) attachPools(reimbursementEstimate, {
     cam: pool.cam[0] + officePool.cam[0], ins: pool.ins[0] + officePool.ins[0], ret: pool.ret[0] + officePool.ret[0],
+  }, {
+    // The same pools on THIS year's reprojection (actual to date + budget for
+    // the rest) — the NNN Quote's current-year figure (owner: "for 2026 can
+    // you pull reprojections").
+    cam: pool.cam[1] + officePool.cam[1], ins: pool.ins[1] + officePool.ins[1], ret: pool.ret[1] + officePool.ret[1],
   });
   if (reimbursementEstimate) applyEstimateOverrides(reimbursementEstimate, estimateOverrides);
   // A charge collected only at reconciliation lands in MAY, when it is

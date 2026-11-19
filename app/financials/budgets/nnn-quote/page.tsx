@@ -170,7 +170,8 @@ export default function NnnQuotePage() {
  *  … some properties theyve come down"). All years on today's GLA, so the
  *  change is the cost, not the denominator. */
 function TrendCard({ trend }: { trend: NnnYear[] }) {
-  const actual = trend.filter((t) => t.kind === "actual" && !t.partial);
+  // The move up to THIS year (actuals and its reprojection), not the budget.
+  const actual = trend.filter((t) => t.kind !== "budget" && !t.partial);
   const first = actual[0], last = actual[actual.length - 1];
   const move = first && last && first !== last ? last.total - first.total : null;
   return (
@@ -193,7 +194,7 @@ function TrendCard({ trend }: { trend: NnnYear[] }) {
               const d = prev && !prev.partial && !t.partial ? t.total - prev.total : null;
               return (
                 <tr key={`${t.year}-${t.kind}`} style={{ borderBottom: "1px solid var(--hairline)" }}>
-                  <td style={{ ...tdL, fontWeight: 600 }}>{t.year} <span className="muted" style={{ fontWeight: 400 }}>{t.kind === "budget" ? "budget" : "actual"}{t.partial ? " · partial" : ""}</span></td>
+                  <td style={{ ...tdL, fontWeight: 600 }}>{t.year} <span className="muted" style={{ fontWeight: 400 }}>{t.kind === "budget" ? "budget" : t.kind === "reprojection" ? "reprojection" : "actual"}{t.partial ? " · partial" : ""}</span></td>
                   <td style={td}>{t.cam.toFixed(2)}</td>
                   <td style={td}>{t.partial && !t.ins ? "—" : t.ins.toFixed(2)}</td>
                   <td style={td}>{t.partial && !t.ret ? "—" : t.ret.toFixed(2)}</td>
@@ -207,7 +208,7 @@ function TrendCard({ trend }: { trend: NnnYear[] }) {
           </tbody>
         </table>
       </div>
-      <div className="muted" style={{ fontSize: "var(--fs-13)" }}>Actual years are the reconciled CAM, insurance and tax pools; every year is per SF of today&apos;s GLA, so the change is the cost moving.</div>
+      <div className="muted" style={{ fontSize: "var(--fs-13)" }}>Actual years are the reconciled CAM, insurance and tax pools; the current year is its reprojection (actual to date, budget for the months still to post); every year is per SF of today&apos;s GLA, so the change is the cost moving.</div>
     </section>
   );
 }

@@ -188,6 +188,9 @@ export type ReimbursementEstimate = {
   monthly: { cam: number[]; ins: number[]; ret: number[] };
   /** The budget's own recoverable pools, in dollars (set by the draft). */
   pools?: Coverage3;
+  /** The same pools on this year's REPROJECTION (actual to date + budget for
+   *  the rest) — the draft's "basis" (set by the draft). */
+  basisPools?: Coverage3;
   /** The RECON year's own recovery: what tenants were due against the pool
    *  it was figured on — the ratio the budget's should resemble. */
   reconCoverage?: { due: Coverage3; pool: Coverage3 };
