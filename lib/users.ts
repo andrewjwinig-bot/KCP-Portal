@@ -346,6 +346,9 @@ export const USERS: Record<UserId, UserDef> = {
     allowedPathPrefixes: [
       "/dashboard", "/properties", "/rentroll", "/units", "/tenant-statements", UO_PAGE, INVOICE_HISTORY_PAGE,
       "/expenses/history", "/allocated-invoicer", "/commissions",
+      // The Management Fees report (owner) — reached from the Report Center;
+      // its API answers to this page alone, never the rest of /financials.
+      "/financials/management-fees", "/reports",
     ],
     defaultRentRollCategory: "All",
     defaultPropertyType: "all",
@@ -504,6 +507,9 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   // Operating Statements' own API answers to its page, so a grant of just that
   // page (Tami) reads statements without the rest of /financials.
   ["/api/financials/operating-statements", "/financials/operating-statements"],
+  // Management Fees answers to its own page, so a grant of just that report
+  // (Tanya) reads it without the rest of /financials.
+  ["/api/financials/management-fees", "/financials/management-fees"],
   ["/api/financials", "/financials"],
   // Tenant portal links are minted from Monthly Statements as well as the recon.
   ["/api/cam-recon/tenant-link", ["/cam-recon", "/tenant-statements"]],

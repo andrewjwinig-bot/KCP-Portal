@@ -2099,7 +2099,9 @@ invoicing history since she processes the invoices". `tanya` in
 Roll, unit pages, Receivables + Open Credits, Philadelphia U&O, and the
 invoice archives — CC Expense History (`/expenses/history`, which now returns
 the full charge archive to anyone with that page, `/api/statements?charges=1`),
-the Allocated Invoicer's history and both Commissions pages. Her WRITES are
+the Allocated Invoicer's history and both Commissions pages, and the
+**Management Fees** report (owner; `/api/financials/management-fees` answers
+to that page alone, so she reads none of the rest of `/financials`). Her WRITES are
 the receivables work only (`WRITE_SCOPE`, as Tami's): the Allocated Send, a
 commission edit, a rent-roll import or a U&O filing is refused on the server.
 No payroll (salaries). Sign-in: an admin issues her a one-time password on

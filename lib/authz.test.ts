@@ -226,3 +226,20 @@ describe("Tanya — invoices and receivables, never payroll by employee", () => 
     expect(authorizeRequest("greg", "/api/invoice-history")).toBe(false);
   });
 });
+
+describe("Tanya reads Management Fees, and only that from /financials", () => {
+  it("opens the report and its API", () => {
+    expect(authorizeRequest("tanya", "/financials/management-fees")).toBe(true);
+    expect(authorizeRequest("tanya", "/api/financials/management-fees")).toBe(true);
+    expect(authorizeRequest("tanya", "/reports")).toBe(true);
+  });
+  it("does not open the other financial pages", () => {
+    expect(authorizeRequest("tanya", "/financials/operating-statements")).toBe(false);
+    expect(authorizeRequest("tanya", "/api/financials/operating-statements")).toBe(false);
+    expect(authorizeRequest("tanya", "/api/financials/budgets/payroll")).toBe(false);
+    expect(authorizeRequest("tanya", "/financials/cash-analysis")).toBe(false);
+  });
+  it("those who had the report keep it", () => {
+    expect(authorizeRequest("alison", "/api/financials/management-fees")).toBe(true);
+  });
+});
