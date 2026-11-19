@@ -14,11 +14,14 @@ import { scaleToTotal, spreadEvenly } from "@/lib/financials/budgets/lineOverrid
 import type { BudgetDraft, BudgetDraftSection, DraftSource } from "../../../../lib/financials/budgets/draft";
 import { SELECT_BRAND } from "@/app/components/YearSelect";
 import { InPlaceRevenueCard } from "./InPlaceRevenueCard";
-import { BookMasthead } from "./BookMasthead";
+import { BookTabs } from "./BookMasthead";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { MetaLine } from "@/app/components/LastImported";
 import { PropertyBreakdownModal } from "./PropertyBreakdownModal";
 import { useUser } from "@/app/components/UserProvider";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
-import { bookById, bookForProperty } from "@/lib/financials/budgets/books";
+import { bookById, bookForProperty, budgetBooks, bookProperties } from "@/lib/financials/budgets/books";
 import { LineHistoryModal } from "./LineHistoryModal";
 import { SourceDetail } from "./SourceBadge";
 import { DebtDetail } from "./DebtDetail";
@@ -370,17 +373,44 @@ export default function BudgetDraftPage() {
   }
 
   const label = useMemo(() => props.find((p) => p.key === key), [props, key]);
+  const onBook = (id: string) => {
+    setBookId(id);
+    // Land on the book's first property, so switching books never leaves
+    // the page showing a building that is not in the book you opened.
+    const b = bookById(id);
+    const first = b?.properties[0];
+    const match = first ? props.find((p) => p.propertyCode === first) : undefined;
+    if (match) setKey(match.key);
+  };
+  const onProperty = (code: string | null) => {
+    // The book's roll-up: every property in it, summed (consolidate.ts).
+    if (!code) { if (book.rollsUp) setKey(`book:${book.id}`); return; }
+    const match = props.find((p) => p.propertyCode === code);
+    if (match) setKey(match.key);
+  };
+  // The meta line says which budget is open: the year's kind, then the
+  // property (or the book's roll-up).
+  const openName = label?.propertyCode && !key.startsWith("book:") ? bookProperties(book).find((p) => p.code === label.propertyCode)?.name : null;
+  const metaText = `${year} ${isPayroll ? "Payroll Budget" : "Operating Budget"}`
+    + (openName ? ` · ${label!.propertyCode} · ${openName}` : key.startsWith("book:") ? ` · All ${book.name}` : "");
 
   return (
     <main style={{ maxWidth: "none", width: "100%" }}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
-      <BookMasthead
-        book={book}
-        hideBooks={payrollOk ? [] : ["lik-payroll"]}
-        year={year}
-        propertyCode={label?.propertyCode ?? null}
-        years={[thisYear, thisYear + 1, thisYear + 2]}
-        onYear={setYear}
+      {/* Which budget you are in: the book is the page's driving picker
+          (a property's budget is a sheet INSIDE a book), the year beside it,
+          and the book's properties as tabs under the header, led by the
+          roll-up — the order the workbook itself uses. */}
+      <PageHeader title="Budget Draft"
+        info="The working budget. Pick the book, then its roll-up or a property under the header; publishing writes the book to Budgets."
+        pickers={<>
+          <HeaderSelect value={book.id} onChange={onBook} ariaLabel="Budget" maxWidth={460} displayLabel={book.name}>
+            {budgetBooks().filter((b) => payrollOk || b.id !== "lik-payroll").map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </HeaderSelect>
+          <HeaderSelect value={String(year)} onChange={(v) => setYear(Number(v))} ariaLabel="Year" muted displayLabel={String(year)}>
+            {[thisYear, thisYear + 1, thisYear + 2].map((y) => <option key={y} value={y}>{y}</option>)}
+          </HeaderSelect>
+        </>}
         actions={isPayroll ? undefined : (() => {
           // The draft as the presentation-ready budget PDF, marked DRAFT —
           // this property, or the whole book (roll-up, then each property).
@@ -394,22 +424,8 @@ export default function BudgetDraftPage() {
           ];
           return items.length ? <DownloadMenu label="Download draft" items={items} /> : undefined;
         })()}
-        onBook={(id) => {
-          setBookId(id);
-          // Land on the book's first property, so switching books never leaves
-          // the page showing a building that is not in the book you opened.
-          const b = bookById(id);
-          const first = b?.properties[0];
-          const match = first ? props.find((p) => p.propertyCode === first) : undefined;
-          if (match) setKey(match.key);
-        }}
-        onProperty={(code) => {
-          // The book's roll-up: every property in it, summed (consolidate.ts).
-          if (!code) { if (book.rollsUp) setKey(`book:${book.id}`); return; }
-          const match = props.find((p) => p.propertyCode === code);
-          if (match) setKey(match.key);
-        }}
-      />
+        meta={<MetaLine style={{ marginTop: 0 }}>{metaText}</MetaLine>} />
+      <BookTabs book={book} propertyCode={label?.propertyCode ?? null} onProperty={onProperty} />
 
       {/* The property's budget at a glance — revenue, operating expenses,
           NOI and cash flow, each against this year's forecast. */}

@@ -65,9 +65,27 @@ export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onY
         </div>
       </div>
 
+      <BookTabs book={book} propertyCode={propertyCode} onProperty={onProperty} framed />
+    </div>
+  );
+}
+
+/** The book's property tabs, led by the roll-up — under the Budget Draft's
+ *  PageHeader, and inside the masthead card on Budget Inputs. */
+export function BookTabs({ book, propertyCode, onProperty, framed = false }: {
+  book: BudgetBook;
+  propertyCode: string | null;
+  onProperty: (code: string | null) => void;
+  /** Inside the masthead card: a rule above the tabs. */
+  framed?: boolean;
+}) {
+  const props = bookProperties(book);
+  if (book.properties.length === 0 && book.feeds) return null;
+  return (
+    <>
       {book.properties.length > 0 && (
         <>
-          <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0 10px" }} />
+          {framed && <div style={{ borderTop: "1px solid var(--border)", margin: "12px 0 10px" }} />}
           <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             {/* The roll-up LEADS. It is what the book is for; the properties
                 are its parts, which is the order the workbook uses too. */}
@@ -87,8 +105,8 @@ export function BookMasthead({ book, year, propertyCode, onBook, onProperty, onY
       )}
 
       {book.properties.length === 0 && !book.feeds && (
-        <div style={{ marginTop: 10 }}><Pill tone={TONE_NEUTRAL}>NO PROPERTIES MAPPED YET</Pill></div>
+        <div style={{ marginTop: framed ? 10 : 0 }}><Pill tone={TONE_NEUTRAL}>NO PROPERTIES MAPPED YET</Pill></div>
       )}
-    </div>
+    </>
   );
 }

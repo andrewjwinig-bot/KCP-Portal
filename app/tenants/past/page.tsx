@@ -10,6 +10,9 @@ import { ChevronRight, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { StatPill } from "@/app/components/Pill";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect, propertyLabel } from "@/app/components/HeaderSelect";
+import { MetaLine } from "@/app/components/LastImported";
 import { Pill, TONE_GREEN, TONE_AMBER, TONE_BLUE, TONE_NEUTRAL, TONE_RED, type PillTone } from "@/app/components/Pill";
 
 type PastTenancy = {
@@ -77,24 +80,20 @@ export default function PastTenantsPage() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ margin: 0 }}>Past Tenants</h1>
-        <Link href="/deposits" style={{ color: "var(--c-0b4a7d)", fontWeight: 600, fontSize: "var(--fs-13)" }}>Security Deposits<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
-      </div>
-      <p className="muted" style={{ marginTop: -6 }}>
-        Former tenancies reconstructed from the monthly rent-roll history — look back at any departed tenant’s rent, charges, and security deposit. Pick one to see their full record.
-      </p>
-
-      <div className="card" style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tenant, unit, or property…" style={{ flex: "1 1 280px" }} />
-        <select value={prop} onChange={(e) => setProp(e.target.value)}>
-          <option value="">All properties</option>
-          {properties.map(([code, name]) => <option key={code} value={code}>{code} · {name}</option>)}
-        </select>
-        <span className="muted small" style={{ marginLeft: "auto" }}>
-          {tenancies == null ? "Loading…" : `${filtered.length} former tenanc${filtered.length === 1 ? "y" : "ies"}`}
-        </span>
-      </div>
+      <PageHeader title="Past Tenants"
+        info={<>Former tenancies reconstructed from the monthly rent-roll history — look back at any departed tenant’s rent, charges, and security deposit. Pick one to see their full record.</>}
+        pickers={
+          <HeaderSelect value={prop} onChange={setProp} ariaLabel="Property" maxWidth={460}
+            displayLabel={prop ? propertyLabel(prop, properties.find(([c]) => c === prop)?.[1]) : "All properties"}>
+            <option value="">All properties</option>
+            {properties.map(([code, name]) => <option key={code} value={code}>{propertyLabel(code, name)}</option>)}
+          </HeaderSelect>
+        }
+        actions={<>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tenant, unit, or property…" aria-label="Search" style={{ minWidth: 260 }} />
+          <Link href="/deposits" className="text-link">Security Deposits<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></Link>
+        </>}
+        meta={<MetaLine style={{ marginTop: 0 }}>{tenancies == null ? "Loading…" : `${filtered.length} former tenanc${filtered.length === 1 ? "y" : "ies"}`}</MetaLine>} />
 
       <div className="card" style={{ padding: 0, overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>

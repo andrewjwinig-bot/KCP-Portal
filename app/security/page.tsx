@@ -1,5 +1,6 @@
 "use client";
 import { StatusBanner } from "@/app/components/StatusBanner";
+import { PageHeader } from "@/app/components/PageHeader";
 import { ChevronRight } from "lucide-react";
 
 // Two-factor (TOTP) enrollment — admin tier first. Scan the QR (or type the
@@ -68,7 +69,7 @@ export default function SecurityPage() {
   const step: React.CSSProperties = { fontSize: "var(--fs-14)", lineHeight: 1.6 };
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 640 }}>
-      <h1>Security</h1>
+      <PageHeader title="Security" info="Choose your own password and set up two-factor authentication for signing in to the portal." />
 
       {status?.required && !status?.enabled && !status?.disabled && (
         <StatusBanner tone="warning" title="Two-factor authentication is required">Set it up below to continue using the portal.</StatusBanner>
