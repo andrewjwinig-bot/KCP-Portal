@@ -681,17 +681,17 @@ function DashboardInner() {
           thing on the page, gone when there is nothing to code. */}
       <ChargesToCodeCard />
       {queueOn && <WorkQueue firstName={isAdmin ? "Admin" : "Drew"} />}
-      {!queueOn && <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+      {!queueOn && <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <h1>Dashboard</h1>
+        {/* Quick links in the header's top-right corner (owner) — Drew's stay
+            in his Work Queue's right column. */}
+        <QuickLinks compact />
         <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
           <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
           <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
           <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>}
-      {/* The service logins keep their quick links at the BOTTOM (owner: "move
-          the quick links somewhere else"); their page leads with the work. */}
-      {!queueOn && !isService && <QuickLinks />}
       {user.id === "randy" && <OrientationCard />}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
@@ -1221,7 +1221,6 @@ function DashboardInner() {
         )}
       </div>
       )}
-      {isService && <QuickLinks />}
     </main>
   );
 }
