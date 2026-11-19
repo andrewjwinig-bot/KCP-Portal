@@ -1,4 +1,5 @@
 "use client";
+import { StatPill } from "@/app/components/Pill";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { ChevronRight, FileText, Play, RefreshCw, X, Sparkles } from "lucide-react";
 import { PageHeader } from "@/app/components/PageHeader";
@@ -324,42 +325,12 @@ function MaintenancePageInner() {
             clearAll(); setStatusFilter("In Progress");
           }
           return (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
-              <FilterTile
-                label="Active"
-                value={counts.active}
-                accent="var(--c-0b4a7d)"
-                active={noExtraFilters}
-                onClick={clearAll}
-              />
-              <FilterTile
-                label="High Priority"
-                value={counts.highOpen}
-                accent="var(--c-b91c1c)"
-                active={priority === "High"}
-                onClick={selectHigh}
-              />
-              <FilterTile
-                label="Unassigned"
-                value={counts.unassigned}
-                accent="var(--c-b45309)"
-                active={assignee === "Unassigned"}
-                onClick={selectUnassigned}
-              />
-              <FilterTile
-                label="New"
-                value={counts.newCount}
-                accent="var(--c-0b4a7d)"
-                active={statusFilter === "New"}
-                onClick={selectNew}
-              />
-              <FilterTile
-                label="In Progress"
-                value={counts.inProgress}
-                accent="var(--c-b45309)"
-                active={statusFilter === "In Progress"}
-                onClick={selectInProgress}
-              />
+            <div className="pills">
+              <StatPill label="Active" value={counts.active} total={noExtraFilters} onClick={clearAll} />
+              <StatPill label="High Priority" value={counts.highOpen} accent={counts.highOpen > 0 ? "var(--c-b42318)" : undefined} total={priority === "High"} sub={priority === "High" ? "Showing only these" : undefined} onClick={selectHigh} />
+              <StatPill label="Unassigned" value={counts.unassigned} accent={counts.unassigned > 0 ? "var(--c-b54708)" : undefined} total={assignee === "Unassigned"} sub={assignee === "Unassigned" ? "Showing only these" : undefined} onClick={selectUnassigned} />
+              <StatPill label="New" value={counts.newCount} total={statusFilter === "New"} sub={statusFilter === "New" ? "Showing only these" : undefined} onClick={selectNew} />
+              <StatPill label="In Progress" value={counts.inProgress} total={statusFilter === "In Progress"} sub={statusFilter === "In Progress" ? "Showing only these" : undefined} onClick={selectInProgress} />
             </div>
           );
         })()}
@@ -621,67 +592,6 @@ function FilterChip({ label, onClear }: { label: string; onClear: () => void }) 
   );
 }
 
-/**
- * Clickable summary pill, styled to match the rent-roll StatPill (big number
- * on top, small label below) instead of the previous card-with-label-on-top
- * Tile. Active state shows the accent color as both border and tint.
- */
-function FilterTile({
-  label, value, accent, active, onClick,
-}: {
-  label: string;
-  value: number;
-  accent: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  // hex → rgba(…, 0.10) for the active background tint
-  function tint(hex: string, a: number): string {
-    const m = /^#?([a-f0-9]{6})$/i.exec(hex);
-    // A colour token (var(--…)) can't be parsed; mix it instead.
-    if (!m) return `color-mix(in srgb, ${hex} ${Math.round(a * 100)}%, transparent)`;
-    const n = parseInt(m[1], 16);
-    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
-  }
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      style={{
-        border: active ? `1.5px solid ${accent}` : "1.5px solid var(--border)",
-        borderRadius: 10,
-        padding: "13px 16px 11px",
-        display: "inline-flex",
-        flexDirection: "column",
-        alignItems: "center",
-        gap: 4,
-        whiteSpace: "nowrap",
-        background: active ? tint(accent, 0.08) : "var(--card)",
-        cursor: "pointer",
-        fontFamily: "inherit",
-        transition: "background 0.12s, border-color 0.12s",
-        textAlign: "center",
-        width: "100%",
-        minWidth: 0,
-      }}
-      onMouseEnter={(e) => {
-        if (!active) (e.currentTarget as HTMLElement).style.borderColor = accent;
-      }}
-      onMouseLeave={(e) => {
-        if (!active) (e.currentTarget as HTMLElement).style.borderColor = "var(--border)";
-      }}
-    >
-      <b style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: "var(--text)" }}>{value}</b>
-      <span style={{
-        fontSize: "var(--fs-11)", fontWeight: 600, color: "var(--muted)",
-        textTransform: "uppercase", letterSpacing: "0.04em",
-      }}>
-        {label}
-      </span>
-    </button>
-  );
-}
 
 
 // Backfill UI was removed; the /api/maintenance/backfill endpoint stays

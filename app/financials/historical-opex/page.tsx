@@ -1,4 +1,5 @@
 "use client";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
 
 import { StatusBanner } from "@/app/components/StatusBanner";
 import LoadingState from "@/app/components/LoadingState";
@@ -143,6 +144,7 @@ export default function HistoricalOpExPage() {
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <PageHeader title="Historical Operating Expenses"
         info="Multi-year actuals by property and expense line. The budget viewer will reference this data to compute YoY variance and to surface long-run trends next to each expense line."
+        actions={entries && entries.length > 0 ? <DownloadMenu label="Export" items={[{ label: "CSV", description: "Every year, by property: Op Ex, RET and total", onClick: () => exportSummaryCsv(entries, budget) }]} /> : undefined}
         meta={entries && entries.length > 0 ? <MetaLine>
           <span>{entries.length} expense line{entries.length === 1 ? "" : "s"} across {new Set(entries.map((e) => e.propertyCode)).size} propert{new Set(entries.map((e) => e.propertyCode)).size === 1 ? "y" : "ies"}</span>
         </MetaLine> : undefined} />
@@ -204,6 +206,30 @@ function buildSummary(entries: HistoricalOpExEntry[]): { rows: PropRow[]; years:
   return { rows, years };
 }
 
+/** The summary as CSV — every year, not just the six on screen. One export,
+ *  in the header's Export menu (the standard), not a button inside the card. */
+function exportSummaryCsv(entries: HistoricalOpExEntry[], budget: BudgetSummary | null) {
+  const { rows, years } = buildSummary(entries);
+  const codes = new Set(rows.map((r) => r.code));
+  const allRows = [...rows];
+  if (budget) for (const code of Object.keys(budget.byProperty)) if (!codes.has(code)) allRows.push({ code, name: PROP_NAME.get(code.toUpperCase()) ?? "", byYear: new Map() });
+  allRows.sort((a, b) => a.code.localeCompare(b.code));
+  const cell = (r: PropRow, y: number) => r.byYear.get(y) ?? { opex: 0, ret: 0 };
+  const bud = (code: string) => budget?.byProperty[code.toUpperCase()] ?? null;
+  const byr = budget?.year;
+  const head = ["Property", "Name"];
+  if (byr) head.push(`${byr} Budget Op Ex`, `${byr} Budget RET`, `${byr} Budget Total`);
+  for (const y of years) head.push(`${y} Op Ex`, `${y} RET`, `${y} Total`);
+  const lines = [head.join(",")];
+  for (const r of allRows) {
+    const cols: (string | number)[] = [r.code, `"${r.name}"`];
+    if (byr) { const b = bud(r.code); cols.push(Math.round(b?.opex ?? 0), Math.round(b?.ret ?? 0), Math.round((b?.opex ?? 0) + (b?.ret ?? 0))); }
+    for (const y of years) { const c = cell(r, y); cols.push(Math.round(c.opex), Math.round(c.ret), Math.round(c.opex + c.ret)); }
+    lines.push(cols.join(","));
+  }
+  downloadCSV(`Expense_History_Summary.csv`, lines.join("\n"));
+}
+
 function SummaryTable({ entries, budget }: { entries: HistoricalOpExEntry[]; budget: BudgetSummary | null }) {
   const { rows, years } = useMemo(() => buildSummary(entries), [entries]);
   const shown = years.slice(0, 6); // six most recent actual years on screen
@@ -224,19 +250,6 @@ function SummaryTable({ entries, budget }: { entries: HistoricalOpExEntry[]; bud
   const bud = (code: string) => budget?.byProperty[code.toUpperCase()] ?? null;
   const byr = budget?.year;
 
-  function exportCSV() {
-    const head = ["Property", "Name"];
-    if (byr) head.push(`${byr} Budget Op Ex`, `${byr} Budget RET`, `${byr} Budget Total`);
-    for (const y of years) head.push(`${y} Op Ex`, `${y} RET`, `${y} Total`);
-    const lines = [head.join(",")];
-    for (const r of allRows) {
-      const cols: (string | number)[] = [r.code, `"${r.name}"`];
-      if (byr) { const b = bud(r.code); cols.push(Math.round(b?.opex ?? 0), Math.round(b?.ret ?? 0), Math.round((b?.opex ?? 0) + (b?.ret ?? 0))); }
-      for (const y of years) { const c = cell(r, y); cols.push(Math.round(c.opex), Math.round(c.ret), Math.round(c.opex + c.ret)); }
-      lines.push(cols.join(","));
-    }
-    downloadCSV(`Expense_History_Summary.csv`, lines.join("\n"));
-  }
 
   const num: React.CSSProperties = { textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", padding: "6px 10px" };
   const grp: React.CSSProperties = { ...num, borderLeft: "1px solid var(--border)" };
@@ -248,10 +261,9 @@ function SummaryTable({ entries, budget }: { entries: HistoricalOpExEntry[]; bud
         <div>
           <div style={{ fontSize: 15, fontWeight: 800 }}>All Properties — Expense Summary</div>
           <div className="muted small" style={{ marginTop: 2 }}>
-            {byr ? `${byr} budget` : "Budget"} vs. historical actuals — operating expenses, real estate taxes, and total per property. Showing the {shown.length} most recent actual years; download for the full history.
+            {byr ? `${byr} budget` : "Budget"} vs. historical actuals — operating expenses, real estate taxes, and total per property. Showing the {shown.length} most recent actual years; export for the full history.
           </div>
         </div>
-        <button onClick={exportCSV} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>Download CSV</button>
       </div>
 
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, minWidth: 720 }}>
