@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
       // Card Charges) gets ONLY the charges on their own card.
       const user = await budgetUser();
       if (!user) return NextResponse.json({ error: "Sign in." }, { status: 401 });
-      const full = isPathAllowed(user, "/expenses");
+      const full = isPathAllowed(user, "/expenses") || isPathAllowed(user, "/expenses/history");
       const charges = all.flatMap((d) =>
         (Array.isArray(d.tx) ? d.tx : []).map((t: any) => ({
           statementId: d.id,

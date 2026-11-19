@@ -24,6 +24,7 @@ import { UO_DUE_DAY, UO_FILE_BY_DAY, UO_PROPERTIES, UO_REVIEW_DAY } from "./conf
 import { journalLines, type UoJeLine, type UoLines } from "./compute";
 import { loadUoMonth, type UoMonthView } from "./load";
 import { emptyMonth, getUoMonth, saveUoMonth, type UoMonth } from "./store";
+import { refreshCityAssessments } from "./assessmentsLoad";
 
 export const UO_PAGE = "/uo-tax";
 export const UO_TASK_ID = "m-uo";
@@ -139,8 +140,15 @@ export async function sendReadyEmail(view: UoMonthView): Promise<boolean> {
 export async function uoTick(now = new Date()): Promise<Record<string, unknown>> {
   const today = etToday(now);
   const month = today.slice(0, 7);
-  const rec = (await getUoMonth(month)) ?? emptyMonth(month);
   const done: string[] = [];
+  // The City's assessed values, read once a week — every year, for good.
+  const city = await refreshCityAssessments({ now }).catch(() => null);
+  if (city?.checked) done.push(city.error ? `assessments: ${city.error}` : `assessments checked (${city.changes} changed)`);
+  // December: the new year's UO charges to Tanya (januaryReset.ts). Imported
+  // lazily — it imports this file.
+  const reset = await import("./januaryReset").then((m) => m.januaryResetTick(now)).catch(() => null);
+  if (reset) done.push(`assessments/${reset}`);
+  const rec = (await getUoMonth(month)) ?? emptyMonth(month);
   const stage = stageOf(rec, today);
   if (stage === "not-open" || stage === "filed") return { month, stage, done };
   const view = await loadUoMonth(month);
@@ -165,7 +173,7 @@ export async function uoTick(now = new Date()): Promise<Record<string, unknown>>
     });
     if ((await send(UO_FILER_TO, e)).ok) { rec.overdueEmailedAt = at; done.push("overdue emailed"); }
   }
-  if (done.length) await saveUoMonth(rec);
+  if (done.some((d) => !d.startsWith("assessments"))) await saveUoMonth(rec);
   return { month, stage, done };
 }
 

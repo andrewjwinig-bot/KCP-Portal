@@ -1,4 +1,4 @@
-export const ALL_USERS = ["admin", "drew", "marie", "nancy", "harry", "maint", "greg", "charles", "jay", "alison", "randy", "tami"] as const;
+export const ALL_USERS = ["admin", "drew", "marie", "nancy", "harry", "maint", "greg", "charles", "jay", "alison", "randy", "tami", "tanya"] as const;
 export type UserId = typeof ALL_USERS[number];
 
 export type RentRollCategory = "All" | "Office" | "Retail" | "Residential" | "The Office Works";
@@ -323,6 +323,29 @@ export const USERS: Record<UserId, UserDef> = {
     defaultPropertyType: "all",
     dashboardScope: "groups",
   },
+  // Tanya (Rovkin) — accounts payable and the tenant charges in Skyline (owner,
+  // 11/2026: "she needs to see the U&O, open credits and receivables, rent
+  // roll and high level property info"; "invoicing history since she
+  // processes the invoices"). She keys the U&O charges (code UO), posts the
+  // move-out charges and processes every invoice that reaches AvidXchange, so
+  // she READS: Receivables + Open Credits, Philadelphia U&O, the rent roll,
+  // property and unit pages, and the invoice archives — Credit Card (Expense
+  // History), Allocated Expenses and Commissions. Her writes are the
+  // receivables work alone (`WRITE_SCOPE`): no import, send or edit anywhere
+  // else — the Allocated Invoicer's Send, a commission edit or a rent-roll
+  // import is refused on the server. No payroll (it carries salaries).
+  tanya: {
+    id: "tanya",
+    label: "TANYA",
+    navKeys: new Set([...universalNav, "tenant-statements", "open-credits", "uo-tax", "expenses-history", "allocated", "commissions", "commissions-retail"]),
+    allowedPathPrefixes: [
+      "/dashboard", "/properties", "/rentroll", "/units", "/tenant-statements", UO_PAGE,
+      "/expenses/history", "/allocated-invoicer", "/commissions",
+    ],
+    defaultRentRollCategory: "All",
+    defaultPropertyType: "all",
+    dashboardScope: "groups",
+  },
 };
 
 /** Users kept out of the Report Center landing page, which is otherwise open
@@ -335,6 +358,8 @@ export const NO_REPORT_CENTER: ReadonlySet<UserId> = new Set<UserId>(["tami"]);
 export const WRITE_SCOPE: Partial<Record<UserId, string[]>> = {
   // + the tenant notices: she marks the credits tenants asked to apply posted.
   tami: ["/api/tenant-statements", "/api/cam-recon/tenant-link", "/api/tenant-notices"],
+  // Receivables only — every other page she has is for reading.
+  tanya: ["/api/tenant-statements", "/api/cam-recon/tenant-link", "/api/tenant-notices"],
 };
 
 /** Users who may READ everything their profile reaches but WRITE nothing —
@@ -371,6 +396,7 @@ export function accessGroup(userId: UserId): AccessGroup {
       return "executive";
     case "randy":
     case "tami":
+    case "tanya":
       return "accounting";
   }
 }

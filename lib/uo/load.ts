@@ -23,7 +23,8 @@ import { agingLookup, statementFromAging } from "@/lib/statements/aging";
 import { laserDate } from "@/lib/statements/currentAccount";
 import type { TenantStatement } from "@/lib/statements/types";
 import { statementBillingFor } from "@/lib/financials/budgets/statementBilling";
-import { ASSESSED_TAXES } from "@/lib/financials/budgets/assessedTaxes";
+import { resolveAssessed, type AssessedValue, type CityValues } from "./assessments";
+import { getCityAssessments } from "./assessmentsLoad";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
 import { SEEDED_EXEMPT, UO_PROPERTIES, suggestedExemption, type UoAccount } from "./config";
 import { computeReturn, sumLines, type UoLines, type UoReturn, type UoUnitIn } from "./compute";
@@ -71,6 +72,9 @@ export type UoMonthView = {
   statementAsOf: string | null;
   /** The Aging Report (Detailed) date, where it was the newer source. */
   agingAsOf: string | null;
+  /** When the City's open data was last read, and any failure. */
+  cityCheckedAt: string | null;
+  cityError: string | null;
 };
 
 const prevMonth = (m: string) => {
@@ -78,19 +82,11 @@ const prevMonth = (m: string) => {
   return n === 1 ? `${y - 1}-12` : `${y}-${String(n - 1).padStart(2, "0")}`;
 };
 
-/** The assessed value for a parcel in a calendar year. */
-export function assessedFor(parcel: string, year: number, settings: UoSettings): { value: number; source: string } | null {
-  const typed = settings.assessed[`${parcel}:${year}`];
-  if (typed > 0) return { value: typed, source: "As on the City's form (typed)" };
-  for (const a of ASSESSED_TAXES) {
-    const p = a.parcels.find((x) => x.number === parcel);
-    if (!p) continue;
-    if (year >= a.year && p.assessed != null) return { value: p.assessed, source: year === a.year ? `City's certified ${a.year} assessment` : `City's ${a.year} assessment (latest known)` };
-    if (year === a.year - 1 && p.prior != null) return { value: p.prior, source: `City's ${year} assessment` };
-    const v = p.prior ?? p.assessed;
-    return v != null ? { value: v, source: `City's ${a.year - 1} assessment (closest known)` } : null;
-  }
-  return null;
+/** The assessed value for a parcel in a calendar year — typed, then the
+ *  budget's, then the City's open data (read weekly), then the latest year
+ *  known (assessments.ts). */
+export function assessedFor(parcel: string, year: number, settings: UoSettings, city: CityValues = {}): AssessedValue | null {
+  return resolveAssessed(parcel, year, settings.assessed, city);
 }
 
 export function exemptionsOf(units: UoUnitIn[], settings: UoSettings): Map<string, string> {
@@ -106,11 +102,12 @@ export function exemptionsOf(units: UoUnitIn[], settings: UoSettings): Map<strin
 }
 
 export async function loadUoMonth(month: string): Promise<UoMonthView> {
-  const [record, settings, snapshots, runs] = await Promise.all([
+  const [record, settings, snapshots, runs, city] = await Promise.all([
     getUoMonth(month).then((m) => m ?? emptyMonth(month)),
     getUoSettings(),
     listJSON("rentroll-history", { fresh: true }).catch(() => []),
     allRuns().catch(() => []),
+    getCityAssessments().catch(() => null),
   ]);
   const prior = await getUoMonth(prevMonth(month)).catch(() => null);
   const roll = rollAsOf(snapshots as { properties?: any[] }[], month) as { properties?: any[]; reportTo?: string } | null;
@@ -169,8 +166,11 @@ export async function loadUoMonth(month: string): Promise<UoMonthView> {
     const warnings: string[] = [];
     if (!rp) warnings.push("No rent roll covers this property for the month — import one before filing.");
     const returns = cfg.accounts.map((account: UoAccount) => {
-      const a = assessedFor(account.parcel, year, settings);
+      const a = assessedFor(account.parcel, year, settings, city?.values ?? {});
+      const usd = (n: number) => `$${n.toLocaleString("en-US")}`;
       if (!a) warnings.push(`No assessed value on file for parcel ${account.parcel}.`);
+      else if (a.stale) warnings.push(`${account.label}: the City has not certified a ${year} value yet, so Line 1 uses ${a.fromYear}'s (${usd(a.value)}). Check Line A on the City's form and type it if it differs.`);
+      else if (a.cityDiffers != null) warnings.push(`${account.label}: the City's open data now reads ${usd(a.cityDiffers)} for ${year}; the return uses ${usd(a.value)}. Check Line A on the City's form and type it if it differs.`);
       const r = computeReturn({ account, assessed: a?.value ?? 0, units: account.noTenants ? [] : units, commonAreas: account.noTenants ? [] : cfg.commonAreas, exempt, delinquent, discount });
       return { ...r, assessedSource: a?.source ?? "Unknown" };
     });
@@ -210,5 +210,7 @@ export async function loadUoMonth(month: string): Promise<UoMonthView> {
     statementPeriod: run?.period ?? null,
     statementAsOf: laserUsed,
     agingAsOf: agingUsed,
+    cityCheckedAt: city?.checkedAt ?? null,
+    cityError: city?.error ?? null,
   };
 }
