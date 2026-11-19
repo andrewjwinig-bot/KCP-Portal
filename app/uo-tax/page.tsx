@@ -25,6 +25,7 @@ import type { UoMonth } from "@/lib/uo/store";
 type Data = {
   month: string; record: UoMonth; properties: UoPropertyView[]; candidates: UoCandidate[];
   rollMonth: string | null; statementPeriod: string | null; statementAsOf: string | null; agingAsOf: string | null;
+  cityCheckedAt: string | null; cityError: string | null;
   stage: "not-open" | "review" | "ready" | "filed" | "overdue";
   dates: { reviewOpens: string; fileBy: string; due: string };
   canReview: boolean; canFile: boolean;
@@ -132,6 +133,10 @@ export default function UoTaxPage() {
           {data.agingAsOf
             ? <span>· Open U&amp;O from the Aging Report run {day(data.agingAsOf)}{data.statementAsOf ? `, else the ${monthName(data.statementPeriod ?? month)} Laser Statement` : ""}</span>
             : data.statementPeriod && <span>· Open U&amp;O from the {monthName(data.statementPeriod)} Laser Statement</span>}
+          {data.cityError
+            ? <span style={{ color: "var(--amber-text)" }}>· The City&apos;s assessments could not be read: {data.cityError}</span>
+            : data.cityCheckedAt && <span>· City assessments checked {day(data.cityCheckedAt.slice(0, 10))}</span>}
+          {data.canFile && <button className="text-link" style={{ background: "none", border: 0, padding: 0, cursor: "pointer", font: "inherit" }} onClick={() => post({ action: "refresh-assessments" }, "assessed")}>Check now</button>}
         </MetaLine>
       )}
     />

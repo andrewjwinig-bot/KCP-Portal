@@ -12,6 +12,7 @@
 //   POST { action: "assessed", parcel, year, value | null } the value on the City's form
 
 import { NextResponse } from "next/server";
+import { refreshCityAssessments } from "@/lib/uo/assessmentsLoad";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS, type UserId } from "@/lib/users";
 import { etToday } from "@/lib/statements/reminderSchedule";
@@ -118,6 +119,12 @@ export async function POST(req: Request) {
     s.updatedAt = new Date().toISOString(); s.updatedBy = by;
     await saveUoSettings(s);
     return NextResponse.json({ ok: true });
+  }
+  if (action === "refresh-assessments") {
+    if (!FILERS.includes(user)) return NextResponse.json({ error: "Only Drew, Alison or admin can do that." }, { status: 403 });
+    const r = await refreshCityAssessments({ force: true });
+    if (r.error) return NextResponse.json({ error: r.error }, { status: 502 });
+    return NextResponse.json({ ok: true, ...r });
   }
   if (action === "assessed") {
     const parcel = String(body.parcel ?? ""), year = Number(body.year);

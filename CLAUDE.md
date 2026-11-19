@@ -2102,6 +2102,18 @@ workbooks and the "ShopCtrs U&O direct debit" JE sheet. NOTHING IS KEYED:
   assessed values are the budget's (`ASSESSED_TAXES` in `assessedTaxes.ts`:
   2026 = `prior`, 2027 = `assessed`); a value the City's form shows differently
   is typed on the page (pencil on Line A, `uo-settings`).
+- **EVERY LATER YEAR READS ITSELF FROM THE CITY** (owner: "update in
+  perpetuity not just for one year"; `lib/uo/assessments.ts`, pinned by its
+  test): the U&O cron reads the OPA's certified values (`market_value`,
+  `assessments` on phl.carto.com) for every U&O parcel, last year through two
+  years out, once a week (`refreshCityAssessments`, `uo-assessments/current`;
+  a failed or partial read forgets nothing), and emails Drew any new year or
+  moved value with Line 1 before → after. `resolveAssessed`: typed → the
+  budget's figure for that exact year → the open data for that year → the
+  latest year known, with a warning on the property that the City has not
+  certified the year. Where the open data disagrees with a year the budget
+  carries, the page says so rather than moving it. "Check now" on the meta
+  line (filers) forces a read.
 - **One return per OPA parcel with a U&O account** (`UO_PROPERTIES` in
   `lib/uo/config.ts`): 1100, 1500, 4500 (centre + the REAR PARCEL, no tenants,
   wholly vacant every month), 5600, 7010, 7200, 7300, 8200. City tax account
