@@ -688,7 +688,9 @@ function DashboardInner() {
           <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
         </div>
       </header>}
-      {!queueOn && <QuickLinks />}
+      {/* The service logins keep their quick links at the BOTTOM (owner: "move
+          the quick links somewhere else"); their page leads with the work. */}
+      {!queueOn && !isService && <QuickLinks />}
       {user.id === "randy" && <OrientationCard />}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 14 }}>
@@ -1216,6 +1218,7 @@ function DashboardInner() {
         )}
       </div>
       )}
+      {isService && <QuickLinks />}
     </main>
   );
 }
