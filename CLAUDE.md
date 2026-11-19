@@ -556,6 +556,27 @@ once he has called (`dismissable`, `markActionDone`, kept per browser). `GET
 /api/communications?weather=1`; a forecast that cannot be read shows nothing,
 never "all clear".
 
+# Occupancy — ONE property list, ONE rule, everywhere
+
+Owner, 11/2026 (Alison's dashboard read 74.2% on Portfolio Occupancy and 74.6%
+on the Monthly Review: "which one is right … the data needs to be consistent
+and correct"). Neither was: the card's hard-coded Retail list had no 9000
+Butler & Main, and the review dropped the common rooms from the total while
+the rent roll counts them occupied. Now both read `lib/properties/
+portfolioGroups.ts` — the group lists (`BUSINESS_PARK_CODES`,
+`SHOPPING_CENTER_CODES` with 9000, residential, Office Works, LIK) and
+`occupancyOf` (a common room / `amenity` is OCCUPIED SF, as
+`parseRentRollExcel` totals it; it is still not a unit to lease). The review
+reads the roll with `rollAsOf` (each property as of the month), never the
+month's raw upload. Pinned by `portfolioGroups.test.ts`. On the DASHBOARD the
+Monthly Review is TRIMMED (`embedded`): no occupancy tiles (the Portfolio
+Occupancy card's) and no Financial / Operations cards — one row (NOI · YTD with
+its budget variance, open service requests with the month's new / completed),
+then By Group; the full view / print keeps everything. **Alison's dashboard
+leads with Bank Balances** (`BankBalancesCard` — the page's tiles and groups
+through the SAME `balanceSummary`, `lib/financials/bank-balances/summary.ts`,
+which the page's tiles now read too).
+
 # Every import prompt carries an (i) with its steps
 
 Owner, 11/2026: "next to import prompts should be a little info i icon that has
