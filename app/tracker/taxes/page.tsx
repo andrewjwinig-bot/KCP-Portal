@@ -1,4 +1,5 @@
 "use client";
+import { StatPill } from "@/app/components/Pill";
 import { Check, X } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
@@ -227,39 +228,21 @@ export default function TaxTrackerPage() {
         } />
 
       {/* ── Stat tiles ───────────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginTop: 18, marginBottom: 14 }}>
+      {/* The shared KPI tiles (StatPill): label, figure, and "Showing only
+          these" on the one a click is filtering by. */}
+      <div className="pills" style={{ marginTop: 18, marginBottom: 14 }}>
         {([
-          { key: "all",       label: "Total",     value: total,         color: "var(--brand)", activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)",  clickable: false },
-          { key: "done",      label: "Filed",     value: done,          color: "var(--c-16a34a)",      activeBg: "rgba(22,163,74,0.08)",  activeBorder: "rgba(22,163,74,0.35)", clickable: true  },
-          { key: "remaining", label: "Remaining", value: total - done,  color: "var(--text)",  activeBg: "rgba(0,0,0,0.05)",      activeBorder: "rgba(0,0,0,0.25)",     clickable: true  },
-          { key: "overdue",   label: "Overdue",   value: overdue,       color: "var(--c-dc2626)",      activeBg: "rgba(220,38,38,0.08)",  activeBorder: "rgba(220,38,38,0.35)", clickable: true  },
-          { key: "pct",       label: "Complete",  value: total > 0 ? `${Math.round((done / total) * 100)}%` : "—", color: "var(--muted)", activeBg: "", activeBorder: "", clickable: false },
-        ] as const).map(tile => {
+          { key: "all", label: "Total", value: total, clickable: false },
+          { key: "done", label: "Filed", value: done, clickable: true },
+          { key: "remaining", label: "Remaining", value: total - done, clickable: true },
+          { key: "overdue", label: "Overdue", value: overdue, clickable: true, accent: overdue > 0 ? "var(--c-b42318)" : undefined },
+          { key: "pct", label: "Complete", value: total > 0 ? `${Math.round((done / total) * 100)}%` : "—", clickable: false },
+        ] as { key: string; label: string; value: number | string; clickable: boolean; accent?: string }[]).map((tile) => {
           const isActive = filterStatus === tile.key && tile.clickable;
           return (
-            <button
-              key={tile.key}
-              onClick={() => tile.clickable && setFilterStatus(prev => prev === tile.key ? "all" : tile.key as typeof filterStatus)}
-              style={{
-                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                padding: "13px 8px 11px",
-                border: `1.5px solid ${isActive ? tile.activeBorder : "var(--border)"}`,
-                borderRadius: 10,
-                background: isActive ? tile.activeBg : "var(--card)",
-                cursor: tile.clickable ? "pointer" : "default",
-                fontFamily: "inherit",
-                transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
-                boxShadow: isActive ? `0 0 0 3px color-mix(in srgb, ${tile.activeBorder} 13%, transparent)` : "none",
-                gap: 3,
-              }}
-            >
-              <span style={{ fontSize: 28, fontWeight: 900, lineHeight: 1, color: isActive ? tile.color : (tile.key === "overdue" && overdue > 0 ? "var(--c-dc2626)" : "var(--text)") }}>
-                {tile.value}
-              </span>
-              <span style={{ fontSize: "var(--fs-11)", fontWeight: 600, color: isActive ? tile.color : "var(--muted)", letterSpacing: "0.02em" }}>
-                {tile.label}
-              </span>
-            </button>
+            <StatPill key={tile.key} label={tile.label} value={tile.value} accent={tile.accent} total={isActive}
+              sub={isActive ? "Showing only these" : undefined}
+              onClick={tile.clickable ? () => setFilterStatus((prev) => (prev === tile.key ? "all" : tile.key as typeof filterStatus)) : undefined} />
           );
         })}
       </div>
