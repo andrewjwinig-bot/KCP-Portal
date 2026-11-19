@@ -122,7 +122,7 @@ export default function NnnQuotePage() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <PageHeader title="NNN Quote"
-        info={<>Pick a suite and type the base rent you are quoting — a current tenant&apos;s suite starts at their rent and admin fee today, both typeable. CAM, insurance and real estate taxes are the {q?.budgetYear ?? "budget year"} budget&apos;s recoverable expenses for the centre times the suite&apos;s share of its square footage (the budget&apos;s &ldquo;NNN / SF&rdquo;), plus the CAM admin fee most of the centre&apos;s leases carry. A new lease&apos;s own terms — a cap, an exclusion, a stipulated share — are not applied.</>}
+        info={<>Pick a suite and type the base rent you are quoting. CAM, INS and RET are the budget year recoverable expenses for the property times the suite&apos;s PRS, plus an admin fee (if applicable). A new lease&apos;s own terms — a cap, an exclusion, a stipulated share — are not applied.</>}
         pickers={properties.length > 0 ? <>
           <HeaderSelect value={code} onChange={setCode} maxWidth={460} ariaLabel="Centre"
             displayLabel={propertyLabel(code, properties.find((p) => p.code === code)?.name)}>
