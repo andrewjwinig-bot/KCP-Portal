@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { siteAsset } from "@/lib/site/paths";
+import { PAGE_DESCRIPTIONS, pageMeta } from "@/lib/site/seo";
 import CompanyCollage from "./CompanyCollage";
 
-export const metadata: Metadata = { title: "Company" };
+export const metadata: Metadata = pageMeta({ title: "Our Company — Philadelphia Real Estate Since 1919", description: PAGE_DESCRIPTIONS.company, path: "/company" });
 
 // The Company page: the photo collage, the KOR values, then the company's
 // story in four chapters alternating photo left / photo right.

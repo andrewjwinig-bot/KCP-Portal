@@ -11,6 +11,9 @@ import { hostBase } from "../lib/hostRoutes";
 export const metadata: Metadata = {
   title: "KCP Portal",
   description: "Korman Commercial Properties internal portal",
+  // The portal is never indexed; the website's layout (app/site) turns
+  // indexing back on for its own pages.
+  robots: { index: false, follow: false },
 };
 
 export const viewport = {

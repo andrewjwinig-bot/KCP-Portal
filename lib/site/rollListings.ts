@@ -51,6 +51,11 @@ export function interplexListings(props: RollProperty[], email: string | null): 
         space: `${BUILDING_NAME(s.bldg)} · ${s.suite}`,
         size: s.sf,
         spaceUse: "Office",
+        // The building's photo, then the campus map (the park page's own).
+        images: [
+          { url: `/site/interplex/assets/b-${s.bldg}.jpg`, alt: `${BUILDING_NAME(s.bldg)}, Neshaminy Interplex` },
+          { url: "/site/interplex/assets/campus-map.png", alt: "Neshaminy Interplex campus map" },
+        ],
         details: [
           { text: `${BUILDING_NAME(s.bldg)}, Neshaminy Interplex Business Center` },
           ...(s.floor ? [{ text: `${s.floor} floor` }] : []),
@@ -70,6 +75,10 @@ export function officeWorksListings(props: RollProperty[], email: string | null)
     term: o.m2m ? "Month-to-month" : "Flexible",
     rentalRate: "Inquire for pricing",
     spaceUse: "Private office (furnished, all-inclusive)",
+    images: [
+      { url: "/office-works/assets/plan-ow.webp", alt: "The Office Works floor plan" },
+      { url: "/office-works/assets/p-office.jpg", alt: "A private office at The Office Works" },
+    ],
     details: [
       { text: o.win ? "Window office" : "Interior office" },
       { text: `Seats up to ${o.cap} ${o.cap === 1 ? "person" : "people"}` },

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { SITE_CATEGORIES, propertiesIn, type SiteCategory, type SiteProperty } from "@/lib/site/content";
+import { CATEGORY_DESCRIPTIONS, pageMeta } from "@/lib/site/seo";
 import { OtherCategoriesBand, PortableText, PropertyCard, inDisplayOrder } from "../_property/shared";
 
 // A category page (Retail / Office / Residential / Land): a title band, the
@@ -19,7 +20,8 @@ export function generateStaticParams() {
 export function generateMetadata({ params }: { params: { category: string } }): Metadata {
   if (!isCategory(params.category)) return {};
   const { title } = SITE_CATEGORIES[params.category];
-  return { title, description: `Explore Korman Commercial's ${title} in the ${title} category.` };
+  const heading: Record<string, string> = { retail: "Shopping Centers & Retail Space", office: "Office Space — Neshaminy Interplex & The Office Works", residential: "Residential Rentals", land: "Land & Development Sites" };
+  return pageMeta({ title: heading[params.category] ?? title, description: CATEGORY_DESCRIPTIONS[params.category] ?? `${title} properties by Korman Commercial Properties.`, path: `/${params.category}` });
 }
 
 function Group({ title, properties }: { title?: string; properties: SiteProperty[] }) {

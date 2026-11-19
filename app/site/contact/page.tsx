@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
 import ContactForm from "../_contact/ContactForm";
+import { PAGE_DESCRIPTIONS, pageMeta } from "@/lib/site/seo";
 
 // Contact — the vendor's page as it was: title band, the message form on the
 // slate gradient, then the HQ map with the address card over it. The map is a
 // keyless Google embed (the original loaded the Maps JS API with the vendor's
 // key) centred on the same point and zoom.
 
-export const metadata: Metadata = {
-  title: { absolute: "Contact Us | Korman Commercial Properties" },
-  description: "Get in touch with Korman Commercial Properties for inquiries about our commercial real estate services.",
-};
+export const metadata: Metadata = pageMeta({ absoluteTitle: "Contact Us | Korman Commercial Properties", description: PAGE_DESCRIPTIONS.contact, path: "/contact" });
 
 const HQ = {
   name: "Korman Commercial Properties HQ",

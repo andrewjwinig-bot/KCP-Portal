@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { sitePath, siteAsset } from "@/lib/site/paths";
+import type { Metadata } from "next";
+import { PAGE_DESCRIPTIONS, ldJson, organizationLd, pageMeta, websiteLd } from "@/lib/site/seo";
 import HomeLoader from "./_home/HomeLoader";
 import StatsShowcase from "./_home/StatsShowcase";
 
@@ -17,24 +19,33 @@ const TILES: { href: string; label: React.ReactNode; alt: string; img: string; i
 
 const FILL: React.CSSProperties = { position: "absolute", height: "100%", width: "100%", left: 0, top: 0, right: 0, bottom: 0 };
 
+export const metadata: Metadata = pageMeta({
+  absoluteTitle: "Korman Commercial Properties | Office & Retail Space for Lease in Philadelphia & Bucks County",
+  description: PAGE_DESCRIPTIONS.home,
+  path: "/",
+});
+
 export default function SiteHome() {
   return (
     <HomeLoader preload={HERO}>
       <main className="min-h-screen">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(organizationLd()) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(websiteLd()) }} />
         <section className="relative w-full h-screen">
           <div className="absolute inset-0 w-full h-full overflow-hidden bg-slate-900 -mt-16">
             <div className="absolute inset-0 z-0">
               <div style={{ backgroundImage: `url('${HERO}')`, filter: "brightness(0.85)" }} className="w-full h-full bg-cover bg-center">
                 <div className="absolute inset-0 bg-black/10 flex flex-col items-center justify-center text-white px-4">
                   <div className="text-center max-w-4xl animate-fade-in">
-                    <div className="flex justify-center items-center">
+                    <h1 className="flex justify-center items-center">
                       <img
                         src={siteAsset("images/Korman_CORPORATE_logo_WHT.png")}
-                        alt="Korman Commercial Properties Logo"
+                        alt="Korman Commercial Properties"
                         style={{ objectFit: "contain" }}
                         className="w-[350px] md:w-[500px] lg:w-[650px] max-w-full h-auto drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]"
                       />
-                    </div>
+                      <span className="sr-only">Korman Commercial Properties: office, retail and residential real estate in Philadelphia and Bucks County, PA</span>
+                    </h1>
                   </div>
                 </div>
               </div>

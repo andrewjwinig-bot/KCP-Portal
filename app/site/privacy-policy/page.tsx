@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
+import { PAGE_DESCRIPTIONS, pageMeta } from "@/lib/site/seo";
 
 // The site's privacy policy, as published on kormancommercial.com (last
 // updated April 04, 2025). Legal copy — change it deliberately, and move the
 // "Last updated" date with it.
 
-// The original carried the site-wide title and description on this page.
-export const metadata: Metadata = {
-  title: { absolute: "Korman Commercial Properties" },
-  description: "Premium commercial real estate development and management",
-};
+export const metadata: Metadata = pageMeta({ title: "Privacy Policy", description: PAGE_DESCRIPTIONS.privacy, path: "/privacy-policy" });
 
 export default function PrivacyPolicyPage() {
   return (
