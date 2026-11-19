@@ -18,7 +18,9 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 // statement is built from — and the proof is displayed rather than assumed.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Select, YearSelect } from "@/app/components/YearSelect";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect, propertyLabel } from "@/app/components/HeaderSelect";
+import { MetaLine } from "@/app/components/LastImported";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { AccountListCard } from "@/app/components/AccountListCard";
 import { HoverCard } from "@/app/components/HoverCard";
@@ -109,6 +111,7 @@ export default function BalanceSheetPage() {
   useEffect(() => { load(); }, [load]);
 
   const years = props_.find((p) => p.key === key)?.years ?? [];
+  const asOfLabel = (m: number) => `As of ${MONTHS[m - 1]} ${new Date(Date.UTC(year ?? 2025, m, 0)).getUTCDate()}`;
   const sheet = data?.sheet ?? null;
   const groups = data?.groups ?? [];
 
@@ -133,28 +136,26 @@ export default function BalanceSheetPage() {
 
   return (
     <main className="container" style={{ display: "grid", gap: 16 }}>
-      <header style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Balance Sheet</h1>
-          <div className="muted small" style={{ marginTop: 4 }}>
-            Statement of financial position, from the property's own general ledger.
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <Select value={key} onChange={(k) => { setKey(k); setYear(props_.find((p) => p.key === k)?.years[0] ?? null); }} aria-label="Property">
-            {props_.map((p) => <option key={p.key} value={p.key}>{p.key} — {p.name}</option>)}
-          </Select>
-          {year != null && <YearSelect value={year} years={years} onChange={setYear} suffix="" tone="neutral" />}
-          <Select value={String(month)} onChange={(v) => setMonth(Number(v))} tone="neutral" aria-label="As of month">
-            {MONTHS.map((m, i) => (
-              <option key={m} value={i + 1}>
-                as of {m} {new Date(Date.UTC(year ?? 2025, i + 1, 0)).getUTCDate()}
-              </option>
-            ))}
-          </Select>
-          <DownloadMenu items={downloads} disabled={!sheet} />
-        </div>
-      </header>
+      <PageHeader title="Balance Sheet"
+        info="Statement of financial position, from the property's own general ledger."
+        pickers={props_.length > 0 ? <>
+          <HeaderSelect value={key} onChange={(k) => { setKey(k); setYear(props_.find((p) => p.key === k)?.years[0] ?? null); }} ariaLabel="Property" maxWidth={460}
+            displayLabel={propertyLabel(key, props_.find((p) => p.key === key)?.name)}>
+            {props_.map((p) => <option key={p.key} value={p.key}>{propertyLabel(p.key, p.name)}</option>)}
+          </HeaderSelect>
+          {year != null && (
+            <HeaderSelect value={String(year)} onChange={(v) => setYear(Number(v))} ariaLabel="Year" muted displayLabel={String(year)}>
+              {(years.includes(year) ? years : [year, ...years]).map((y) => <option key={y} value={y}>{y}</option>)}
+            </HeaderSelect>
+          )}
+          <HeaderSelect value={String(month)} onChange={(v) => setMonth(Number(v))} ariaLabel="As of month" muted displayLabel={asOfLabel(month)}>
+            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{asOfLabel(i + 1)}</option>)}
+          </HeaderSelect>
+        </> : undefined}
+        actions={<DownloadMenu label="Export" items={downloads} disabled={!sheet} />}
+        meta={<MetaLine>
+          <span>From the general ledger{sheet ? ` · books basis, unaudited` : ""}</span>
+        </MetaLine>} />
 
       {loading && <div className="card"><div className="muted">Loading…</div></div>}
 

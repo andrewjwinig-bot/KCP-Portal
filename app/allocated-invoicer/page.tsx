@@ -1,5 +1,6 @@
 "use client";
 import { StatusBanner } from "@/app/components/StatusBanner";
+import { PageHeader } from "@/app/components/PageHeader";
 import { ChevronDown, ChevronRight, ChevronUp, X } from "lucide-react";
 
 import { useEffect, useMemo, useState } from "react";
@@ -687,15 +688,8 @@ export default function AllocatedInvoicerPage() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
 
-      {/* ── Header ── */}
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <h1>Allocated Expense Invoicer</h1>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-        </div>
-      </header>
+      <PageHeader title="Allocated Expense Invoicer"
+        info={<>Each month&rsquo;s 2000 G&amp;A General Ledger is allocated to the buildings and sent to AvidXchange on its own when it is imported on Operating Statements. This page shows whether the latest month went out, the balances held under the ${CARRYOVER_THRESHOLD}-per-account threshold, and every month&rsquo;s invoices as sent.</>} />
 
       {/* ── Was it sent · open balances · monthly history ── */}
       <InvoicerOverview

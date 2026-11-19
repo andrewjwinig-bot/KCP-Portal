@@ -16,7 +16,9 @@ import { drawTenantStatement } from "@/lib/cam/office/statementPdf";
 import { drawRetailStatement } from "@/lib/cam/retail/statementPdf";
 import type { TenantReconResult } from "@/lib/cam/office/types";
 import type { RetailTenantResult } from "@/lib/cam/retail/types";
-import { SELECT_BRAND } from "@/app/components/YearSelect";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect, propertyLabel, tenantLabel } from "@/app/components/HeaderSelect";
+import { MetaLine } from "@/app/components/LastImported";
 import AllowedLink from "@/app/components/AllowedLink";
 import { SegToggle } from "@/app/financials/reprojections/ReprojTable";
 import { Calendar } from "@/app/components/Calendar";
@@ -45,6 +47,15 @@ type Tenant = { unitRef: string; name: string; leaseTo: string | null; expiresIn
 // Move-out candidates — recently vacated / expiring-soon tenants (portfolio-wide),
 // synced with the dashboard's Vacating Tenants / Leases Expiring lists.
 type Candidate = { propertyCode: string; propertyName: string; unitRef: string; name: string; leaseTo: string | null; kind: "vacated" | "expiring"; days: number | null; year: number | null; month: number | null };
+// Only "Moved out" is a close-out. A lease past its date while the tenant is
+// still on the rent roll is a renewal not yet keyed, or a holdover — never
+// offered as a move-out.
+const candidateStatus = (c: Candidate) => {
+  const past = c.days != null && c.days < 0;
+  return c.kind === "vacated" ? "Moved out (off the rent roll)"
+    : past ? `Lease ended ${Math.abs(c.days!)}d ago · still on the rent roll`
+    : c.days != null ? `Lease ends in ${c.days}d` : "Lease ending";
+};
 type DepositStatus = "held" | "refunded" | "forfeited" | "partial";
 type RawDeposit = { amount: number; checkNumber: string; refunded: boolean; tenantDefaulted: boolean; partialRefund: boolean; partialRefundAmount?: number };
 type DepositInfo = { amount: number; checkNumber: string; status: DepositStatus; partialRefundAmount: number; /** What is still held: the check less any partial refunds. */ held: number; raw?: Record<string, unknown> & { id?: string } };
@@ -606,6 +617,7 @@ export default function InterimReconPage() {
   // is no candidate list, a manual worksheet is open, or something failed.
   const [showPicker, setShowPicker] = useState(false);
   const pickerOpen = showPicker || candidates.length === 0 || isManual || !!error;
+  const pickedCandidate = candidates.find((c) => c.propertyCode === property && c.unitRef === unitRef) ?? null;
   const grandTotal = totalDueOf(totalBalance, openAr);
   const depositAppliesNow = deposit != null && (deposit.status === "held" || deposit.status === "partial") && deposit.held > 0;
   // The settlement page the downloads append — the SAME page the final PDF carries.
@@ -996,42 +1008,30 @@ export default function InterimReconPage() {
 
   return (
     <main style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 1100, width: "100%" }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", minWidth: 0 }}>
-          <h1 style={{ margin: 0 }}>Move-Out Close-Out</h1>
-          {/* The page's ONE driving control, as other pages place theirs: the
-              brand pill in the header, sized to its contents, no label. */}
-          {candidates.length > 0 && (
-            <>
-              <select
-                value={candidates.some((c) => c.propertyCode === property && c.unitRef === unitRef) ? `${property}|${unitRef}` : ""}
-                onChange={(e) => { const c = candidates.find((x) => `${x.propertyCode}|${x.unitRef}` === e.target.value); if (c) pickCandidate(c); }}
-                className={SELECT_BRAND} aria-label="Move-out" style={{ maxWidth: "100%" }}
-              >
-                <option value="">Select a move-out or a lease ending…</option>
-                {candidates.map((c) => {
-                  const past = c.days != null && c.days < 0;
-                  // Only "Moved out" is a close-out. A lease past its date while
-                  // the tenant is still on the rent roll is a renewal not yet
-                  // keyed, or a holdover — never offered as a move-out.
-                  const status = c.kind === "vacated" ? "Moved out (off the rent roll)"
-                    : past ? `Lease ended ${Math.abs(c.days!)}d ago · still on the rent roll`
-                    : c.days != null ? `Lease ends in ${c.days}d` : "Lease ending";
-                  return (
-                    <option key={`${c.propertyCode}|${c.unitRef}|${c.name}`} value={`${c.propertyCode}|${c.unitRef}`}>
-                      {c.name} — {c.propertyCode} {c.unitRef} · {status}
-                    </option>
-                  );
-                })}
-              </select>
-              <button className="btn sm" onClick={() => setShowPicker((v) => !v)}>
-                {pickerOpen ? "Hide other options" : "Other tenant / as of…"}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
+      {/* The page's ONE driving control — the move-out — as the header's
+          picker, with the "other tenant" worksheet behind its button. */}
+      <PageHeader title="Move-Out Close-Out"
+        info="A tenant's final bill when they move out: the CAM / RET reconciliation through the move-out, their unpaid charges and their security deposit. Pick a move-out, or use Other tenant / as of… for anyone else."
+        pickers={candidates.length > 0 ? (
+          <HeaderSelect
+            value={pickedCandidate ? `${pickedCandidate.propertyCode}|${pickedCandidate.unitRef}` : ""}
+            onChange={(v) => { const c = candidates.find((x) => `${x.propertyCode}|${x.unitRef}` === v); if (c) pickCandidate(c); }}
+            ariaLabel="Move-out" maxWidth={560}
+            displayLabel={pickedCandidate ? tenantLabel(pickedCandidate.unitRef, pickedCandidate.name) : "Select a move-out"}>
+            <option value="">Select a move-out or a lease ending…</option>
+            {candidates.map((c) => (
+              <option key={`${c.propertyCode}|${c.unitRef}|${c.name}`} value={`${c.propertyCode}|${c.unitRef}`}>
+                {tenantLabel(c.unitRef, c.name)} · {candidateStatus(c)}
+              </option>
+            ))}
+          </HeaderSelect>
+        ) : undefined}
+        actions={candidates.length > 0 ? (
+          <button className="btn" onClick={() => setShowPicker((v) => !v)}>
+            {pickerOpen ? "Hide other options" : "Other tenant / as of…"}
+          </button>
+        ) : undefined}
+        meta={pickedCandidate ? <MetaLine style={{ marginTop: 0 }}>{propertyLabel(pickedCandidate.propertyCode, pickedCandidate.propertyName)} · {candidateStatus(pickedCandidate)}</MetaLine> : undefined} />
 
       {pickerOpen && <div className="card">
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end" }}>

@@ -88,4 +88,4 @@ describe("page headers", () => {
     expect(n, `${n} pages hand-build a title — use PageHeader (or lower the max).`).toBeLessThanOrEqual(HAND_BUILT_TITLES_MAX);
   });
 });
-const HAND_BUILT_TITLES_MAX = 37;
+const HAND_BUILT_TITLES_MAX = 10;

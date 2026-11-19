@@ -1,5 +1,5 @@
 "use client";
-import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import {
   TAX_TASKS, TAX_CATEGORIES, TaxCategory,
@@ -9,6 +9,8 @@ import {
   type TaxTask,
 } from "../tax-data";
 import { Pill, TONE_GREEN, TONE_NEUTRAL, TONE_TEAL } from "@/app/components/Pill";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
 
 // ─── INSTRUCTIONS MODAL ──────────────────────────────────────────────────────
 
@@ -214,21 +216,18 @@ export default function TaxTrackerPage() {
         <InstructionsModal task={instructionsTask} onClose={() => setInstructionsTask(null)} />
       )}
 
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 22, flexWrap: "wrap", gap: 14 }}>
-        <div>
-          <h1>Filing Tracker</h1>
-          <p className="muted small">County &amp; school RE taxes · net profits / BIRT · entity filings</p>
-        </div>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-        </div>
-      </div>
+      <PageHeader title="Filing Tracker"
+        info={<>County &amp; school RE taxes · net profits / BIRT · entity filings</>}
+        pickers={
+          <HeaderSelect value={String(viewYear)} onChange={(v) => setViewYear(Number(v))} ariaLabel="Year" displayLabel={String(viewYear)}>
+            {Array.from(new Set([...Array.from({ length: 9 }, (_, i) => today.getFullYear() - 5 + i), viewYear])).sort((a, b) => b - a).map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </HeaderSelect>
+        } />
 
       {/* ── Stat tiles ───────────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginTop: 18, marginBottom: 14 }}>
         {([
           { key: "all",       label: "Total",     value: total,         color: "var(--brand)", activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)",  clickable: false },
           { key: "done",      label: "Filed",     value: done,          color: "var(--c-16a34a)",      activeBg: "rgba(22,163,74,0.08)",  activeBorder: "rgba(22,163,74,0.35)", clickable: true  },
@@ -278,24 +277,6 @@ export default function TaxTrackerPage() {
 
       {/* ── Filter card ──────────────────────────────────────────────────── */}
       <div className="card" style={{ padding: "14px 18px", marginBottom: 18 }}>
-
-        {/* Row 1: Year */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 12 }}>
-          <div style={{ fontSize: "var(--fs-10)", fontWeight: 800, color: "var(--muted)", letterSpacing: "0.08em" }}>YEAR</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <button className="btn" onClick={() => setViewYear(y => y - 1)} style={{ padding: "4px 9px", fontWeight: 900 }}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
-            <span style={{ fontWeight: 800, fontSize: 15, minWidth: 40, textAlign: "center" }}>{viewYear}</span>
-            <button className="btn" onClick={() => setViewYear(y => y + 1)} style={{ padding: "4px 9px", fontWeight: 900 }}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
-            {viewYear !== today.getFullYear() && (
-              <button className="btn" onClick={() => setViewYear(today.getFullYear())} style={{ fontSize: "var(--fs-11)", padding: "4px 9px" }}>
-                Today
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Divider */}
-        <div style={{ height: 1, background: "var(--border)", marginBottom: 12 }} />
 
         {/* Row 2: Month */}
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 12 }}>

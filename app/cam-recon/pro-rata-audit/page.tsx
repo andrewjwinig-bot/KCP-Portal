@@ -14,6 +14,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import LoadingState from "@/app/components/LoadingState";
+import { PageHeader } from "@/app/components/PageHeader";
 import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL } from "@/app/components/Pill";
 
 type Tenant = { unitRef: string; suite: string; name: string; proRataPct: number; sqft: number };
@@ -128,15 +129,9 @@ function ProRataAuditInner() {
 
   return (
     <main>
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <div>
-          <h1>Pro-rata Share Audit</h1>
-          <p className="muted" style={{ marginTop: 8, fontSize: 15 }}>
-            Office tenants whose stipulated CAMPrep share differs from their true square-foot share.
-          </p>
-        </div>
-        <Link href="/cam-recon" className="btn" style={{ flexShrink: 0, textDecoration: "none" }}><ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />CAM / RET Reconciliation</Link>
-      </div>
+      <PageHeader title="Pro-rata Share Audit"
+        info="Office tenants whose stipulated CAMPrep share differs from their true square-foot share."
+        actions={<Link href="/cam-recon" className="text-link">CAM / RET Reconciliation<ChevronRight size={16} strokeWidth={1.75} aria-hidden /></Link>} />
 
       {error && (
         <StatusBanner tone="danger" style={{ marginTop: 16 }} title="Something went wrong">{error}</StatusBanner>

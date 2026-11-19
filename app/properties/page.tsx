@@ -13,6 +13,7 @@ import { loadTaxChecked } from "../tracker/tax-data";
 import { TypePill } from "./PropertyDetail";
 import { SHADOW_PROPERTIES, totalAcres, type ShadowProperty } from "../../lib/properties/shadowProperties";
 import { Pill, TONE_NEUTRAL, TONE_PURPLE } from "@/app/components/Pill";
+import { PageHeader } from "@/app/components/PageHeader";
 
 /** The managed properties plus the held-only shadow holdings — the shadows
  *  appear HERE and nowhere else (they are not in PROPERTY_DEFS). */
@@ -151,20 +152,10 @@ export default function PropertiesPage() {
   return (
     <main>
 
-      {/* ── Header ── */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 22, flexWrap: "wrap", gap: 14 }}>
-        <div>
-          <h1>Property Info</h1>
-        </div>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-        </div>
-      </div>
+      <PageHeader title="Property Info" />
 
       {/* ── Summary tiles ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginTop: 18, marginBottom: 18 }}>
         {([
           { key: "all",         label: "Total",       value: LISTED.length, color: "var(--brand)",  activeBg: "rgba(11,74,125,0.07)",  activeBorder: "rgba(11,74,125,0.3)"  },
           { key: "Office",      label: "Office",       value: typeCounts.Office,      color: "var(--c-0b4a7d)",      activeBg: "rgba(11,74,125,0.09)",  activeBorder: "rgba(11,74,125,0.35)" },

@@ -9,14 +9,9 @@ import {
   type PropertyExpenses,
 } from "@/lib/rentroll/baseYearExpenses";
 import { ChartTooltip, HoverBands } from "@/app/components/ChartTooltip";
-
-const SECTION_LABEL: React.CSSProperties = {
-  fontSize: "var(--fs-11)",
-  fontWeight: 700,
-  textTransform: "uppercase",
-  letterSpacing: "0.06em",
-  color: "var(--muted)",
-};
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect, propertyLabel } from "@/app/components/HeaderSelect";
+import { ChevronRight } from "lucide-react";
 
 
 const PALETTE = [
@@ -78,25 +73,19 @@ export default function ExpenseTrendsPage() {
 
   return (
     <main>
-      <h1>Expense Trends</h1>
-      <p className="muted" style={{ marginTop: 8, fontSize: 15 }}>
-        Operating expenses and occupancy charted over time for the office
-        buildings. See the underlying figures on{" "}
-        <a href="/rentroll/base-years" style={{ color: "var(--brand)", fontWeight: 700 }}>
-          Operating Expense History
-        </a>.
-      </p>
-
-      <div style={{ marginTop: 16, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <span style={SECTION_LABEL}>Building</span>
-        <select className="select-brand" value={propCode} onChange={(e) => setPropCode(e.target.value)}>
-          {OFFICE_BUILDINGS.map((b) => (
-            <option key={b.code} value={b.code}>
-              {b.name} (#{b.code}){SEED_EXPENSES[b.code] ? "" : " — no data"}
-            </option>
-          ))}
-        </select>
-      </div>
+      <PageHeader title="Expense Trends"
+        info="Operating expenses and occupancy charted over time for the office buildings. The underlying figures are on Operating Expense History."
+        pickers={
+          <HeaderSelect value={propCode} onChange={setPropCode} ariaLabel="Building" maxWidth={460}
+            displayLabel={propertyLabel(propCode, meta?.name)}>
+            {OFFICE_BUILDINGS.map((b) => (
+              <option key={b.code} value={b.code}>
+                {propertyLabel(b.code, b.name)}{SEED_EXPENSES[b.code] ? "" : " (no data)"}
+              </option>
+            ))}
+          </HeaderSelect>
+        }
+        actions={<a href="/rentroll/base-years" className="text-link">Operating Expense History<ChevronRight size={16} strokeWidth={1.75} aria-hidden /></a>} />
 
       {!expenses ? (
         <div className="card" style={{ marginTop: 16 }}>

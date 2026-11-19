@@ -2,6 +2,8 @@
 
 import { StatusBanner } from "@/app/components/StatusBanner";
 import LoadingState from "@/app/components/LoadingState";
+import { PageHeader } from "@/app/components/PageHeader";
+import { MetaLine } from "@/app/components/LastImported";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { StatPill } from "@/app/components/Pill";
 import { PROPERTY_DEFS } from "@/lib/properties/data";
@@ -139,22 +141,11 @@ export default function HistoricalOpExPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <h1>Historical Operating Expenses</h1>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-        </div>
-      </header>
-
-      <div className="card">
-        <p className="muted small" style={{ marginBottom: 0 }}>
-          Multi-year actuals by property and expense line. The budget
-          viewer will reference this data to compute YoY variance and to
-          surface long-run trends next to each expense line.
-        </p>
-      </div>
+      <PageHeader title="Historical Operating Expenses"
+        info="Multi-year actuals by property and expense line. The budget viewer will reference this data to compute YoY variance and to surface long-run trends next to each expense line."
+        meta={entries && entries.length > 0 ? <MetaLine>
+          <span>{entries.length} expense line{entries.length === 1 ? "" : "s"} across {new Set(entries.map((e) => e.propertyCode)).size} propert{new Set(entries.map((e) => e.propertyCode)).size === 1 ? "y" : "ies"}</span>
+        </MetaLine> : undefined} />
 
       {error && (
         <StatusBanner tone="danger" title="Error">{error}</StatusBanner>

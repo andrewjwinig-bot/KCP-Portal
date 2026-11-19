@@ -1,7 +1,8 @@
 "use client";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { pickInto } from "@/app/components/pickFiles";
-import { ChevronDown, ChevronUp, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Upload, X } from "lucide-react";
+import { PageHeader } from "@/app/components/PageHeader";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as XLSX from "xlsx";
@@ -23,7 +24,7 @@ import {
 import { emailInvoicerReport, XLSX_CONTENT_TYPE } from "../../lib/invoicing/sendReport";
 import { ALLOC_BP, ALLOC_SC, ALLOC_BP_SC, expandForAllocation } from "../../lib/expenses/split";
 import { useUser } from "../components/UserProvider";
-import { LastImported } from "@/app/components/LastImported";
+import { MetaLine } from "@/app/components/LastImported";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
 import { Pill, TONE_AMBER, TONE_GREEN, TONE_RED } from "@/app/components/Pill";
 import { HoverCard } from "@/app/components/HoverCard";
@@ -1168,14 +1169,35 @@ export default function ExpensesPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <h1>Credit Card Expense Coder</h1>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-        </div>
-      </header>
+      <PageHeader title="Credit Card Expense Coder"
+        info={<>Import the <b>American Express</b> Excel file (.xls or .xlsx) — or drag it onto this header — then code each charge to a category and property. Nothing sends until every charge is coded.</>}
+        dropHandlers={isMaint ? undefined : ccDrop.dropHandlers}
+        dragging={!isMaint && ccDrop.dragging}
+        actions={isMaint ? undefined : <>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            style={{ display: "none" }}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
+          />
+          <button className="btn import" onClick={() => pickInto(fileInputRef.current, "credit-card")}>
+            <Upload size={16} strokeWidth={1.75} aria-hidden />{ccDrop.dragging ? "Drop to Import" : "Import Statement"}
+          </button>
+          <button className="btn" onClick={clearAll} disabled={!tx.length}>Clear</button>
+          {tx.length > 0 && (
+            <button className="btn" onClick={saveStatement} disabled={!totals.coded || saving}>
+              {saving ? "Saving…" : "Save to History"}
+            </button>
+          )}
+        </>}
+        meta={isMaint || !(importedAt || statementPeriodText || fileName) ? undefined : (
+          <MetaLine at={importedAt} by={importedBy} label="Statement imported">
+            {(statementPeriodText || fileName) && <span>{importedAt ? "· " : ""}{[statementPeriodText && `Period: ${statementPeriodText}`, fileName].filter(Boolean).join(" · ")}</span>}
+          </MetaLine>
+        )}>
+        {!isMaint && saveError && <StatusBanner compact tone="danger" title={saveError} />}
+      </PageHeader>
 
       {/* ── Nothing sends until every charge is coded (owner: "once all charges
            are coded then they can be sent") — who still owes what. ── */}
@@ -1197,71 +1219,12 @@ export default function ExpensesPage() {
         </StatusBanner>
       )}
 
-      {/* Import bar — same shape as Payroll Invoicer / Rent Roll: a
-          single button row at the top with Save / Cadence on the right,
-          and one muted descriptor line beneath. Hidden from maint (Greg
-          only codes, never imports). */}
-      {!isMaint && (
-      <div
-        className="card"
-        {...ccDrop.dropHandlers}
-        title="Choose a statement file, or drag it onto this card"
-        style={ccDrop.dragging ? { outline: "2px dashed var(--brand)", outlineOffset: -2, background: "var(--tint-brand-bg, rgba(11,74,125,0.04))" } : undefined}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              style={{ display: "none" }}
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}
-            />
-            <button
-              className="btn"
-              onClick={() => pickInto(fileInputRef.current, "credit-card")}
-              style={{ fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
-            >
-              {ccDrop.dragging ? "Drop to import" : "Choose Statement File…"}
-            </button>
-            <button
-              className="btn"
-              style={{ borderRadius: 999, fontWeight: 700, fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
-              onClick={clearAll}
-              disabled={!tx.length}
-            >
-              Clear
-            </button>
-          </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            {tx.length > 0 && (
-              <button
-                className="btn"
-                onClick={saveStatement}
-                disabled={!totals.coded || saving}
-                style={{ fontSize: "var(--fs-13)", padding: "8px 16px", whiteSpace: "nowrap" }}
-              >
-                {saving ? "Saving…" : "Save to History"}
-              </button>
-            )}
-            <span className="muted" style={{ fontSize: "var(--fs-13)", fontWeight: 600, alignSelf: "center" }}>Monthly</span>
-          </div>
+      {!isMaint && tx.length > 0 && (
+        <div className="pills">
+          <div className="pill"><b>{totals.count}</b><span className="small muted">Transactions</span></div>
+          <div className="pill"><b>{totals.coded}</b><span className="small muted">Coded</span></div>
+          <div className="pill pill-total"><b>{toMoney(totals.total)}</b><span className="small muted">Total</span></div>
         </div>
-        <p className="muted small" style={{ marginTop: 8 }}>
-          Import the <b>American Express</b> Excel file (.xls or .xlsx).
-          {fileName && <span style={{ marginLeft: 8 }}>· {fileName}</span>}
-        </p>
-        <LastImported at={importedAt} by={importedBy} label="Statement imported" />
-        {tx.length > 0 && (
-          <div className="pills">
-            <div className="pill"><b>{totals.count}</b><span className="small muted">Transactions</span></div>
-            <div className="pill"><b>{totals.coded}</b><span className="small muted">Coded</span></div>
-            <div className="pill pill-total"><b>{toMoney(totals.total)}</b><span className="small muted">Total</span></div>
-          </div>
-        )}
-        {statementPeriodText && <div className="small muted" style={{ textAlign: "center", marginTop: 6 }}><b>Period:</b> {statementPeriodText}</div>}
-        {saveError && <div style={{ color: "var(--c-b42318)", fontSize: "var(--fs-13)", marginTop: 6 }}>{saveError}</div>}
-      </div>
       )}
 
       {/* Charts card — hidden from maint. */}

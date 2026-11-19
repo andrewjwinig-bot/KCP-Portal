@@ -1,5 +1,6 @@
 "use client";
 import LoadingState from "@/app/components/LoadingState";
+import { PageHeader } from "@/app/components/PageHeader";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -80,20 +81,11 @@ export default function HistoryPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <h1>Payroll History</h1>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-        </div>
-      </header>
+      <PageHeader title="Payroll History"
+        info={<>Saved pay periods for reference. Use &ldquo;Save Pay Period&rdquo; on the Payroll Invoicer page to archive each period.</>} />
 
       <div className="card">
-        <b style={{ fontSize: 17 }}>Pay Period History</b>
-        <p className="muted small" style={{ margin: "4px 0 16px" }}>
-          Saved pay periods for reference. Use &ldquo;Save Pay Period&rdquo; on the Payroll Invoicer page to archive each period.
-        </p>
+        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 12 }}>Pay Period History</div>
 
         {loading ? (
           <LoadingState card={false} status="Loading saved periods…" rows={4} />
