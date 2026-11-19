@@ -9,11 +9,15 @@
 //
 //   GET                       → templates, send history, what's due
 //   GET ?due=1                → only what's due (the dashboard prompt)
+//   GET ?weather=1            → weather emails to send: cold / heat / snow /
+//                               storm forecast for the Interplex in 48 hours
 //   GET ?id=<send id>         → one send
 //   POST { action: "sent", templateId, subject } → record that it went out from Outlook
 
 import { NextRequest, NextResponse } from "next/server";
 import { TENANT_TEMPLATES, dueTemplates, templateById } from "@/lib/communications/templates";
+import { stillToSend } from "@/lib/communications/weather";
+import { loadWeatherSignals } from "@/lib/communications/weatherLoad";
 import { allSends, getSend, recordSend } from "@/lib/communications/store";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
@@ -41,6 +45,14 @@ export async function GET(req: NextRequest) {
     return s ? NextResponse.json({ ok: true, send: s }) : NextResponse.json({ error: "That send is not on file." }, { status: 404 });
   }
   const last = await lastSentById();
+  if (q.get("weather")) {
+    try {
+      const coming = stillToSend(await loadWeatherSignals(), last, new Date());
+      return NextResponse.json({ ok: true, weather: coming.map((s) => ({ ...s, name: templateById(s.template)?.name ?? s.template })) });
+    } catch (e) {
+      return NextResponse.json({ ok: false, weather: [], error: e instanceof Error ? e.message : String(e) });
+    }
+  }
   const due = dueTemplates(todayET(), last).map((d) => ({ id: d.template.id, name: d.template.name, dueISO: d.dueISO, overdue: d.overdue }));
   if (q.get("due")) return NextResponse.json({ ok: true, due });
 

@@ -515,6 +515,44 @@ close (bank recs, Avid sends, close-outs by `who`), unsent AvidXchange batches
 and the month's flags. Approve / Send back / comments in place need the shared
 queue store — until then a row opens the page that does it.
 
+# Action items — ONE list for the dashboard AND the sidebar badges
+
+Owner, 11/2026: "audit everyone and make sure their sidebar notifications are
+displaying properly when there are action items … any action items should
+also appear under Action Items on his dashboard and really anyone who has open
+action items". `useActionItems` (`app/components/useActionItems.ts`) builds
+each person's open items from the SAME endpoints their pages read; the
+dashboard's **Action Items** strip renders them (`StatusBanner compact`) and the
+sidebar counts them on the page that does the work (`nav`, `badgesByNav` — the
+Dashboard item when the work is on the dashboard). So far: seasonal tenant
+emails due and WEATHER emails (Greg, `/communications`), the month's Tenant
+Notices to approve (Greg), credit-card charges to code (the cardholder's own —
+My Card Charges / the dashboard — or the whole statement on the CC Expense
+Coder for Harry), new website tenants to describe (Harry, Dashboard), move-out
+close-outs ready (Drew / Nancy / Harry, Dashboard), a batch processed and not
+sent to AvidXchange (Allocated → Drew, Payroll / Credit Card → Harry), a
+quarter's CAM not sent (Drew, CAM Reconciliation), receipts ready to apply
+(Tami, Receivables). Reservations, Requests, the Task Tracker and the imports
+due keep their own badges. **A new reminder anywhere goes in this list**, never
+as its own dashboard card — the "Tenant Emails to Send" card and
+`TenantNoticesReminder` were folded in for this. Drew's dashboard is the Work
+Queue (which carries his items); the strip is everyone else's.
+
+**WEATHER → GREG'S WEATHER EMAILS** (owner: "track the weather for … 8
+neshaminy interplex trevose PA and if the forecast is predicting extreme cold,
+extreme heat, snow, ice or storm … prompt greg … 24-48 hours before"; "if it
+drops below 15 degrees prompt extreme cold alert"). `weatherSignals`
+(`lib/communications/weather.ts`, pure, pinned by `weather.test.ts`) reads the
+National Weather Service forecast and active alerts for the Interplex
+(`INTERPLEX_POINT`, gridpoint PHI 56,88; `weatherLoad.ts`, free, no key, cached
+30 min) over the next 48 hours: ≤ 15°F → Extreme Cold Alert, ≥ 95°F → Heat
+Wave Alert, snow / sleet / freezing rain / ice at 40%+ → Snow & Ice Alert,
+severe wording, winds 40+ mph or an NWS severe / wind / flood alert → Severe
+Storm & Outage Alert (NWS winter, cold and heat alerts map too). A send of that
+template in the 72 hours before clears it (`stillToSend`). `GET
+/api/communications?weather=1`; a forecast that cannot be read shows nothing,
+never "all clear".
+
 # Every import prompt carries an (i) with its steps
 
 Owner, 11/2026: "next to import prompts should be a little info i icon that has
@@ -2066,8 +2104,8 @@ batch), `reminderSchedule.ts` (the calendar), `reminderInternalEmails.ts`
 - **GREG IS TOLD WHERE HE LOOKS** (owner: "should also be on his action items
   … there is no icon with # on the sidebar"): while the month's batch is built
   and not sent, his dashboard's Action Items carry **Approve <Month>'s Tenant
-  Notices** (`TenantNoticesReminder.tsx`) and the sidebar's Tenant Notices
-  shows the count to send (`fetchPendingNotices`, shared).
+  Notices** and the sidebar's Tenant Notices shows the count to send — both
+  from `useActionItems` (below).
 - **GREG SETS WHO EACH NOTICE GOES TO** (owner: "add or edit the email it sends
   to in case there are multiple recipients or it needs to be updated"): the
   pencil (or + where none is on file) beside Sends to opens Send To —
