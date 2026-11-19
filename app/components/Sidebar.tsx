@@ -1126,6 +1126,10 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
                 : null;
           if (groupOrder) {
             const rank = (item: (typeof NAV)[number]) => {
+              // Reports stays at the BOTTOM for everyone (owner: "sometimes on
+              // the bottom … and sometimes below dashboard depending on the
+              // user") — it is ungrouped, and "ungrouped → top" lifted it.
+              if (item.href === "/reports") return 1000;
               const gid = (item as { groupId?: string }).groupId;
               if (!gid || !GROUPS[gid]) return 0; // ungrouped → top
               const i = groupOrder.indexOf(gid);
