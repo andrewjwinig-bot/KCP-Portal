@@ -2,6 +2,7 @@
 import { Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import InstructionWizard from "./InstructionWizard";
+import { PageHeader } from "@/app/components/PageHeader";
 import Link from "next/link";
 import {
   TAX_TASKS, TAX_CATEGORIES,
@@ -335,22 +336,10 @@ export default function TrackerPage() {
 
   return (
     <main>
-      {/* ── Header ──────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 14 }}>
-        <div>
-          <h1>Task Tracker</h1>
-          <p className="muted small">Monthly to-do checklist · filing deadlines · recurring tasks</p>
-        </div>
-
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-        </div>
-      </div>
+      <PageHeader title="Task Tracker" info={<>Monthly to-do checklist · filing deadlines · recurring tasks</>} />
 
       {/* ── Owner filter (Drew / Marie / Both) ─────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18, marginBottom: 18, flexWrap: "wrap" }}>
         <span style={{ fontSize: "var(--fs-11)", fontWeight: 800, color: "var(--muted)", letterSpacing: "0.06em" }}>VIEW</span>
         <div role="tablist" aria-label="Owner filter" style={{
           display: "inline-flex", border: "1px solid var(--border)", borderRadius: 999, overflow: "hidden", background: "var(--card)",

@@ -1,6 +1,7 @@
 "use client";
 import { StatusBanner } from "@/app/components/StatusBanner";
-import { ChevronRight, X, Sparkles } from "lucide-react";
+import { ChevronRight, RefreshCw, X, Sparkles } from "lucide-react";
+import { PageHeader } from "@/app/components/PageHeader";
 
 import { TabButton } from "@/app/components/TabButton";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -106,52 +107,19 @@ function ReservationsPageInner() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
-        <h1>Conference Room Reservations</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <button
-            onClick={reload}
-            disabled={loading}
-            className="btn"
-            style={{ fontSize: "var(--fs-13)", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: 6 }}
-            title="Pull the latest reservations"
-          >
-            <svg
-              width="14" height="14" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-              style={{
-                animation: loading ? "spin 0.8s linear infinite" : "none",
-                transformOrigin: "center",
-              }}
-            >
-              <polyline points="23 4 23 10 17 10" />
-              <polyline points="1 20 1 14 7 14" />
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-            </svg>
+      <PageHeader title="Conference Room Reservations"
+        actions={<>
+          <button onClick={reload} disabled={loading} className="btn" title="Pull the latest reservations">
+            <RefreshCw size={16} strokeWidth={1.75} aria-hidden style={{ animation: loading ? "spin 0.8s linear infinite" : "none" }} />
             {loading ? "Refreshing…" : "Refresh"}
           </button>
-          <a
-            href="/reserve"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn primary"
-            style={{ fontSize: "var(--fs-13)", padding: "6px 12px", textDecoration: "none" }}
-            title="Open the public conference-room reservation form in a new tab"
-          >
-            Reservation Form<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
+          <a href="/service" target="_blank" rel="noopener noreferrer" className="btn" title="Open the tenant Service Request landing in a new tab">
+            Tenant Flow<ChevronRight size={16} strokeWidth={1.75} aria-hidden />
           </a>
-          <a
-            href="/service"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn"
-            style={{ fontSize: "var(--fs-13)", padding: "6px 12px", textDecoration: "none" }}
-            title="Open the tenant Service Request landing in a new tab"
-          >
-            Tenant Flow<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
+          <a href="/reserve" target="_blank" rel="noopener noreferrer" className="btn primary" title="Open the public conference-room reservation form in a new tab">
+            Reservation Form<ChevronRight size={16} strokeWidth={1.75} aria-hidden />
           </a>
-        </div>
-      </header>
+        </>} />
 
       {error && (
         <StatusBanner tone="danger" title="Couldn&apos;t load reservations">{error}</StatusBanner>

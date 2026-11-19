@@ -1,6 +1,7 @@
 "use client";
 import { StatusBanner } from "@/app/components/StatusBanner";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Download } from "lucide-react";
+import { PageHeader } from "@/app/components/PageHeader";
 import LoadingState from "@/app/components/LoadingState";
 
 import { useEffect, useMemo, useState } from "react";
@@ -125,38 +126,19 @@ export default function LeasingActivityPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <h1 style={{ margin: 0 }}>Leasing Activity</h1>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-        </div>
-      </header>
+      <PageHeader title="Leasing Activity"
+        actions={
+          <button className="btn primary" onClick={handleStatusReport} disabled={generatingReport || !rentroll}>
+            <Download size={16} strokeWidth={1.75} aria-hidden />
+            {generatingReport ? "Generating…" : "Status Report"}
+          </button>
+        } />
 
       {loading ? (
         <LoadingState status="Loading leasing activity…" columns={4} rows={4} />
       ) : (
         <>
-          <LeasingActivityCard
-            rentroll={rentroll}
-            headerSlot={
-              <button
-                onClick={handleStatusReport}
-                disabled={generatingReport || !rentroll}
-                style={{
-                  background: generatingReport ? "rgba(11,74,125,0.4)" : "rgba(11,74,125,0.85)",
-                  color: "#fff", borderRadius: 999, padding: "8px 16px",
-                  fontSize: "var(--fs-13)", fontWeight: 700, border: "1px solid transparent",
-                  display: "inline-flex", alignItems: "center",
-                  cursor: generatingReport || !rentroll ? "default" : "pointer",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {generatingReport ? "Generating…" : "Status Report"}
-              </button>
-            }
-          />
+          <LeasingActivityCard rentroll={rentroll} />
           <BaseYearResets
             rentroll={rentroll}
             tenantMeta={tenantMeta}
