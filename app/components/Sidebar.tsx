@@ -26,6 +26,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
   "Rent Roll":          "rentroll",
   "Unit Info":          "rentroll",
   "Leasing Activity":   "leasing-activity",
+  "NNN Quote":          "nnn-quote",
   "Receivables":        "tenant-statements",
   "Open Credits": "tenant-statements",
   "Tenant Notices": "tenant-statements",
@@ -80,7 +81,7 @@ const NAV_ROLE_KEY: Record<string, string> = {
 const GROUP_CHILD_ORDER: Record<string, string[]> = {
   // Tenant info lives with the property, unit and investor info (owner,
   // 11/2026): the Tenancy group was folded into Directory.
-  directory: ["Property Info", "Unit Info", "Rent Roll", "Leasing Activity", "Investor Info"],
+  directory: ["Property Info", "Unit Info", "Rent Roll", "Leasing Activity", "NNN Quote", "Investor Info"],
   // Bank Balances leads Banking (owner).
   banking: ["Bank Balances", "Bank Transfers", "Debt Tracker", "Security Deposits", "Bank Recs", "Bank Acc Tracker"],
   financials: [
@@ -323,6 +324,25 @@ const NAV = [
         <polyline points="14 2 14 8 20 8" />
         <line x1="9" y1="13" x2="15" y2="13" />
         <line x1="9" y1="17" x2="13" y2="17" />
+      </svg>
+    ),
+  },
+  {
+    // Quote a prospect a vacant suite's estimated CAM / INS / RET and the
+    // all-in rent (Harry; owner, 11/2026).
+    label: "NNN Quote",
+    href: "/financials/budgets/nnn-quote",
+    external: false,
+    indent: false,
+    showFor: null as string | null,
+    groupId: "directory",
+    icon: (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="2" width="16" height="20" rx="2" />
+        <line x1="8" y1="6" x2="16" y2="6" />
+        <line x1="8" y1="10" x2="10" y2="10" /><line x1="14" y1="10" x2="16" y2="10" />
+        <line x1="8" y1="14" x2="10" y2="14" /><line x1="14" y1="14" x2="16" y2="14" />
+        <line x1="8" y1="18" x2="16" y2="18" />
       </svg>
     ),
   },
@@ -1128,7 +1148,7 @@ export default function Sidebar({ open, onToggle }: { open: boolean; onToggle: (
             const rank = (item: (typeof NAV)[number]) => {
               // Reports stays at the BOTTOM for everyone (owner: "sometimes on
               // the bottom … and sometimes below dashboard depending on the
-              // user") — it is ungrouped, and "ungrouped → top" lifted it.
+              // user") — it is ungrouped, and "ungrouped to the top" lifted it.
               if (item.href === "/reports") return 1000;
               const gid = (item as { groupId?: string }).groupId;
               if (!gid || !GROUPS[gid]) return 0; // ungrouped → top
