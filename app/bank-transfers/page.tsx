@@ -5,6 +5,8 @@ import { ChevronRight, FileText, FolderOpen, Plus, RefreshCw, X } from "lucide-r
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { upload as blobUpload } from "@vercel/blob/client";
 import { Calendar } from "@/app/components/Calendar";
+import { PageHeader } from "@/app/components/PageHeader";
+import { MetaLine } from "@/app/components/LastImported";
 import { useUser } from "@/app/components/UserProvider";
 import { Pill, StatPill, TONE_RED } from "@/app/components/Pill";
 import { blobSrc } from "@/lib/blobProxy";
@@ -193,42 +195,31 @@ export default function BankTransfersPage() {
     }
   }
 
-  async function persistShareUrl(next: string): Promise<void> {
-    const res = await fetch("/api/bank-transfers", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ shareFolderUrl: next }),
-    });
-    const body = await res.json();
-    if (!res.ok) throw new Error(body.error ?? "Failed to update");
-    setShareFolderUrl(body.shareFolderUrl ?? "");
-  }
-
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <h1>Bank Transfers</h1>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
-            <div>COMMERCIAL</div><div>PROPERTIES</div>
-          </div>
-        </div>
-      </header>
-
-      <Toolbar
-        canEdit={canEdit}
-        url={shareFolderUrl}
-        onSaveUrl={persistShareUrl}
-        onNewTransfer={() => setEditing("new")}
-        onRefresh={reload}
-        search={search}
-        onSearchChange={setSearch}
-        resultsCount={filtered.length}
-        totalCount={(transfers ?? []).length}
-        loading={loading}
-      />
+      <PageHeader title="Bank Transfers"
+        info="Every transfer between our bank accounts, with its confirmation PDF. Search filters the tiles, the account pairs and the list."
+        actions={<>
+          <button type="button" onClick={reload} disabled={loading} className="btn" aria-label="Reload bank transfers">
+            <RefreshCw size={16} strokeWidth={1.75} aria-hidden style={{ animation: loading ? "spin 0.8s linear infinite" : undefined }} />
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+          {shareFolderUrl && (
+            <a href={shareFolderUrl} target="_blank" rel="noopener noreferrer" className="btn" style={{ textDecoration: "none" }}>
+              <FolderOpen size={16} strokeWidth={1.75} aria-hidden /> Open SharePoint Folder
+            </a>
+          )}
+          {canEdit && (
+            <button type="button" onClick={() => setEditing("new")} className="btn primary">
+              <Plus size={16} strokeWidth={1.75} aria-hidden />
+              New Transfer
+            </button>
+          )}
+        </>}
+        meta={<MetaLine>
+          <span>{loading ? "Loading…" : `${filtered.length} of ${(transfers ?? []).length} transfers`}</span>
+          {!shareFolderUrl && <span>· No SharePoint folder linked yet</span>}
+        </MetaLine>} />
 
       {error && (
         <StatusBanner tone="danger" title="Couldn&apos;t load bank transfers">{error}</StatusBanner>
@@ -279,6 +270,16 @@ export default function BankTransfersPage() {
       </div>
 
       <div className="card" style={{ padding: 0 }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+          <input
+            type="search"
+            placeholder="Search bank, account, description…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search transfers"
+            style={{ width: 340, maxWidth: "100%" }}
+          />
+        </div>
         <div className="tableWrap">
           <table>
             <thead>
@@ -431,138 +432,6 @@ function FolderIcon() {
       strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
     </svg>
-  );
-}
-
-function Toolbar({
-  canEdit,
-  url,
-  onSaveUrl,
-  onNewTransfer,
-  onRefresh,
-  search,
-  onSearchChange,
-  resultsCount,
-  totalCount,
-  loading,
-}: {
-  canEdit: boolean;
-  url: string;
-  onSaveUrl: (next: string) => Promise<void>;
-  onNewTransfer: () => void;
-  onRefresh: () => void | Promise<void>;
-  search: string;
-  onSearchChange: (v: string) => void;
-  resultsCount: number;
-  totalCount: number;
-  loading: boolean;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function save(next: string) {
-    setSaving(true);
-    setError(null);
-    try {
-      await onSaveUrl(next);
-      setEditing(false);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="card">
-      {editing ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {error && (
-            <StatusBanner compact tone="danger" title={error} />
-          )}
-          <input
-            style={{ width: "100%" }}
-            value={draft}
-            placeholder="Paste the SharePoint folder link (https://…)"
-            onChange={(e) => setDraft(e.target.value)}
-            autoFocus
-          />
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button type="button" onClick={() => save(draft.trim())} disabled={saving}
-              className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "7px 16px", fontWeight: 700 }}>
-              {saving ? "Saving…" : "Save"}
-            </button>
-            <button type="button" onClick={() => { setEditing(false); setError(null); }} disabled={saving}
-              className="btn" style={{ fontSize: "var(--fs-13)", padding: "7px 14px", fontWeight: 600 }}>
-              Cancel
-            </button>
-            {url && (
-              <button type="button" onClick={() => save("")} disabled={saving}
-                style={{
-                  marginLeft: "auto", fontSize: "var(--fs-12)", fontWeight: 600, color: "var(--c-b91c1c)",
-                  background: "transparent", border: "1px solid var(--tint-red-line, rgba(220,38,38,0.35))",
-                  borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontFamily: "inherit",
-                }}>
-                Remove
-              </button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          {canEdit && (
-            <button
-              type="button"
-              onClick={onNewTransfer}
-              className="btn primary"
-            >
-              <Plus size={16} strokeWidth={1.75} aria-hidden />
-              New Transfer
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onRefresh}
-            disabled={loading}
-            title="Reload bank transfers"
-            className="btn"
-          >
-            <RefreshCw size={16} strokeWidth={1.75} aria-hidden style={{ animation: loading ? "spin 0.8s linear infinite" : undefined }} />
-            {loading ? "Refreshing…" : "Refresh"}
-          </button>
-
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            {url ? (
-              <a
-                href={url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn"
-                style={{ textDecoration: "none" }}
-              >
-                <FolderOpen size={16} strokeWidth={1.75} aria-hidden /> Open SharePoint Folder
-              </a>
-            ) : (
-              <span style={{ fontSize: "var(--fs-13)", color: "var(--muted)" }}>
-                No SharePoint folder linked yet.
-              </span>
-            )}
-            <input
-              type="search"
-              placeholder="Search bank, account, description…"
-              value={search}
-              onChange={(e) => onSearchChange(e.target.value)}
-              style={{ minWidth: 260 }}
-            />
-            <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", whiteSpace: "nowrap" }}>
-              {loading ? "Loading…" : `${resultsCount} of ${totalCount}`}
-            </span>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }
 
