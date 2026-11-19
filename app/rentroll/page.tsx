@@ -1796,6 +1796,7 @@ export default function RentRollPage() {
           Status Report on the right, one meta line; drop the roll on it. */}
       <PageHeader
         title="Rent Roll"
+        info={<>The current rent roll for every property — tenants, square footage, rent and recoveries — imported from Skyline each month.</>}
         dropHandlers={{
           onDragOver: (e: React.DragEvent) => { e.preventDefault(); if (!uploading) setDragging(true); },
           onDragEnter: (e: React.DragEvent) => { e.preventDefault(); if (!uploading) setDragging(true); },

@@ -152,7 +152,8 @@ export default function PropertiesPage() {
   return (
     <main>
 
-      <PageHeader title="Property Info" />
+      <PageHeader title="Property Info"
+        info={<>Every property we own and manage, grouped by type, with its facts, rent roll and plans.</>} />
 
       {/* ── Summary tiles ── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginTop: 18, marginBottom: 18 }}>

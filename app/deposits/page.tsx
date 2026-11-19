@@ -255,6 +255,7 @@ export default function SecurityDepositsPage() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <PageHeader title="Security Deposits"
+        info={<>Every tenant security deposit we hold, by account: amount, check, partial refunds and status.</>}
         actions={<>
           <AllowedLink href="/tenants/past" className="text-link">Past Tenants<ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /></AllowedLink>
           <button className="btn primary" onClick={startGlobalAdd}>

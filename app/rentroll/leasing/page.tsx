@@ -127,6 +127,7 @@ export default function LeasingActivityPage() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <PageHeader title="Leasing Activity"
+        info={<>Prospects, pending deals, renewals and tenants vacating, with the leasing status report.</>}
         actions={
           <button className="btn primary" onClick={handleStatusReport} disabled={generatingReport || !rentroll}>
             <Download size={16} strokeWidth={1.75} aria-hidden />

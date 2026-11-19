@@ -173,6 +173,7 @@ export default function ReprojectionsPage() {
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <PageHeader
         title={actuals ? "Full-Year Actuals" : "Reprojections"}
+        info={<>{actuals ? "Every month's actual GL figure for a property, with a full-year total." : "A property's full year: actuals for the months posted, the budget for the rest."}</>}
         pickers={<>
             <HeaderSelect ariaLabel="Property" maxWidth={420} value={key} onChange={setKey} displayLabel={cur ? `${cur.propertyCode} · ${cur.name}` : "Choose a property"}>
               {!cur && <option value="">Choose a property</option>}

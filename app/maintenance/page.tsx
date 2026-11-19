@@ -268,6 +268,7 @@ function MaintenancePageInner() {
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <PageHeader title="Service Requests"
+        info={<>Tenant maintenance requests: assign, track and complete them.</>}
         actions={<>
           <button onClick={reload} disabled={loading} className="btn" title="Pull the latest requests">
             <RefreshCw size={16} strokeWidth={1.75} aria-hidden style={{ animation: loading ? "spin 0.8s linear infinite" : "none" }} />

@@ -216,6 +216,7 @@ export default function BudgetsPage() {
   }
 
   const pageTitle = <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>Operating Budgets{liveStatus && <Pill tone={liveStatus === "final" ? TONE_GREEN : TONE_AMBER}>{liveStatus === "final" ? "Final" : "Draft"}</Pill>}</span>;
+  const pageInfo = <>Each property&apos;s operating budget of record, by month, with its rent roll, allocations and exports.</>;
   const pageMeta = workbook && workbook.kind !== "live" ? <LastImported at={workbook.uploadedAt} by={workbook.uploadedBy} label="Budget imported" /> : undefined;
   const pageActions = liveStatus && canUpload ? <>
               {liveStatus === "draft" ? (
@@ -237,7 +238,7 @@ export default function BudgetsPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      {!(workbook && property) && <PageHeader title={pageTitle} meta={pageMeta} actions={pageActions} />}
+      {!(workbook && property) && <PageHeader title={pageTitle} info={pageInfo} meta={pageMeta} actions={pageActions} />}
 
       {error && (
         <StatusBanner tone="danger" title="Error">{error}</StatusBanner>
@@ -285,7 +286,7 @@ export default function BudgetsPage() {
           onCreateClick={() => setCreateOpen(true)}
           onWorkbookUpdate={setWorkbook}
           editor={user.label}
-          header={{ title: pageTitle, meta: pageMeta, actions: pageActions }}
+          header={{ title: pageTitle, info: pageInfo, meta: pageMeta, actions: pageActions }}
         />
       )}
 
@@ -544,7 +545,7 @@ function BudgetTable({
   header,
 }: {
   /** The page's title, meta line and its own actions (finalize, delete). */
-  header: { title: React.ReactNode; meta?: React.ReactNode; actions?: React.ReactNode };
+  header: { title: React.ReactNode; info?: React.ReactNode; meta?: React.ReactNode; actions?: React.ReactNode };
   workbook: BudgetWorkbook;
   property: BudgetWorkbook["properties"][number];
   summaries: WorkbookSummary[];
@@ -837,6 +838,7 @@ function BudgetTable({
           right. Drawn here because the pickers belong to the loaded budget. */}
       <PageHeader
         title={header.title}
+        info={header.info}
         meta={header.meta}
         pickers={<>
             <HeaderSelect

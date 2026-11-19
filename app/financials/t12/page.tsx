@@ -87,6 +87,7 @@ export default function T12Page() {
     <main style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <PageHeader
         title="T-12"
+        info={<>The trailing twelve months of actuals for a property, straight from the GL — nothing from the budget.</>}
         pickers={<>
             <HeaderSelect value={key} onChange={setKey} maxWidth={420} displayLabel={cur ? propertyLabel(cur.propertyCode, cur.name) : "Choose a property"} ariaLabel="Property">
               {groupStatementOptions(available.map((a) => ({ ...a, years: a.latest ? [a.latest.year] : [] }))).map((grp) => (

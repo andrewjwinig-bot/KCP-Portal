@@ -184,7 +184,8 @@ export default function BankRecPage() {
 
   return (
     <main style={{ display: "grid", gap: 14 }}>
-      <PageHeader title="Bank Reconciliation" />
+      <PageHeader title="Bank Reconciliation"
+        info={<>Reconciles every bank account each month against Skyline&apos;s checking register and the GL, carries open items forward, and keeps each month&apos;s signed-off rec.</>} />
 
       {/* ONE card carries the period, every action and the month's tiles, as
           Operating Statements' does (owner: "shouldnt the card with the pills
