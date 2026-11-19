@@ -3,6 +3,7 @@ import { StatusBanner } from "@/app/components/StatusBanner";
 import { X } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
+import { PageHeader } from "@/app/components/PageHeader";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RentRollData } from "../../../lib/rentroll/parseRentRollExcel";
 import { PROPERTY_DEFS } from "../../../lib/properties/data";
@@ -503,19 +504,7 @@ export default function RetailCommissionsPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <div>
-          <h1 style={{ margin: 0 }}>Retail Commissions</h1>
-          <p className="muted small" style={{ marginTop: 4 }}>Request for Leasing Commission · Shopping Centers Division</p>
-        </div>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
-            <div>COMMERCIAL</div><div>PROPERTIES</div>
-          </div>
-        </div>
-      </header>
+      <PageHeader title="Retail Commissions" info={<>Request for Leasing Commission · Shopping Centers Division</>} />
 
       {/* ── Add / Edit form ── */}
       <div className="card entry-form">

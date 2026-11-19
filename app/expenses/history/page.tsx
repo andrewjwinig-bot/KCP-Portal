@@ -1,5 +1,6 @@
 "use client";
 import LoadingState from "@/app/components/LoadingState";
+import { PageHeader } from "@/app/components/PageHeader";
 
 import { useEffect, useState } from "react";
 import * as XLSX from "xlsx";
@@ -125,14 +126,8 @@ export default function ExpenseHistoryPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        <h1>Expense History</h1>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}><div>COMMERCIAL</div><div>PROPERTIES</div></div>
-        </div>
-      </header>
+      <PageHeader title="Expense History"
+        info={<>Every credit-card charge saved from a statement, searchable across batches, and each statement&rsquo;s invoices as sent to AvidXchange.</>} />
 
       <ChargeSearch onlyMember={isMaint ? onlyGreg : undefined} />
 
