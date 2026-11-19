@@ -12,7 +12,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Check, Copy, TrendingDown, TrendingUp } from "lucide-react";
 import { PageHeader } from "@/app/components/PageHeader";
 import { HeaderSelect, propertyLabel, tenantLabel } from "@/app/components/HeaderSelect";
-import { MetaLine } from "@/app/components/LastImported";
 import { StatPill } from "@/app/components/Pill";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import LoadingState from "@/app/components/LoadingState";
@@ -144,8 +143,7 @@ export default function NnnQuotePage() {
             { label: "PDF for the tenant", description: "One page: the charges, the all-in and NNN over the years", onClick: () => void quotePdf("download") },
             { label: "Print", description: "Opens the same PDF ready to print", onClick: () => void quotePdf("print") },
           ]} />
-        </> : undefined}
-        meta={q && !q.gross && pot?.pools ? <MetaLine><span>{q.budgetYear} budget{mixed ? ` · ${suite?.pot === "office" ? "Office" : "Retail"} pool` : ""}{suite ? ` · ${suite.sqft.toLocaleString("en-US")} SF suite` : ""} · GLA {pot.gla.toLocaleString("en-US")} SF · NNN {psf((pot.pools.cam + pot.pools.ins + pot.pools.ret) / pot.gla)} / SF before admin fee</span></MetaLine> : undefined}>
+        </> : undefined}>
         {properties.length > 0 && (<div style={{ display: "grid", gap: 14, marginTop: 4 }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, alignItems: "start" }}>
             <label style={FIELD("1 1 120px")}>
