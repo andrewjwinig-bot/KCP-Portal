@@ -29,6 +29,8 @@ import { useUser } from "../components/UserProvider";
 import { Pill, StatPill, TONE_AMBER, TONE_BLUE, TONE_GREEN, TONE_NEUTRAL, TONE_RED } from "../components/Pill";
 import { Calendar } from "../components/Calendar";
 import { DownloadMenu } from "../components/DownloadMenu";
+import { PageHeader } from "../components/PageHeader";
+import { TabButton } from "../components/TabButton";
 import { th, td, thL, tdL } from "../components/tableStyles";
 import { InvestorContactCard } from "./InvestorContactCard";
 import { ownerSections, type OwnerSection } from "./ownerSections";
@@ -1391,107 +1393,48 @@ export default function InvestorInfoPage() {
 
   return (
     <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
-      <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
-        {/* Title only. The subtitle restated the page's own name and then
-            counted the rows the table below is about to show — two numbers
-            nobody acts on, above the tabs and filters that are the actual
-            controls. */}
-        <div>
-          <h1 style={{ margin: 0 }}>Investor Info</h1>
+      {/* Title only, no meta line. A subtitle restated the page's own name
+          and then counted the rows the table below is about to show — two
+          numbers nobody acts on. */}
+      <PageHeader title="Investor Info"
+        info="Every partnership's owners — by property or by investor — with their K-1s, contact details and the Statement of Values."
+        actions={<>
+          <DownloadMenu label="Export" items={[
+            { label: "Excel (.xlsx)", description: "Ownership data as a workbook", onClick: exportToExcel },
+            { label: "Print / PDF", description: "Print the page or save it as a PDF", onClick: () => window.print() },
+          ]} />
+          {/* The annual mailing is the only page-level action that leaves the
+              building, so it keeps the primary tier — and it appears only on
+              By Investor, which is the view it acts on. */}
+          {view === "investor" && canK1 && !!sendableInvestors?.length && (
+            <button
+              type="button"
+              className="btn primary"
+              disabled={k1reg.busyAll}
+              onClick={() => setSendAllOpen(true)}
+              title={`Email a K-1 link to all ${sendableInvestors.length} investors with an address on file`}
+            >
+              {k1reg.busyAll ? "Sending…" : `Email all ${sendableInvestors.length}`}
+            </button>
+          )}
+        </>} />
+
+      {/* ── View tabs + search ──────────────────────────────────────────── */}
+      <div className="no-print" style={{ display: "flex", alignItems: "flex-end", gap: 14, flexWrap: "wrap", borderBottom: "1px solid var(--border)" }}>
+        <div role="tablist" aria-label="View" style={{ display: "flex", gap: 4 }}>
+          <TabButton active={view === "property"} onClick={() => setView("property")}>By Property</TabButton>
+          <TabButton active={view === "investor"} onClick={() => setView("investor")}>By Investor</TabButton>
         </div>
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
-            <div>COMMERCIAL</div><div>PROPERTIES</div>
-          </div>
-        </div>
-      </header>
-
-      {/* ── View toggle + search + exports ──────────────────────────────── */}
-      <div className="card no-print">
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          <div role="tablist" aria-label="View" style={{
-            display: "inline-flex", border: "1px solid var(--border)", borderRadius: 999,
-            overflow: "hidden", background: "var(--card)",
-          }}>
-            {[
-              { id: "property" as const, label: "By Property" },
-              { id: "investor" as const, label: "By Investor" },
-            ].map((v) => {
-              const active = view === v.id;
-              return (
-                <button
-                  key={v.id}
-                  onClick={() => setView(v.id)}
-                  role="tab"
-                  aria-selected={active}
-                  style={{
-                    padding: "6px 14px", fontSize: "var(--fs-12)", fontWeight: 700,
-                    background: active ? "var(--brand)" : "transparent",
-                    color: active ? "#fff" : "var(--text)",
-                    border: "none", cursor: "pointer", fontFamily: "inherit",
-                  }}
-                >
-                  {v.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Border, radius and focus ring come from the input baseline in
-             globals.css — only the width is this page's business. */}
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search investors, vendor codes, properties…"
-            style={{ flex: 1, minWidth: 220 }}
-          />
-
-          <div style={{ display: "flex", gap: 8 }}>
-            {(
-              <>
-                {/* The annual mailing sits with the other page-level actions
-                    rather than floating above the table. It is the only one of
-                    them that leaves the building, so it keeps the primary
-                    tier — and it appears only on By Investor, which is the
-                    view it acts on. */}
-                {view === "investor" && canK1 && !!sendableInvestors?.length && (
-                  <button
-                    type="button"
-                    className="btn primary"
-                    disabled={k1reg.busyAll}
-                    onClick={() => setSendAllOpen(true)}
-                    title={`Email a K-1 link to all ${sendableInvestors.length} investors with an address on file`}
-                    style={{ fontSize: "var(--fs-12)", fontWeight: 700 }}
-                  >
-                    {k1reg.busyAll ? "Sending…" : `Email all ${sendableInvestors.length}`}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={exportToExcel}
-                  className="btn"
-                  title="Download ownership data as an Excel workbook"
-                  style={{ fontSize: "var(--fs-12)" }}
-                >
-                  Export Excel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => window.print()}
-                  className="btn"
-                  title="Print or Save as PDF"
-                  style={{ fontSize: "var(--fs-12)" }}
-                >
-                  Print / PDF
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
+        {/* Border, radius and focus ring come from the input baseline in
+           globals.css — only the width is this page's business. */}
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search investors, vendor codes, properties…"
+          aria-label="Search"
+          style={{ flex: "0 1 360px", minWidth: 220, marginLeft: "auto", marginBottom: 8 }}
+        />
       </div>
 
       {/* ── By Property view ───────────────────────────────────────────── */}

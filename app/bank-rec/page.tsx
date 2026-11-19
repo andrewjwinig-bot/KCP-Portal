@@ -2,6 +2,9 @@
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 
 import LoadingState from "@/app/components/LoadingState";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { MetaLine } from "@/app/components/LastImported";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { UNIQUE_BANK_ACCOUNTS, type BankGroup, type UniqueBankAccount } from "../../lib/bank-rec/accounts";
 import { BANK_REC_DUE_DAY, bankRecKey, bankRecPeriod, bankRecPeriodLabel, shiftPeriod } from "../../lib/bank-rec/util";
@@ -82,6 +85,15 @@ export default function BankAccTrackerPage() {
   const pct = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
   const isCurrentPeriod = period === bankRecPeriod();
+  // The month picker's list: two years back to three months ahead, plus the
+  // month in view if the arrows have walked past either end.
+  const periodOptions = useMemo(() => {
+    const now = bankRecPeriod();
+    const list: string[] = [];
+    for (let d = 3; d >= -24; d--) list.push(shiftPeriod(now, d));
+    if (!list.includes(period)) list.push(period);
+    return list.sort().reverse();
+  }, [period]);
 
   // Deadline = 10th of the month AFTER the period.
   const periodDeadline = useMemo(() => {
@@ -179,57 +191,26 @@ export default function BankAccTrackerPage() {
 
   return (
     <main>
-      {/* ── Header ───────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 18, flexWrap: "wrap", gap: 14 }}>
-        <div>
-          <h1>Bank Account Tracker</h1>
-          <p className="muted small">Download statements and reconcile by the 10th of the following month</p>
-        </div>
-
-        <div className="brand-wordmark" style={{ display: "flex", alignItems: "center", gap: 14, flexShrink: 0 }}>
-          <span style={{ fontFamily: "'Arial Black', 'Arial Bold', Arial, sans-serif", fontWeight: 900, fontSize: 30, letterSpacing: "-0.5px", lineHeight: 1 }}>KORMAN</span>
-          <div style={{ width: 1, height: 36, background: "#000", flexShrink: 0 }} />
-          <div style={{ fontSize: "var(--fs-11)", letterSpacing: "0.22em", lineHeight: 1.7, fontFamily: "Arial, Helvetica, sans-serif" }}>
-            <div>COMMERCIAL</div><div>PROPERTIES</div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Month nav ────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-        <button
-          className="btn"
-          onClick={() => setPeriod((p) => shiftPeriod(p, -1))}
-          style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}
-          aria-label="Previous month"
-        >
-          <ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
-        </button>
-        <span style={{ fontWeight: 800, fontSize: 16, minWidth: 130, textAlign: "center" }}>
-          {bankRecPeriodLabel(period)}
-        </span>
-        <button
-          className="btn"
-          onClick={() => setPeriod((p) => shiftPeriod(p, 1))}
-          style={{ padding: "5px 12px", fontWeight: 900, fontSize: "var(--fs-14)" }}
-          aria-label="Next month"
-        >
-          <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
-        </button>
-        {!isCurrentPeriod && (
-          <button
-            className="btn"
-            onClick={() => setPeriod(bankRecPeriod())}
-            style={{ fontSize: "var(--fs-11)", padding: "5px 9px" }}
-          >
-            Today
+      <PageHeader title="Bank Account Tracker"
+        info="Download statements and reconcile by the 10th of the following month."
+        pickers={
+          <HeaderSelect value={period} onChange={setPeriod} ariaLabel="Month" displayLabel={bankRecPeriodLabel(period)}>
+            {periodOptions.map((p) => <option key={p} value={p}>{bankRecPeriodLabel(p)}</option>)}
+          </HeaderSelect>
+        }
+        actions={<>
+          <button className="btn" onClick={() => setPeriod((p) => shiftPeriod(p, -1))} aria-label="Previous month">
+            <ChevronLeft size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
           </button>
-        )}
-        <span className="muted small" style={{ marginLeft: 6 }}>
-          Due {periodDeadline.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-        </span>
-        {error && <span style={{ color: "var(--c-b91c1c)", fontSize: "var(--fs-12)", marginLeft: 6 }}>· {error}</span>}
-      </div>
+          <button className="btn" onClick={() => setPeriod((p) => shiftPeriod(p, 1))} aria-label="Next month">
+            <ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} />
+          </button>
+          {!isCurrentPeriod && <button className="btn" onClick={() => setPeriod(bankRecPeriod())}>Today</button>}
+        </>}
+        meta={<MetaLine>
+          <span>Due {periodDeadline.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</span>
+          {error && <span style={{ color: "var(--c-b91c1c)" }}>· {error}</span>}
+        </MetaLine>} />
 
       {/* ── Summary pills ────────────────────────────────────────────── */}
       <div className="pills" style={{ justifyContent: "flex-start", marginBottom: 16 }}>
