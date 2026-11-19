@@ -26,7 +26,24 @@ export type ActionItem = {
   /** How many it stands for on the badge (5 charges to code = 5). */
   count: number;
   tone: "warning" | "danger";
+  /** Shows a Done button; the tick is kept in this browser (`markActionDone`). */
+  dismissable?: boolean;
 };
+
+// Items ticked Done (only the dismissable kind — a reminder whose work happens
+// outside the portal, like calling the plow contractor). Per browser.
+const DONE_KEY = "kcp:action-done";
+const readDone = (): Set<string> => {
+  try { return new Set(JSON.parse(localStorage.getItem(DONE_KEY) ?? "[]")); } catch { return new Set(); }
+};
+export function markActionDone(id: string) {
+  try {
+    const d = readDone(); d.add(id);
+    localStorage.setItem(DONE_KEY, JSON.stringify([...d].slice(-100)));
+  } catch { /* storage blocked: it simply stays */ }
+  cache.clear();
+  window.dispatchEvent(new Event("kcp:action-items"));
+}
 
 type Who = { id: string; navKeys: Set<string> };
 
@@ -57,7 +74,16 @@ async function load(who: Who): Promise<ActionItem[]> {
     (j?.weather ?? []).map((w: { template: string; name: string; reason: string }) => ({
       id: `weather-${w.template}`, title: `Send the ${w.name}`, sub: `Forecast: ${w.reason}`,
       href: "/communications", nav: "/communications", count: 1, tone: "warning",
-    } as ActionItem))));
+    } as ActionItem)).concat(
+      // Snow or ice coming → line up salting / plowing (owner: "if theres snow
+      // or ice in the forecast … put on gregs list to reach out for
+      // salting/plowing"). Not cleared by the email — ticked Done once he has
+      // called, one item per storm (its start day).
+      (j?.signals ?? []).filter((w: { template: string }) => w.template === "snow-alert").map((w: { reason: string; startsISO: string }) => ({
+        id: `plow-${w.startsISO.slice(0, 10)}`, title: "Line Up Salting & Plowing", sub: `Snow or ice coming: ${w.reason} · call the snow contractor`,
+        href: "/dashboard", nav: "/dashboard", count: 1, tone: "warning", dismissable: true,
+      } as ActionItem)),
+    )));
 
   // The month's tenant notices, waiting for Greg's approval.
   if (who.navKeys.has("tenant-notices")) jobs.push(getJson("/api/tenant-notices").then((j) => {
@@ -122,7 +148,8 @@ async function load(who: Who): Promise<ActionItem[]> {
       href: "/tenant-statements", nav: "/tenant-statements", count: n, tone: "warning" } as ActionItem] : [];
   }));
 
-  return (await Promise.all(jobs)).flat();
+  const done = readDone();
+  return (await Promise.all(jobs)).flat().filter((i) => !(i.dismissable && done.has(i.id)));
 }
 
 // One read per person per minute, shared by the sidebar and the dashboard.
@@ -144,7 +171,9 @@ export function useActionItems(who: Who | null, refreshMs = 5 * 60_000): ActionI
     const run = (fresh: boolean) => fetchActionItems(who, fresh).then((x) => { if (alive) setItems(x); });
     run(false);
     const t = setInterval(() => run(true), refreshMs);
-    return () => { alive = false; clearInterval(t); };
+    const onChange = () => run(true);
+    window.addEventListener("kcp:action-items", onChange);
+    return () => { alive = false; clearInterval(t); window.removeEventListener("kcp:action-items", onChange); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, refreshMs]);
   return items;

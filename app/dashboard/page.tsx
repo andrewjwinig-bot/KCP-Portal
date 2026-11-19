@@ -1,6 +1,6 @@
 "use client";
 import { StatusBanner } from "@/app/components/StatusBanner";
-import { useActionItems } from "@/app/components/useActionItems";
+import { markActionDone, useActionItems } from "@/app/components/useActionItems";
 import { heldAmount } from "@/lib/deposits/deposits";
 import { ChevronRight, X } from "lucide-react";
 
@@ -888,7 +888,8 @@ function DashboardInner() {
               {actionItems.map((a) => (
                 <StatusBanner key={a.id} compact tone={a.tone} icon={a.tone === "warning" ? "clock" : undefined} style={{ flex: "1 1 260px", minWidth: 0 }}
                   title={a.title}
-                  actions={a.href !== "/dashboard" ? <Link className="btn sm" href={a.href} style={{ textDecoration: "none" }}>Open</Link> : undefined}>
+                  actions={a.dismissable ? <button className="btn sm" onClick={() => markActionDone(a.id)}>Done</button>
+                    : a.href !== "/dashboard" ? <Link className="btn sm" href={a.href} style={{ textDecoration: "none" }}>Open</Link> : undefined}>
                   {a.sub}
                 </StatusBanner>
               ))}

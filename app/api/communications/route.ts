@@ -47,10 +47,13 @@ export async function GET(req: NextRequest) {
   const last = await lastSentById();
   if (q.get("weather")) {
     try {
-      const coming = stillToSend(await loadWeatherSignals(), last, new Date());
-      return NextResponse.json({ ok: true, weather: coming.map((s) => ({ ...s, name: templateById(s.template)?.name ?? s.template })) });
+      const signals = await loadWeatherSignals();
+      const coming = stillToSend(signals, last, new Date());
+      // `weather` = emails still to send; `signals` = everything coming (the
+      // salting / plowing reminder reads snow & ice whether or not the email went).
+      return NextResponse.json({ ok: true, weather: coming.map((s) => ({ ...s, name: templateById(s.template)?.name ?? s.template })), signals });
     } catch (e) {
-      return NextResponse.json({ ok: false, weather: [], error: e instanceof Error ? e.message : String(e) });
+      return NextResponse.json({ ok: false, weather: [], signals: [], error: e instanceof Error ? e.message : String(e) });
     }
   }
   const due = dueTemplates(todayET(), last).map((d) => ({ id: d.template.id, name: d.template.name, dueISO: d.dueISO, overdue: d.overdue }));

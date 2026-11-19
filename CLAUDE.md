@@ -549,7 +549,10 @@ National Weather Service forecast and active alerts for the Interplex
 Wave Alert, snow / sleet / freezing rain / ice at 40%+ → Snow & Ice Alert,
 severe wording, winds 40+ mph or an NWS severe / wind / flood alert → Severe
 Storm & Outage Alert (NWS winter, cold and heat alerts map too). A send of that
-template in the 72 hours before clears it (`stillToSend`). `GET
+template in the 72 hours before clears it (`stillToSend`). **Snow or ice coming also puts
+"Line Up Salting & Plowing" on Greg's list** (owner) — read from every signal,
+not cleared by the email, one per storm (`plow-<start day>`), ticked **Done**
+once he has called (`dismissable`, `markActionDone`, kept per browser). `GET
 /api/communications?weather=1`; a forecast that cannot be read shows nothing,
 never "all clear".
 
