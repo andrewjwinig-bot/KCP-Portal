@@ -1,4 +1,5 @@
 "use client";
+import { HoldBreakdown } from "@/app/components/HoldBreakdown";
 import { BUSINESS_PARK_CODES, JV_III_CODES, NI_LLC_CODES, OFFICE_WORKS_CODES, RESIDENTIAL_CODES, SHOPPING_CENTER_CODES } from "@/lib/properties/portfolioGroups";
 import { ChevronRight } from "lucide-react";
 
@@ -30,7 +31,10 @@ const SCOPE_LABEL: Record<OccupancyScope, string> = {
   residential: "Residential",
 };
 
-type Bar = { key: string; label: string; fullName: string; occupied: number; vacant: number; total: number };
+type Bar = { key: string; label: string; fullName: string; occupied: number; vacant: number; total: number;
+  /** A category's own properties — drawn when its hover is held (`HoldBreakdown`). */
+  parts?: { code: string; name: string; occupied: number; total: number }[] };
+
 
 function occColor(pct: number): string {
   return pct >= 90 ? "#16a34a" : pct >= 70 ? "#0b4a7d" : "#d97706";
@@ -72,7 +76,10 @@ export default function PortfolioOccupancyPanel({
         const ps = propsByCodes(codes);
         const occupied = ps.reduce((s, p) => s + p.occupiedSqft, 0);
         const vacant = ps.reduce((s, p) => s + p.vacantSqft, 0);
-        return { key: label, label, fullName: label, occupied, vacant, total: occupied + vacant };
+        const parts = ps.filter((p) => p.totalSqft > 0)
+          .map((p) => ({ code: p.propertyCode, name: propName(p.propertyCode), occupied: p.occupiedSqft, total: p.totalSqft }))
+          .sort((a, b) => a.code.localeCompare(b.code));
+        return { key: label, label, fullName: label, occupied, vacant, total: occupied + vacant, parts: parts.length > 1 ? parts : undefined };
       };
       return [
         cat("Office", OFFICE_CODES),
@@ -181,6 +188,11 @@ export default function PortfolioOccupancyPanel({
                     { label: "Vacant", value: `${sqftFmt(b.vacant)} sf` },
                   ]}
                   footer={{ label: "Total", value: `${sqftFmt(b.total)} sf` }}
+                  body={b.parts ? <HoldBreakdown hint="Keep holding for each property…" parts={b.parts.map((p) => {
+                    const ppct = p.total > 0 ? (p.occupied / p.total) * 100 : 0;
+                    return { key: p.code, code: p.code, label: p.name, pct: ppct, value: `${ppct.toFixed(0)}%`, color: occColor(ppct) };
+                  })} /> : undefined}
+                  width={b.parts ? 360 : 280}
                   help={false}
                   style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 0 }}
                 >
