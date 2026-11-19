@@ -32,6 +32,8 @@ export type PotQuote = { gla: number; pools: Pools | null; adminPct: number; tre
 
 export type NnnQuoteData = {
   code: string; name: string; budgetYear: number;
+  /** Street, city, state zip — for the quote PDF. */
+  address: string;
   /** Gross centre (9000): tenants pay no NNN — nothing to quote. */
   gross: boolean;
   /** Retail is the whole centre unless it is mixed; office only at 7010. */
@@ -156,7 +158,9 @@ export async function loadNnnQuote(code: string, budgetYear: number): Promise<Nn
     pots = { retail: await potQuote(est?.pools ?? null, est?.basisPools, glaOf(null) || (prop?.totalSqft ?? 0), code, code, typical(null)) };
   }
 
-  const data: NnnQuoteData = { code, name: nameOf(code), budgetYear, gross, pots, suites };
+  const def = PROPERTY_DEFS.find((p) => p.id === code);
+  const address = def ? [def.address, [def.city, [def.state, def.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")].filter(Boolean).join(", ") : "";
+  const data: NnnQuoteData = { code, name: nameOf(code), address, budgetYear, gross, pots, suites };
   if (pots.retail.pools || gross) cache.set(key, { at: Date.now(), data });
   return data;
 }

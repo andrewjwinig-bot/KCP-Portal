@@ -2810,7 +2810,7 @@ time — and the team does not have time to open the GL over $80.
 
 # NNN Quote — Harry quotes a vacant suite's all-in rent
 
-`/financials/budgets/nnn-quote` (sidebar Directory → NNN Quote; Harry, Drew,
+`/financials/budgets/nnn-quote` (sidebar CAM → NNN Quote; Harry, Drew,
 Alison, admin — `nnn-quote` nav key; owner, 11/2026: "select the suite, input
 the base rent … populate est CAM, INS, RET … find the 'all in' number"; "right
 now he comes to me and asks me what NNNs would be for a specific space").
@@ -2834,7 +2834,10 @@ roll's base rent $/SF and the unit page's CAM admin fee, both typeable, a
 centre's typical fee. **Parkwood (7010) quotes by POT** (`poolParts` on the
 draft's estimate): an office suite (a 7010O recon tenant, or suite 2xx) prices
 off the office pool and office GLA, a retail suite off the retail — trend
-included. Only centres with CAM recons carry history (1100, 2300, 4500, 7010,
+included. **Export → PDF for the tenant / Print** (`nnnQuotePdf.ts`, jsPDF in the
+browser, the tenant statements' letterhead): tiles, the charges, NNN over the
+years, the basis and "not an offer to lease"; an optional "Prepared for" names
+the prospect. Only centres with CAM recons carry history (1100, 2300, 4500, 7010,
 9510); 9000 is gross and says so. Math pure in `lib/leasing/nnnQuote.ts`
 (pinned by its test), data in `nnnQuoteLoad.ts` (a centre's draft kept 15 min).
 

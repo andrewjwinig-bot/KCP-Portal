@@ -335,7 +335,7 @@ const NAV = [
     external: false,
     indent: false,
     showFor: null as string | null,
-    groupId: "directory",
+    groupId: "cam",
     icon: (
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="4" y="2" width="16" height="20" rx="2" />
