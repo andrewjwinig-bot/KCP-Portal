@@ -5,6 +5,7 @@
 
 /** The fields of a balance row the totals read (the view's `ViewRow`). */
 export type SummaryRow = {
+  key?: string; name?: string;
   group: string; restricted: boolean; balance: number | null; reserves: number; netAvailable: number | null;
   change: number | null; priorBalance: number | null; priorAsOf: string | null;
   debt: number | null; debtService: number | null; handsOff?: unknown;
@@ -44,7 +45,12 @@ export function balanceSummary(view: SummaryView) {
     /** Each group (Management, Business Parks …): cash, net available, and its week. */
     groups: (view.groups ?? []).map((g) => {
       const rs = rows.filter((r) => r.group === g);
-      return { group: g, cash: sumRows(rs, (r) => r.balance), net: sumRows(rs.filter((r) => !r.restricted), (r) => r.netAvailable), restricted: rs.every((r) => r.restricted), change: changeOf(rs).change, n: rs.length };
+      return {
+        group: g, cash: sumRows(rs, (r) => r.balance), net: sumRows(rs.filter((r) => !r.restricted), (r) => r.netAvailable),
+        restricted: rs.every((r) => r.restricted), change: changeOf(rs).change, n: rs.length,
+        /** Each line in the group, for the held hover. */
+        lines: rs.filter((r) => r.balance != null).map((r) => ({ key: r.key ?? r.name ?? "", name: r.name ?? r.key ?? "", balance: r.balance ?? 0 })),
+      };
     }).filter((g) => g.n),
   };
 }

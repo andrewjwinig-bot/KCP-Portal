@@ -11,6 +11,8 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { StatPill } from "@/app/components/Pill";
 import { th, thL, td, tdL } from "@/app/components/tableStyles";
+import { HoverCard } from "@/app/components/HoverCard";
+import { HoldBreakdown } from "@/app/components/HoldBreakdown";
 import { balanceSummary, type SummaryView } from "@/lib/financials/bank-balances/summary";
 
 const money0 = (n: number | null | undefined) => {
@@ -62,7 +64,18 @@ export default function BankBalancesCard({ order = -2 }: { order?: number }) {
           <tbody>
             {s.groups.map((g) => (
               <tr key={g.group} style={{ borderBottom: "1px solid var(--hairline)" }}>
-                <td style={{ ...tdL, fontWeight: 600 }}>{g.group}</td>
+                <td style={{ ...tdL, fontWeight: 600 }}>
+                  {g.lines.length > 1 ? (
+                    <HoverCard title={g.group} width={380} help={false}
+                      rows={[{ label: "Cash in bank", value: dollars(g.cash) }, ...(g.restricted ? [] : [{ label: "Net available", value: dollars(g.net) }])]}
+                      body={<HoldBreakdown hint="Keep holding for each account…" parts={(() => {
+                        const top = Math.max(1, ...g.lines.map((l) => Math.abs(l.balance)));
+                        return [...g.lines].sort((a, b) => b.balance - a.balance).map((l) => ({ key: l.key, label: l.name, pct: (Math.abs(l.balance) / top) * 100, value: dollars(l.balance), color: l.balance < 0 ? "var(--c-b42318)" : undefined }));
+                      })()} />}>
+                      {g.group}
+                    </HoverCard>
+                  ) : g.group}
+                </td>
                 <td style={td}>{money0(g.cash)}</td>
                 <td style={td}>{g.restricted ? <span className="muted">Held</span> : money0(g.net)}</td>
                 <td style={td}><Change n={g.change} /></td>

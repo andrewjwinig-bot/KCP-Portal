@@ -822,6 +822,14 @@ stays, because it is a check rather than a restatement.
   properties OFF their reprojection. Deliberate exceptions the owner asked for:
   the CAM estimates' per-cell calculation (`calcTip` / `CamWorksheet`) and the
   real-estate-tax working (`SourceBadge`).
+- **A ROLL-UP'S HOVER GROWS INTO ITS PARTS WHEN HELD** (`HoldBreakdown`,
+  `app/components/HoldBreakdown.tsx`, passed as a `HoverCard`'s `body`; owner:
+  "on an extended hover … expand to show the bar charts of the supplemental
+  buildings/properties … integrate in other areas … where they are rolled up
+  by category"). The glance shows first; after `HOLD_MS` (700ms) one small bar
+  per part. So far: Portfolio Occupancy's category bars (each property's
+  occupancy) and the Bank Balances card's groups (each line's cash). A new
+  category roll-up takes it — the parts are the same figures the roll-up sums.
 - A bare `title=` is fine ONLY for a trivial action/label affordance (a "Close"/"Download"/"Open in new tab" icon button) — never for numbers, breakdowns, lease terms, variances, or any figure a user would want to read clearly.
 
 # Excel exports — one look, from `lib/excel/theme.ts`
