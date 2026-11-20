@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AVAILABLE_SPACE_PAGE, SITE_PROPERTIES } from "@/lib/site/content";
 import { liveSiteListings } from "@/lib/site/liveListings";
 import { withPropertyInfo } from "@/lib/site/spaces";
+import { LANDINGS, landingPath } from "@/lib/site/landings";
 import AvailableSpaceExplorer from "./AvailableSpaceExplorer";
 import { PAGE_DESCRIPTIONS, pageMeta } from "@/lib/site/seo";
 
@@ -35,6 +36,10 @@ export default async function AvailableSpacePage() {
           <div className="max-w-7xl mx-auto">
             {AVAILABLE_SPACE_PAGE.description && <p className="text-slate-600 mb-6">{AVAILABLE_SPACE_PAGE.description}</p>}
             <AvailableSpaceExplorer listings={listings} />
+            <nav className="lp-popular" aria-label="Popular searches">
+              <h2 className="text-2xl font-light text-slate-800">Popular searches</h2>
+              <ul>{LANDINGS.map((l) => <li key={l.slug}><a href={landingPath(l)}>{l.h1}</a></li>)}</ul>
+            </nav>
           </div>
         </div>
       </section>

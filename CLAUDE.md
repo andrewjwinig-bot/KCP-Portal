@@ -1382,6 +1382,17 @@ handoff's screenshot crop.
   Drew, Nancy, Harry, Alison — `WEBSITE_LEADS_PAGE`, its API
   `/api/website-leads`, NOT under the public `/api/website/`) lists them with
   the most-asked space and top source. Pinned by `spaceInquiry.test.ts`.
+- **SEARCH LANDING PAGES** (owner, #6; `lib/site/landings.ts`,
+  `app/site/lease/[slug]`): one page per search a prospect types — Office
+  Space in Trevose & Bensalem, Small Office Space & Private Offices in Bucks
+  County (≤ 2,500 SF, smallest first), Retail Space in Philadelphia, in
+  Bensalem, in Lafayette Hill — each with its own written introduction, the
+  LIVE spaces that answer it (`landingListings`: type, properties, size), a
+  FAQ (FAQPage JSON-LD), links to the others, and a photo band. In the sitemap,
+  linked from Available Space's **Popular searches**. A new search is ONE
+  entry in `LANDINGS` (`landings.test.ts` checks its properties exist and
+  are its type). Copy states only what is true — no distances or traffic
+  counts nobody has checked.
 - **EVERY LISTING SHOWS THE SITE PLAN, THEN A PHOTO** (owner: "none of the
   site plans are pulling … if there is not site plan available can you also
   show a property photo"; `withPropertyImages` in `liveListings.ts`): after a
