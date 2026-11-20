@@ -72,6 +72,6 @@ export function withPropertyInfo(listings: SiteListing[], properties: SiteProper
   const bySlug = new Map(properties.map((p) => [p.slug, p]));
   return listings.map((l) => {
     const p = bySlug.get(l.property);
-    return { ...l, propertyName: p?.name ?? "Other Properties", category: p?.category ?? "other", city: p?.city ?? null };
+    return { ...l, propertyName: p?.name ?? "Other Properties", category: l.category ?? p?.category ?? "other", city: p?.city ?? null };
   });
 }

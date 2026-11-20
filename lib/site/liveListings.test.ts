@@ -17,3 +17,12 @@ describe("the website's shopping-centre listings come from the portal, not the C
     expect(all.filter((x) => x.property === "parkwood-commons")).toHaveLength(2);
   });
 });
+
+import { isOfficeSuite } from "./liveListings";
+describe("office space inside a shopping centre", () => {
+  it("Parkwood's second-floor suites are office; storefronts stay retail", () => {
+    expect(isOfficeSuite({ addr: "Suite 210 · Second floor", use: "Second-floor office suite" })).toBe(true);
+    expect(isOfficeSuite({ addr: true, use: "In-line retail" })).toBe(false);
+    expect(isOfficeSuite({ use: "Retail / office" })).toBe(false);
+  });
+});

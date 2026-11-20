@@ -25,6 +25,13 @@ const SITE_TO_DESIGNED: Record<string, string> = {
 
 const plain = (s: string) => s.replace(/&amp;/g, "&");
 
+/** A designed suite that is OFFICE space inside a shopping centre — Parkwood's
+ *  second-floor suites 201–218 (owner, 11/2026: "for office space it should
+ *  also show the second floor of 7010 since thats office"). Read off the
+ *  design's own floor line ("Suite 210 · Second floor") or its use. */
+export const isOfficeSuite = (s: { addr?: boolean | string; use?: string; spaceUse?: string }) =>
+  (typeof s.addr === "string" && /second floor/i.test(s.addr)) || /\boffice suite\b/i.test(`${s.spaceUse ?? ""} ${s.use ?? ""}`);
+
 async function centreListings(siteSlug: string, designedSlug: string): Promise<SiteListing[] | null> {
   const live = await liveDesignedSuites(designedSlug).catch(() => null);
   if (!live) return null;
@@ -58,6 +65,7 @@ async function centreListings(siteSlug: string, designedSlug: string): Promise<S
           ...(s.floorplan && !s.floorplanPdf ? [{ url: s.floorplan, alt: `Floor plan of ${plain(spaceLabel(s, street))}` }] : was?.images ?? []),
         ],
         requestMoreInfoEmail: live.profile.contact.email,
+        ...(isOfficeSuite(s) ? { category: "office" as const } : {}),
       } satisfies SiteListing;
     });
 }

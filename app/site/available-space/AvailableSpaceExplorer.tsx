@@ -72,8 +72,14 @@ export default function AvailableSpaceExplorer({ listings }: { listings: Explore
   }, [type, property, size, sort, q]);
 
   const properties = useMemo(() => {
-    const m = new Map<string, { name: string; category: string }>();
-    for (const l of listings) m.set(l.property, { name: l.propertyName, category: l.category });
+    // A property is offered under every type it has space of — Parkwood's
+    // second-floor suites put it under Office as well as Retail.
+    const m = new Map<string, { name: string; categories: Set<string> }>();
+    for (const l of listings) {
+      const e = m.get(l.property) ?? { name: l.propertyName, categories: new Set<string>() };
+      e.categories.add(l.category);
+      m.set(l.property, e);
+    }
     return [...m].sort((a, b) => a[1].name.localeCompare(b[1].name));
   }, [listings]);
 
@@ -114,7 +120,7 @@ export default function AvailableSpaceExplorer({ listings }: { listings: Explore
                 <span className="as-segment-text">
                   <span className="as-segment-title">{t.label}</span>
                   <span className="as-segment-meta">
-                    {mine.length ? `${mine.length} ${mine.length === 1 ? "space" : "spaces"} · ${sf.toLocaleString("en-US")} SF` : "Nothing available right now"}
+                    {mine.length ? `${mine.length} ${mine.length === 1 ? "space" : "spaces"}${sf ? ` · ${sf.toLocaleString("en-US")} SF` : ""}` : "Nothing available right now"}
                   </span>
                   <span className="as-segment-cta">
                     {on ? "Showing " + t.label.toLowerCase() + " space · show both" : `View ${t.label.toLowerCase()} space`}
@@ -134,7 +140,7 @@ export default function AvailableSpaceExplorer({ listings }: { listings: Explore
             <span className="as-label">Property</span>
             <select value={property} onChange={(e) => setProperty(e.target.value)} className="as-control">
               <option value="all">All properties</option>
-              {properties.filter(([, p]) => type === "all" || p.category === type).map(([slug, p]) => <option key={slug} value={slug}>{p.name}</option>)}
+              {properties.filter(([, p]) => type === "all" || p.categories.has(type)).map(([slug, p]) => <option key={slug} value={slug}>{p.name}</option>)}
             </select>
           </label>
           <label>
