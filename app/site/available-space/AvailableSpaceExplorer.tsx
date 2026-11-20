@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ListingsTable, { type ListingWithProperty } from "../_property/ListingsTable";
+import { ArrowRight } from "../_components/icons";
 
 export type ExplorerListing = ListingWithProperty & { category: string; city: string | null };
 
@@ -26,7 +27,14 @@ const SORTS = [
   { id: "size-desc", label: "Size: largest first" },
 ] as const;
 type Sort = (typeof SORTS)[number]["id"];
-const TYPES = [{ id: "all", label: "All" }, { id: "office", label: "Office" }, { id: "retail", label: "Retail" }];
+// The first choice is OFFICE or RETAIL (owner, 11/2026: "a big like OFFICE and
+// RETAIL selection first to segment the spaces … most people looking for office
+// want a different page than retail") — two photo tiles, the Current Properties
+// page's own photos. Clicking the chosen one again shows both.
+const SEGMENTS = [
+  { id: "office", label: "Office", img: "/site/img/36cde9b65641ca5580ae4f317e43d62d2634b83c.webp", alt: "office building" },
+  { id: "retail", label: "Retail", img: "/site/img/9dc023bfe7f4d99bb4d539fbbd6fcafd6ea7c846.webp", alt: "shopping center with the Philadelphia skyline behind it" },
+];
 
 const sizeOf = (l: ExplorerListing) => (typeof l.size === "number" ? l.size : typeof l.maxSize === "number" ? l.maxSize : 0);
 const fits = (l: ExplorerListing, min: number, max: number) => {
@@ -92,14 +100,27 @@ export default function AvailableSpaceExplorer({ listings }: { listings: Explore
   return (
     <div className="w-full">
       <div className="as-panel">
-        <div className="as-chips" role="tablist" aria-label="Property type">
-          {TYPES.map((t) => {
+        <div className="as-segments" role="tablist" aria-label="Property type">
+          {SEGMENTS.map((t) => {
             const on = type === t.id;
+            const mine = listings.filter((l) => l.category === t.id);
+            const sf = mine.reduce((a, l) => a + sizeOf(l), 0);
             return (
               <button key={t.id} type="button" role="tab" aria-selected={on}
-                onClick={() => { setType(t.id); setProperty("all"); }}
-                className={`as-chip${on ? " on" : ""}`}>
-                {t.label}
+                onClick={() => { setType(on ? "all" : t.id); setProperty("all"); }}
+                className={`as-segment${on ? " on" : ""}${type !== "all" && !on ? " dim" : ""}`}>
+                <img src={t.img} alt={t.alt} loading="lazy" />
+                <span className="as-segment-shade" />
+                <span className="as-segment-text">
+                  <span className="as-segment-title">{t.label}</span>
+                  <span className="as-segment-meta">
+                    {mine.length ? `${mine.length} ${mine.length === 1 ? "space" : "spaces"} · ${sf.toLocaleString("en-US")} SF` : "Nothing available right now"}
+                  </span>
+                  <span className="as-segment-cta">
+                    {on ? "Showing " + t.label.toLowerCase() + " space · show both" : `View ${t.label.toLowerCase()} space`}
+                    {!on && <ArrowRight className="ml-2 h-5 w-5" />}
+                  </span>
+                </span>
               </button>
             );
           })}
