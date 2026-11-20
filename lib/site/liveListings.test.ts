@@ -6,7 +6,8 @@ describe("the website's shopping-centre listings come from the portal, not the C
     const l = await liveListingsFor("parkwood-commons");
     expect(l.map((x) => x.space)).toEqual(["Suite 30 · End Cap", "Suite 32"]);
     expect(l.some((x) => x.size === 1228)).toBe(false);
-    expect(l[0].images?.[0].url).toBe("/centers/parkwood-commons/assets/fp-30.jpg");
+    expect(l[0].images?.[0].url).toBe("/api/website/floorplate?center=parkwood-professional&suite=30");
+    expect(l[0].images?.[1].url).toBe("/centers/parkwood-commons/assets/fp-30.jpg");
     expect(l[0].details?.[0].text).toBe("Desirable end-cap at Academy Rd & Byberry Rd");
   });
   it("Parkwood no longer lists 210 (Petroski) and a property with no designed page keeps its CMS listings", async () => {

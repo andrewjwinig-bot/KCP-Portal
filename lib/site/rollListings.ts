@@ -14,7 +14,7 @@
 
 import type { SiteListing } from "./content";
 import { spacesFromRoll, type RollPropertyForSpace } from "@/lib/interplex/spaces";
-import { floorplateUrl } from "./floorplate";
+import { floorplateUrl, officePlateUrl } from "./floorplate";
 import { OFFICE_WORKS_CODE, isSharedSpace, planFromRoll } from "@/lib/officeWorks/offices";
 
 export type RollUnit = { unitRef: string; occupantName: string; isVacant: boolean; sqft: number; amenity?: unknown };
@@ -78,7 +78,8 @@ export function officeWorksListings(props: RollProperty[], email: string | null)
     rentalRate: "Inquire for pricing",
     spaceUse: "Private office (furnished, all-inclusive)",
     images: [
-      { url: "/office-works/assets/plan-ow.webp", alt: "The Office Works floor plan" },
+      // The office highlighted on the floor plan, the rest greyed.
+      { url: officePlateUrl(o.id), alt: `Office ${o.id} on The Office Works floor plan` },
       { url: "/office-works/assets/p-office.jpg", alt: "A private office at The Office Works" },
     ],
     details: [

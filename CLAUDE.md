@@ -1365,7 +1365,15 @@ handoff's screenshot crop.
   its number — an SVG with the floor image embedded, served only for a vacancy
   the listings carry (public/buildings stays behind sign-in). Then the
   building photo and the campus map; the Interplex and The Office Works take
-  NO property extras (the CMS site plan was the campus map twice). A plan
+  NO property extras (the CMS site plan was the campus map twice). **EVERY
+  space is highlighted on its plan** (owner: "should it not highlight which
+  space it is? … for all properties … office works too"): the same route takes
+  `?center=<designed slug>&suite=<id>` (the suite's own shape — rect, rects or
+  polygon — over the centre's site plan, `suiteShape` / `centerPlateUrl`) and
+  `?office=<id>` (the office on `plan-ow.webp`, `officePlateUrl`), each only
+  while that space is available; a centre listing leads with it and drops the
+  whole site plan (`propertyImages`), keeping the hero photo. The
+  single-tenant retail properties have no mapped plan and keep their photos. A plan
   image is shown whole (`object-contain`), never cropped. **Every listing ends
   in the LEASING CONTACT CALL-OUT** (`ContactCallout` in `ListingsTable.tsx`,
   `.as-contact` in site.css; owner: "make that the big call out"): name, phone

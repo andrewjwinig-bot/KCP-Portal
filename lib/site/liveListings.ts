@@ -5,6 +5,7 @@ import { FLYERS, spaceLabel } from "@/lib/centers/designed/flyer";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { SITE_PROPERTIES } from "./content";
 import { INTERPLEX_SLUG, OFFICE_WORKS_SLUG, SITE_ROLL_CODE, interplexListings, isRollProperty, officeWorksListings, singleTenantListings, withCmsCopy, type RollProperty } from "./rollListings";
+import { centerPlateUrl } from "./floorplate";
 
 // The website's availability listings for the shopping centres come from the
 // PORTAL, not the copy cloned from the vendor's CMS: each centre's designed
@@ -50,7 +51,12 @@ async function centreListings(siteSlug: string, designedSlug: string): Promise<S
         details: details.length ? details : was?.details ?? null,
         // A PDF floor plan cannot be drawn as an image — the site plan and a
         // photo stand in for it (withPropertyImages).
-        images: s.floorplan && !s.floorplanPdf ? [{ url: s.floorplan, alt: `Floor plan of ${plain(spaceLabel(s, street))}` }] : was?.images ?? null,
+        // The suite highlighted on the site plan first, then its own floor
+        // plan (an image; a PDF cannot be drawn) or the CMS photos.
+        images: [
+          { url: centerPlateUrl(designedSlug, s.id), alt: `${plain(spaceLabel(s, street))} on the site plan` },
+          ...(s.floorplan && !s.floorplanPdf ? [{ url: s.floorplan, alt: `Floor plan of ${plain(spaceLabel(s, street))}` }] : was?.images ?? []),
+        ],
         requestMoreInfoEmail: live.profile.contact.email,
       } satisfies SiteListing;
     });
@@ -68,7 +74,9 @@ function propertyImages(siteSlug: string): SiteImage[] {
   const p = SITE_PROPERTIES.find((x) => x.slug === siteSlug);
   const name = p?.name ?? "Property";
   const d = SITE_TO_DESIGNED[siteSlug] ? DESIGNED[SITE_TO_DESIGNED[siteSlug]] : null;
-  const plan = d?.plan.src ?? p?.sitePlan?.url ?? null;
+  // A designed centre's listings lead with the suite on the site plan, so the
+  // whole plan is not shown again.
+  const plan = d ? null : p?.sitePlan?.url ?? null;
   const dir = d ? (d.assetDir ?? SITE_TO_DESIGNED[siteSlug]) : null;
   const photo = dir ? `/centers/${dir}/assets/hero.jpg` : p?.mainImage ?? p?.gallery?.[0]?.url ?? null;
   return [
