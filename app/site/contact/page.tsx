@@ -20,21 +20,21 @@ const HQ = {
 export default function ContactPage() {
   return (
     <div className="min-h-screen ">
-      <section className="bg-white py-16 border-b border-slate-100">
+      <section className="bg-white site-title-band border-b border-slate-100">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center gap-2">
             <div className="bg-slate-800 h-1 w-16 mb-4" />
-            <h1 className="text-5xl md:text-6xl font-light text-slate-800 leading-tight">Contact</h1>
+            <h1 className="site-h1 font-light text-slate-800 leading-tight">Contact</h1>
           </div>
         </div>
       </section>
 
-      <section className="py-16 bg-gradient-to-br from-slate-700 to-slate-900">
+      <section className="site-body bg-gradient-to-br from-slate-700 to-slate-900">
         <div className="container mx-auto px-4">
           <div className="flex justify-center">
             <div className="w-full max-w-2xl">
               <div className="bg-white/95 backdrop-blur-sm p-10 shadow-xl w-full border-t border-l border-white/20">
-                <h3 className="text-2xl font-light text-slate-800 mb-8 text-center">Send Us a Message</h3>
+                <h3 className="text-2xl font-light text-slate-800 mb-6 text-center">Send Us a Message</h3>
                 <ContactForm />
               </div>
             </div>
@@ -43,7 +43,7 @@ export default function ContactPage() {
       </section>
 
       <section className="w-full relative" style={{ marginBottom: -1 }}>
-        <div className="h-[60vh] md:h-[80vh] w-full overflow-hidden bg-slate-100">
+        <div className="site-map w-full overflow-hidden bg-slate-100">
           <iframe
             title={`Map showing location of ${HQ.name}`}
             src={`https://www.google.com/maps?q=${HQ.lat},${HQ.lng}&z=${HQ.zoom}&output=embed`}

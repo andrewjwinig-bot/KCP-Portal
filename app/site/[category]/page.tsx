@@ -59,11 +59,11 @@ export default function CategoryPage({ params }: { params: { category: string } 
   return (
     <div className="office-layout">
       <main className="flex flex-col min-h-0">
-        <section className="bg-white py-16 border-b border-slate-100">
+        <section className="bg-white site-title-band border-b border-slate-100">
           <div className="container mx-auto px-4">
             <div className={`flex flex-col items-start gap-2 ${description ? "mb-12" : ""}`}>
               <div className="bg-slate-800 h-1 w-16 mb-4" />
-              <h1 className="text-5xl md:text-6xl font-light text-slate-800 leading-tight">{cat.title}</h1>
+              <h1 className="site-h1 font-light text-slate-800 leading-tight">{cat.title}</h1>
             </div>
             {description && <div><PortableText value={description} variant="category" /></div>}
           </div>
@@ -78,7 +78,7 @@ export default function CategoryPage({ params }: { params: { category: string } 
             ) : (
               <>
                 {groups.map((g) => (
-                  <div key={g.title} className="mb-16">
+                  <div key={g.title} className="site-group">
                     <Group title={g.title} properties={inDisplayOrder(g.properties)} />
                   </div>
                 ))}

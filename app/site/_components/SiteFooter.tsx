@@ -5,7 +5,7 @@ import { sitePath, siteAsset } from "@/lib/site/paths";
 export default function SiteFooter() {
   const link = "text-slate-400 hover:text-white transition-colors";
   return (
-    <footer className="bg-slate-900 text-white py-16">
+    <footer className="site-footer bg-slate-900 text-white">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
           <div className="md:col-span-4">
@@ -47,7 +47,7 @@ export default function SiteFooter() {
             </ul>
           </div>
         </div>
-        <div className="mt-16 pt-16 border-t border-slate-800">
+        <div className="site-footer-legal border-t border-slate-800">
           <p className="text-slate-400 text-sm leading-relaxed mb-6">
             Korman Commercial Properties has available offices and commercial space to own or rent in Philadelphia County,
             Bucks County, Neshaminy, Trevose, Feasterville, Blue Bell, Plymouth Meeting, Norristown, Bellmawr, Montgomery

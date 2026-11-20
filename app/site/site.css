@@ -139,7 +139,7 @@
 .kcs .lp-links li{padding:12px 0;border-bottom:1px solid #e2e8f0}
 .kcs .lp-links a{color:#0b4a7d;font-weight:500}
 .kcs .lp-links a:hover{text-decoration:underline}
-.kcs .lp-popular{margin-top:48px}
+.kcs .lp-popular{margin-top:32px}
 .kcs .lp-popular ul{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
 .kcs .lp-popular a{display:inline-block;padding:10px 14px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#0f172a;font-size:15px}
 .kcs .lp-popular a:hover{border-color:#1e293b}
@@ -149,3 +149,22 @@
 .kcs .lp-hero-text{position:absolute;inset:0;display:flex;align-items:flex-end}
 .kcs .lp-hero-inner{padding-bottom:40px}
 .kcs .lp-hero-sub{color:rgba(255,255,255,.92);font-size:19px;margin-top:12px}
+
+/* TIGHTER SPACING (owner, 11/2026: "tighten up some of the blank spaces on
+   the site"). Page-title bands, the body section under them, the contact map,
+   the category groups, the company page's collage and story chapters. */
+.kcs .site-title-band{padding-top:2.25rem;padding-bottom:1.75rem}
+.kcs .site-h1{font-size:2.5rem;line-height:1.1}
+@media (min-width:768px){.kcs .site-h1{font-size:3rem}}
+.kcs .site-body{padding-top:2rem;padding-bottom:2.5rem}
+.kcs .site-map{height:420px}
+@media (min-width:768px){.kcs .site-map{height:480px}}
+.kcs .site-group{margin-bottom:2.5rem}
+.kcs .site-chapter{padding-top:1.5rem;padding-bottom:3rem}
+@media (min-width:768px){.kcs .site-chapter{padding-bottom:3.5rem}}
+.kcs .site-collage{min-height:0;padding:1.5rem 0}
+.kcs .site-collage-grid{height:min(62vh,600px)}
+@media (max-width:767px){.kcs .site-collage-grid{height:52vh}}
+.kcs .site-footer{padding-top:3rem;padding-bottom:2.5rem}
+.kcs .site-footer-legal{margin-top:2.5rem;padding-top:2rem}
+.kcs .site-values{padding-top:1.5rem;padding-bottom:2.5rem}

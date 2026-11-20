@@ -1339,6 +1339,7 @@ handoff's screenshot crop.
   neither the designed pages nor the roll covers; a CMS listing of the same
   size lends photos / details. No roll reachable → those properties list
   nothing, never stale copy.
+- **TIGHTER SPACING** (owner, 11/2026: "tighten up some of the blank spaces"): the title bands, body sections, contact map, category groups, company collage / chapters and footer take scoped `.site-*` classes at the end of site.css (`site-title-band`, `site-h1`, `site-body`, `site-map`, `site-group`, `site-chapter`, `site-collage`, `site-values`, `site-footer`) — change spacing there, not with new Tailwind classes (there is no compiler).
 - **THE AVAILABLE SPACE PAGE FILTERS AND SORTS** (owner: "sort and filter by
   various metrics to be more useful to prospective tenants";
   `app/site/available-space/AvailableSpaceExplorer.tsx`): All / Office /

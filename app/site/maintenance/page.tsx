@@ -10,15 +10,15 @@ export const metadata: Metadata = pageMeta({ absoluteTitle: "Tenant Service Requ
 export default function MaintenancePage() {
   return (
     <div className="min-h-screen ">
-      <section className="bg-white py-16 border-b border-slate-100">
+      <section className="bg-white site-title-band border-b border-slate-100">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-center text-center gap-2">
             <div className="bg-slate-800 h-1 w-16 mb-4" />
-            <h1 className="text-5xl md:text-6xl font-light text-slate-800 leading-tight">Service Requests</h1>
+            <h1 className="site-h1 font-light text-slate-800 leading-tight">Service Requests</h1>
           </div>
         </div>
       </section>
-      <section className="py-16 bg-slate-50 border-t border-slate-100">
+      <section className="site-body bg-slate-50 border-t border-slate-100">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto">
             <div className="bg-white p-8 shadow-md">
