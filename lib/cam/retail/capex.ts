@@ -44,7 +44,11 @@ export type CapexAmortization = {
   /** An email each year of the term, on this date (Eastern), asking for the
    *  year's journal entry (capexJeReminder.ts; owner, 11/2026: "an annual
    *  reminder for the length of the amortization schedule to not forget"). */
-  jeReminder?: { to: string[]; month: number; day: number };
+  jeReminder?: {
+    to: string[]; month: number; day: number;
+    /** The entry to book, each line for the year's full amount. */
+    entry?: { side: "Dr" | "Cr"; account: string; name: string }[];
+  };
 };
 
 export const CAPEX_AMORTIZATIONS: CapexAmortization[] = [
@@ -85,6 +89,12 @@ export const CAPEX_AMORTIZATIONS: CapexAmortization[] = [
       to: ["rlee@kormancommercial.com", "mjaster@kormancommercial.com", "dwinig@kormancommercial.com"],
       month: 12,
       day: 1,
+      // Owner, 11/20/26: into the CAM pool on the parking-lot line, offset by
+      // its contra account so NOI is unchanged.
+      entry: [
+        { side: "Dr", account: "6360-8502", name: "Parking Lot Maintenance" },
+        { side: "Cr", account: "6360-9999", name: "Parking Lot Maint-Contra" },
+      ],
     },
     note: "Tenants in their space during the 2021 project share it; a lease that began after it does not.",
   },

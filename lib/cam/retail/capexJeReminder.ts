@@ -60,6 +60,17 @@ export function reminderEmail(c: CapexAmortization, year: number) {
       { label: "Schedule", value: `${first}–${last} (${n} years)` },
       { label: "Still to come", value: left.length ? left.join(", ") : "None — this is the last year" },
     ],
+    ...(c.jeReminder?.entry?.length
+      ? {
+          table: {
+            title: "Journal entry",
+            columns: ["Account", "Name", "Debit", "Credit"],
+            align: ["left", "left", "right", "right"] as ("left" | "right")[],
+            rows: c.jeReminder.entry.map((l) => [l.account, l.name, l.side === "Dr" ? money(amount) : "", l.side === "Cr" ? money(amount) : ""]),
+            total: ["", "Total", money(amount), money(amount)],
+          },
+        }
+      : {}),
     ...(c.note ? { note: { label: "Who shares it", text: c.note } } : {}),
     link: { label: "Open the CAM Reconciliation", path: `/cam-recon?property=${c.property}` },
     footer: `This reminder comes every ${when} through ${last}.`,

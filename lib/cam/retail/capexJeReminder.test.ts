@@ -27,6 +27,8 @@ describe("the yearly journal-entry reminder for 2300's capitalized CAM", () => {
     expect(e.subject).toContain("2026 journal entry");
     expect(e.text).toContain("$46,353.44");
     expect(e.text).toContain("year 1 of 6");
+    expect(e.text).toContain("6360-8502");
+    expect(e.text).toContain("6360-9999");
     expect(reminderEmail(c, 2031).text).toContain("this is the last year");
   });
 });
