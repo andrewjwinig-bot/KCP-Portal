@@ -1,0 +1,48 @@
+import type { Metadata } from "next";
+import { AVAILABLE_SPACE_PAGE, SITE_PROPERTIES } from "@/lib/site/content";
+import { liveSiteListings } from "@/lib/site/liveListings";
+import { withPropertyInfo } from "@/lib/site/spaces";
+import { LANDINGS, landingPath } from "@/lib/site/landings";
+import AvailableSpaceExplorer from "./AvailableSpaceExplorer";
+import { PAGE_DESCRIPTIONS, pageMeta } from "@/lib/site/seo";
+
+// Every availability across the portfolio, a table per property in
+// alphabetical order — the vendor site's /available-space.
+
+// Every space is the portal's, live (liveListings.ts): the designed centres'
+// synced suites, and every other property's vacancies on the CURRENT rent roll
+// (rollListings.ts). Re-read every five minutes so an import reaches the
+// website on its own. Filter / sort: AvailableSpaceExplorer.
+export const revalidate = 300;
+
+export const metadata: Metadata = pageMeta({ title: "Office & Retail Space for Lease", description: PAGE_DESCRIPTIONS.availableSpace, path: "/available-space" });
+
+export default async function AvailableSpacePage() {
+  const listings = withPropertyInfo(await liveSiteListings(), SITE_PROPERTIES);
+  const title = AVAILABLE_SPACE_PAGE.title || "Available Space";
+
+  return (
+    <main className="min-h-screen">
+      <section className="bg-white site-title-band border-b border-slate-100">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col items-start gap-2">
+            <div className="bg-slate-800 h-1 w-16 mb-4" />
+            <h1 className="site-h1 font-light text-slate-800 leading-tight">{title}</h1>
+          </div>
+        </div>
+      </section>
+      <section className="site-body bg-slate-50 border-t border-slate-100">
+        <div className="container mx-auto px-4">
+          <div className="max-w-7xl mx-auto">
+            {AVAILABLE_SPACE_PAGE.description && <p className="text-slate-600 mb-6">{AVAILABLE_SPACE_PAGE.description}</p>}
+            <AvailableSpaceExplorer listings={listings} />
+            <nav className="lp-popular" aria-label="Popular searches">
+              <h2 className="text-2xl font-light text-slate-800">Popular searches</h2>
+              <ul>{LANDINGS.map((l) => <li key={l.slug}><a href={landingPath(l)}>{l.h1}</a></li>)}</ul>
+            </nav>
+          </div>
+        </div>
+      </section>
+    </main>
+  );
+}

@@ -1,0 +1,438 @@
+"use client";
+// Quarterly Workpapers — every balance-sheet account PROVEN, quarter by quarter.
+//
+// The accountants' year-end workpapers are one support schedule per account:
+// opening, every entry, total, per trial balance, difference, TRUE — cash
+// against the bank rec, the mortgage against the lender, and so on. This is
+// that package built by the portal from the GL it already holds, every
+// quarter, so a balance that can't be proven (a Suspense plug, a bill booked
+// twice, an unbilled CAM credit) is found while it is still easy to trace —
+// the balance sheet's Flags to Investigate. The Excel is their layout,
+// cleaned up (lib/financials/workpapers/export.ts).
+
+import { FilePath } from "@/app/components/FilePath";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, Circle, CircleCheck, CircleX, FolderSync, Info, Minus, TriangleAlert, Upload } from "lucide-react";
+import { child, connectFolder, type DirHandle, connectedFolder, filesUnder, folderAccessSupported, forgetFolder, resolvePath } from "@/app/components/shareFolder";
+import { pickRecFiles } from "@/lib/financials/workpapers/bankRecs";
+import { InfoPopover } from "@/app/components/InfoPopover";
+import { pickInto } from "@/app/components/pickFiles";
+import { PageHeader } from "@/app/components/PageHeader";
+import { HeaderSelect } from "@/app/components/HeaderSelect";
+import { MetaLine } from "@/app/components/LastImported";
+import { StatusBanner } from "@/app/components/StatusBanner";
+import { StatPill } from "@/app/components/Pill";
+import { DownloadMenu } from "@/app/components/DownloadMenu";
+import LoadingState from "@/app/components/LoadingState";
+import { th, td, thL, tdL } from "@/app/components/tableStyles";
+import { groupStatementOptions } from "@/lib/financials/operating-statements/propertyGroups";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
+import type { Workpapers, WpSchedule, WpFlag } from "@/lib/financials/workpapers/compute";
+import { KIND_INFO, SECTION_ORDER } from "@/lib/financials/workpapers/compute";
+import type { WpSourceItem } from "@/lib/financials/workpapers/load";
+
+type Prop = { key: string; name: string; years: number[] };
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const money = (n: number) => (n < 0 ? "(" : "") + Math.abs(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + (n < 0 ? ")" : "");
+const money0 = (n: number) => Math.abs(n) < 0.5 ? "—" : (n < 0 ? "(" : "") + Math.round(Math.abs(n)).toLocaleString("en-US") + (n < 0 ? ")" : "");
+const dateLabel = (iso: string | null) => { const m = iso && /^(\d{4})-(\d{2})-(\d{2})/.exec(iso); return m ? `${Number(m[2])}/${Number(m[3])}/${m[1].slice(2)}` : (iso ?? ""); };
+const STATUS: Record<WpSchedule["status"], { word: string; color: string; Icon: typeof CircleCheck }> = {
+  ok: { word: "Ties", color: "var(--c-067647)", Icon: CircleCheck },
+  review: { word: "Review", color: "var(--c-b54708)", Icon: TriangleAlert },
+  fix: { word: "Fix", color: "var(--c-b42318)", Icon: CircleX },
+};
+const FLAG_COLOR: Record<WpFlag["level"], string> = { red: "var(--c-b42318)", amber: "var(--c-b54708)", info: "var(--muted)" };
+const FLAG_ICON: Record<WpFlag["level"], typeof CircleCheck> = { red: CircleX, amber: TriangleAlert, info: Info };
+
+export default function WorkpapersPage() {
+  const [props, setProps] = useState<Prop[] | null>(null);
+  const [key, setKey] = useState("");
+  const [period, setPeriod] = useState(""); // "YYYY-MM" quarter end
+  const [wp, setWp] = useState<Workpapers | null>(null);
+  const [coverageEnd, setCoverageEnd] = useState(12);
+  const [checklist, setChecklist] = useState<WpSourceItem[]>([]);
+  const [reason, setReason] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  const [onlyAttention, setOnlyAttention] = useState(true);
+  const [reload, setReload] = useState(0);
+  const apInput = useRef<HTMLInputElement | null>(null);
+  const [apBusy, setApBusy] = useState(false);
+  const [apResult, setApResult] = useState<{ tone: "success" | "warning" | "danger"; title: string; meta: string } | null>(null);
+
+  const importAp = async (file: File) => {
+    setApBusy(true); setApResult(null);
+    try {
+      const fd = new FormData(); fd.append("file", file);
+      const r = await fetch("/api/financials/workpapers/ap-aging", { method: "POST", body: fd });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || j.error) throw new Error(j.error ?? `Import failed (${r.status}).`);
+      if (j.kind === "bank") {
+        const mon = new Date(j.month + "-15T12:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        setApResult({ tone: j.inBalance ? "success" : "warning", title: `Bank rec imported · ${j.last4}`, meta: `${mon} · book balance $${Math.round(j.bookBalance).toLocaleString("en-US")}${j.key ? ` · ${j.key}` : " · an account no single ledger owns"}${j.inBalance ? "" : " · not In Balance"}` });
+        if (j.month !== period && periods.includes(j.month)) setPeriod(j.month); else setReload((n) => n + 1);
+        return;
+      }
+      const asOf = new Date(j.asOf + "T12:00:00").toLocaleDateString("en-US");
+      const total = j.total != null ? ` · ${j.total < 0 ? "-" : ""}$${Math.abs(Math.round(j.total)).toLocaleString("en-US")}` : "";
+      const isAr = j.kind === "ar";
+      const problems = isAr
+        ? (j.creditsOnly ? ["it lists only tenants holding a credit — re-run it for every tenant with a balance"] : [])
+            .concat(j.unresolved?.length ? [`${j.unresolved.length} tenant${j.unresolved.length === 1 ? "" : "s"} couldn't be matched to a property (${j.unresolved.slice(0, 3).map((t: { tenantName: string; suite: string }) => `${t.tenantName}, suite ${t.suite}`).join("; ")}${j.unresolved.length > 3 ? "…" : ""})`] : [])
+            .concat(j.untied?.length ? [`${j.untied.length} tenant${j.untied.length === 1 ? "" : "s"} don't add up to Skyline's balance`] : [])
+        : (j.unplaced?.length ? [`${j.unplaced.length} section${j.unplaced.length === 1 ? "" : "s"} couldn't be matched to a property`] : [])
+            .concat(j.untied?.length ? [`${j.untied.length} section${j.untied.length === 1 ? "" : "s"} don't add up to Skyline's total`] : []);
+      const count = isAr ? `${j.properties.length} properties · ${j.tenants} tenants` : `${j.properties} properties`;
+      // Show the quarter the aging proves — it says nothing about any other.
+      const target = String(j.asOf).slice(0, 7);
+      const jump = target !== period && periods.includes(target);
+      const showing = jump || target === period
+        ? ` · showing ${quarterLabel(target)}, the quarter it proves`
+        : ` · it proves ${quarterLabel(target)}, which has no General Ledger for this property`;
+      setApResult({
+        tone: problems.length ? "warning" : "success",
+        title: `${isAr ? "Credit Balance" : "AP Aged Trial Balance"} as of ${asOf} imported`,
+        meta: `${count}${total}${showing}${problems.length ? ` · ${problems.join(" · ")}` : ""}`,
+      });
+      if (jump) setPeriod(target); else setReload((n) => n + 1);
+    } catch (e) {
+      setApResult({ tone: "danger", title: "Couldn't import the report", meta: (e as Error).message });
+    } finally { setApBusy(false); }
+  };
+
+  // Several files at once (Marie's recs come a folder at a time): each posted
+  // in turn, the recs summed into one result.
+  const importFiles = async (files: File[]) => {
+    if (files.length === 1) return importAp(files[0]);
+    setApBusy(true); setApResult(null);
+    const recs: { month: string; last4: string; inBalance: boolean }[] = [];
+    const other: string[] = [], errors: string[] = [];
+    for (const f of files) {
+      try {
+        const fd = new FormData(); fd.append("file", f);
+        const r = await fetch("/api/financials/workpapers/ap-aging", { method: "POST", body: fd });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok || j.error) throw new Error(j.error ?? `${f.name}: import failed (${r.status}).`);
+        if (j.kind === "bank") recs.push(j); else other.push(j.kind === "ar" ? "Credit Balance" : "AP Aged Trial Balance");
+      } catch (e) { errors.push((e as Error).message); }
+    }
+    const months = [...new Set(recs.map((r) => r.month))].sort();
+    const outOf = recs.filter((r) => !r.inBalance).map((r) => r.last4);
+    const parts = [
+      recs.length ? `${recs.length} account${recs.length === 1 ? "" : "s"} for ${months.map((m) => new Date(m + "-15T12:00:00").toLocaleDateString("en-US", { month: "long", year: "numeric" })).join(", ")}` : "",
+      other.length ? `also ${other.join(", ")}` : "",
+      outOf.length ? `not In Balance: ${outOf.join(", ")}` : "",
+      errors.length ? `${errors.length} not imported — ${errors.slice(0, 3).join("; ")}${errors.length > 3 ? "…" : ""}` : "",
+    ].filter(Boolean);
+    setApResult({
+      tone: errors.length || outOf.length ? "warning" : "success",
+      title: recs.length ? `${recs.length} Statement Reconcile Report${recs.length === 1 ? "" : "s"} imported` : `${files.length - errors.length} of ${files.length} files imported`,
+      meta: parts.join(" · "),
+    });
+    const target = months[months.length - 1];
+    if (target && target !== period && periods.includes(target)) setPeriod(target); else setReload((n) => n + 1);
+    setApBusy(false);
+  };
+
+  // Pull Marie's recs for the quarter-end month straight from the synced share
+  // drive (Chrome / Edge): the folder is connected once, then each pull reads
+  // "!<year> Year End\Bank Account Reconciliations\<NN Month YYYY>\<Bank>".
+  const pullRecs = async () => {
+    if (!period) return;
+    const y = period.slice(0, 4), mm = period.slice(5);
+    const where = `!${y} Year End\\Bank Account Reconciliations`;
+    try {
+      const root = (await connectedFolder(SHARE_ID)) ?? (await connectFolder(SHARE_ID));
+      if (!root) return;
+      // The month folder itself ("09 September 2026") works for that month;
+      // anything higher works for every month.
+      const isMonth = /^\d{2}\s/.test(root.name) && /\d{4}\s*$/.test(root.name);
+      let month: DirHandle | null = null;
+      if (isMonth) {
+        if (root.name.startsWith(`${mm} `) && root.name.trim().endsWith(y)) month = root;
+        else {
+          await forgetFolder(SHARE_ID);
+          setApResult({ tone: "warning", title: `You connected "${root.name}", not this quarter's month`, meta: "Click again and choose the Bank Account Reconciliations folder (or KCP - Documents), so every quarter can be found." });
+          return;
+        }
+      } else {
+        const recsDir = await resolvePath(root, ["Data", "Accounting", `!${y} Year End`, "Bank Account Reconciliations"]);
+        if (!recsDir) {
+          await forgetFolder(SHARE_ID);
+          setApResult({ tone: "danger", title: `Couldn't find ${where} in "${root.name}"`, meta: "Click again and choose your KCP - Documents folder (or the Bank Account Reconciliations folder itself)." });
+          return;
+        }
+        month = await child(recsDir, (n) => n.startsWith(`${mm} `));
+        if (!month) { setApResult({ tone: "warning", title: `No ${mm} folder in ${where} yet`, meta: "Marie hasn't saved the quarter-end month's recs." }); return; }
+      }
+      const found = pickRecFiles((await filesUnder(month, 2)).map((f) => ({ name: f.handle.name, h: f.handle })));
+      if (!found.length) { setApResult({ tone: "warning", title: `No recs in "${month.name}"`, meta: "Looked for Rec2B, Rec1&2, Rec2 or Rec1 PDFs in each bank's folder." }); return; }
+      await importFiles(await Promise.all(found.map((f) => f.h.getFile())));
+    } catch (e) {
+      setApResult({ tone: "danger", title: "Couldn't read the share drive", meta: (e as Error).message });
+    }
+  };
+
+  useEffect(() => {
+    fetch("/api/financials/workpapers").then((r) => r.json()).then((j) => {
+      const list: Prop[] = j.properties ?? [];
+      setProps(list);
+      let saved = ""; try { saved = localStorage.getItem("kcp.workpapers.key") ?? ""; } catch {}
+      const first = list.find((p) => p.key === saved) ?? list.find((p) => p.key === "4500") ?? list[0];
+      if (first) { setKey(first.key); setPeriod(`${first.years[0]}-12`); }
+    }).catch(() => setError("Couldn't load the list of properties."));
+  }, []);
+
+  const prop = props?.find((p) => p.key === key);
+  const periods = useMemo(() => (prop?.years ?? []).flatMap((y) => [12, 9, 6, 3].map((m) => `${y}-${String(m).padStart(2, "0")}`)), [prop]);
+
+  useEffect(() => {
+    if (!key || !period) return;
+    try { localStorage.setItem("kcp.workpapers.key", key); } catch {}
+    const [y, m] = period.split("-").map(Number);
+    setLoading(true); setError(null); setOpen(new Set());
+    fetch(`/api/financials/workpapers?key=${encodeURIComponent(key)}&year=${y}&month=${m}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.error) throw new Error(j.error);
+        setWp(j.wp ?? null); setReason(j.reason ?? null); setCoverageEnd(j.coverageEnd ?? 12); setChecklist(j.checklist ?? []);
+      })
+      .catch((e) => setError(e?.message ?? "Couldn't build the workpapers."))
+      .finally(() => setLoading(false));
+  }, [key, period, reload]);
+
+  const pickProperty = (k: string) => {
+    setKey(k);
+    const p = props?.find((x) => x.key === k);
+    if (p && !p.years.includes(Number(period.slice(0, 4)))) setPeriod(`${p.years[0]}-12`);
+  };
+  const toggle = (code: string) => setOpen((s) => { const n = new Set(s); if (n.has(code)) n.delete(code); else n.add(code); return n; });
+
+  const [y, m] = period ? period.split("-").map(Number) : [0, 0];
+  const quarterLabel = (p: string) => { const [yy, mm] = p.split("-").map(Number); return `Q${mm / 3} ${yy} · ${MONTHS[mm - 1].slice(0, 3)} ${new Date(Date.UTC(yy, mm, 0)).getUTCDate()}`; };
+  const shown = (wp?.schedules ?? []).filter((s) => !onlyAttention || s.status !== "ok");
+  const propOptions = groupStatementOptions((props ?? []).map((p) => ({ ...p, propertyCode: PROPERTY_DEFS.find((d) => d.id === p.key)?.id ?? p.key })));
+  const beyondGl = !!wp && m > coverageEnd;
+
+  return (
+    <main style={{ display: "grid", gap: 14 }}>
+      <PageHeader
+        title="Workpapers"
+        info={<>
+          <p style={{ marginTop: 0 }}>Every balance-sheet account, proven: its opening balance, every entry through the quarter end, and the total checked against the trial balance and against something independent — the bank rec for cash, the lender&rsquo;s schedule for the mortgage, the deposit register for security deposits.</p>
+          <p style={{ marginBottom: 0 }}>It is the accountants&rsquo; year-end workpaper package, built every quarter from the General Ledger already in the portal. Anything that can&rsquo;t be proven is listed to fix — a Suspense balance, a bill booked twice, a credit where tenants should owe. The Excel is laid out as the firm reads it.</p>
+        </>}
+        pickers={props && props.length > 0 && <>
+          <HeaderSelect value={key} onChange={pickProperty} ariaLabel="Property" displayLabel={prop ? `${prop.key} ${prop.name}` : "Property"} maxWidth={420}>
+            {propOptions.map((g) => <optgroup key={g.label} label={g.label}>{g.items.map((p) => <option key={p.key} value={p.key}>{p.key} {p.name}</option>)}</optgroup>)}
+          </HeaderSelect>
+          <HeaderSelect value={period} onChange={setPeriod} ariaLabel="Quarter" displayLabel={period ? quarterLabel(period) : "Quarter"} muted>
+            {periods.map((p) => <option key={p} value={p}>{quarterLabel(p)}</option>)}
+          </HeaderSelect>
+        </>}
+        actions={<>
+          <button className="btn import" disabled={apBusy} onClick={() => pickInto(apInput.current, "ap-aging")}>
+            <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> {apBusy ? "Importing…" : "Import Reports"}
+          </button>
+          <InfoPopover label="Report steps">
+            <div style={{ display: "grid", gap: 10, maxWidth: 480 }}>
+              <div>Import each report here; the page tells them apart. The agings are run for <b>PALL</b> and <b>as of the quarter-end date</b> (3/31, 6/30, 9/30 or 12/31), not today.</div>
+              <div>
+                <div style={{ fontWeight: 700 }}>Credit Balance: proves Trade Receivables (0420)</div>
+                <ol style={{ margin: "4px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
+                  <li>Property Management, Reports, Financial Reports, <b>Credit Balance</b> (it prints &ldquo;Aging Report (Detailed)&rdquo;).</li>
+                  <li>Set the as-of date to the quarter end, and <b>Occupants to Include</b> to every tenant with a balance (not &ldquo;Any With Open Credits&rdquo;), former occupants included.</li>
+                  <li>Export to <b>Microsoft Excel (97-2003) (.xls)</b> and import it unmodified.</li>
+                </ol>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700 }}>AP Aged Trial Balance: proves Accounts Payable (2110)</div>
+                <ol style={{ margin: "4px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
+                  <li>All vendors, unpaid only.</li>
+                  <li>Save as a <b>PDF</b> (it names every property). Excel works too.</li>
+                </ol>
+              </div>
+              <div>
+                <div style={{ fontWeight: 700 }}>Bank Recs (Statement Reconcile Report): proves Cash (01xx, 02xx)</div>
+                <ol style={{ margin: "4px 0 0", paddingLeft: 18, display: "grid", gap: 4 }}>
+                  <li>Marie&rsquo;s Rec2 for each account (Rec2B if she re-ran it, Rec1&amp;2 for a quiet account), in the Chase, M&amp;T and Liberty folders of the quarter-end month:
+                    {period && <div style={{ marginTop: 6 }}><FilePath label="Find them in" path={`Data\\Accounting\\!${period.slice(0, 4)} Year End\\Bank Account Reconciliations\\${period.slice(5)} ${new Date(period + "-15T12:00:00").toLocaleDateString("en-US", { month: "long" })} ${period.slice(0, 4)}`} /></div>}
+                  </li>
+                  <li>Select them all at once. The account is read from the report, not the file name.</li>
+                </ol>
+              </div>
+              <div className="small muted">Imported here, the tenant aging stays out of Open Credits and the monthly tenant notices.</div>
+            </div>
+          </InfoPopover>
+          <input ref={apInput} type="file" hidden multiple accept=".pdf,.xls,.xlsx" onChange={(ev) => { const fs = Array.from(ev.target.files ?? []); if (fs.length) importFiles(fs); ev.target.value = ""; }} />
+          {wp && <DownloadMenu label="Export" items={[{ label: "Excel workbook", description: "Summary, trial balance and a schedule per account", href: `/api/financials/workpapers?key=${encodeURIComponent(key)}&year=${y}&month=${m}&format=xlsx` }]} />}
+        </>}
+        meta={wp && <MetaLine>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: wp.trialBalance.balances ? "var(--c-067647)" : "var(--c-b42318)" }}>
+            {wp.trialBalance.balances ? <CircleCheck size={16} strokeWidth={1.75} aria-hidden /> : <CircleX size={16} strokeWidth={1.75} aria-hidden />}
+            {wp.trialBalance.balances ? "Trial balance proves" : "Trial balance is out"}
+          </span>
+          <span>General Ledger through {MONTHS[coverageEnd - 1]} {y}</span>
+          {!wp.detailAvailable && <span>Monthly totals only</span>}
+        </MetaLine>}
+      />
+
+      {apResult && <StatusBanner tone={apResult.tone} title={apResult.title}>{apResult.meta}</StatusBanner>}
+      {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
+      {props && props.length === 0 && <StatusBanner tone="info" title="No General Ledgers imported yet">Import a property&rsquo;s General Ledger on Operating Statements and its workpapers build here.</StatusBanner>}
+      {loading && <LoadingState status="Building the workpapers…" />}
+      {!loading && reason && <StatusBanner tone="info" title={reason} />}
+
+      {!loading && wp && <>
+        {beyondGl && <StatusBanner tone="warning" icon="clock" title={`The General Ledger only runs through ${MONTHS[coverageEnd - 1]}`}>Import the General Ledger through {MONTHS[m - 1]} for a full quarter; until then these are the balances through {MONTHS[coverageEnd - 1]}.</StatusBanner>}
+        {wp.warnings.map((w) => <StatusBanner key={w} tone="warning" compact title={w} />)}
+        {wp.counts.fix > 0
+          ? <StatusBanner tone="danger" title={`${wp.counts.fix} account${wp.counts.fix === 1 ? "" : "s"} can't be proven`}>Fix these before the quarter closes{wp.counts.review ? ` · ${wp.counts.review} more to review` : ""}.</StatusBanner>
+          : wp.counts.review > 0
+            ? <StatusBanner tone="warning" title={`${wp.counts.review} account${wp.counts.review === 1 ? "" : "s"} to review`}>Every balance ties; these read oddly and are worth a look.</StatusBanner>
+            : <StatusBanner tone="success" title={`Every balance is proven for Q${wp.quarter} ${y}`}>{wp.counts.accounts} accounts tie to the trial balance.</StatusBanner>}
+
+        <div className="pills" style={{ justifyContent: "flex-start", marginTop: 0 }}>
+          <StatPill label="Accounts" value={String(wp.counts.accounts)} total />
+          <StatPill label="Tie" value={String(wp.counts.ok)} />
+          <StatPill label="To review" value={String(wp.counts.review)} />
+          <StatPill label="To fix" value={String(wp.counts.fix)} />
+        </div>
+
+        {checklist.length > 0 && <ReportChecklist items={checklist} quarter={`Q${wp.quarter} ${y}`} busy={apBusy} onImport={() => pickInto(apInput.current, "ap-aging")} onPull={pullRecs} />}
+
+        <div className="card" style={{ display: "grid", gap: 10, gridTemplateColumns: "minmax(0, 1fr)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 17, fontWeight: 700 }}>Balance Sheet Accounts</div>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: "var(--fs-14)" }}>
+              <input type="checkbox" checked={onlyAttention} onChange={(e) => setOnlyAttention(e.target.checked)} /> Only accounts needing attention
+            </label>
+          </div>
+          {shown.length === 0
+            ? <div className="muted" style={{ padding: "12px 2px" }}>Nothing needs attention. Untick the box to see every account.</div>
+            : <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 760 }}>
+                <thead><tr>
+                  <th style={thL}>Account</th>
+                  <th style={th}>Opening</th>
+                  <th style={th}>Activity</th>
+                  <th style={th}>Ending</th>
+                  <th style={thL}>Proven by</th>
+                  <th style={thL}>Status</th>
+                </tr></thead>
+                <tbody>
+                  {SECTION_ORDER.map((section) => {
+                    const rows = shown.filter((s) => s.section === section);
+                    if (!rows.length) return null;
+                    return <Fragment key={section}>
+                      <tr><td colSpan={6} style={{ ...tdL, background: "var(--tint-brand-bg)", fontWeight: 700, fontSize: "var(--fs-13)", textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--muted)" }}>{section}</td></tr>
+                      {rows.map((s) => {
+                        const st = STATUS[s.status];
+                        const isOpen = open.has(s.code);
+                        return <Fragment key={s.code}>
+                          <tr className="task-row" onClick={() => toggle(s.code)} style={{ cursor: "pointer" }}>
+                            <td style={tdL}>
+                              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                                {isOpen ? <ChevronDown size={16} strokeWidth={1.75} aria-hidden /> : <ChevronRight size={16} strokeWidth={1.75} aria-hidden />}
+                                <code>{s.code}</code> <span style={{ fontWeight: 600 }}>{s.name || KIND_INFO[s.kind].label}</span>
+                              </span>
+                            </td>
+                            <td style={td}>{money0(s.opening)}</td>
+                            <td style={td}>{money0(s.activity)}</td>
+                            <td style={{ ...td, fontWeight: 600 }}>{money0(s.ending)}</td>
+                            <td style={{ ...tdL, color: "var(--muted)" }}>{s.support?.label ?? KIND_INFO[s.kind].support}</td>
+                            <td style={tdL}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: st.color, fontWeight: 600 }}><st.Icon size={16} strokeWidth={1.75} aria-hidden />{st.word}</span></td>
+                          </tr>
+                          {isOpen && <tr><td colSpan={6} style={{ ...tdL, maxWidth: 0, padding: "4px 12px 18px 34px" }}><Schedule s={s} /></td></tr>}
+                        </Fragment>;
+                      })}
+                    </Fragment>;
+                  })}
+                </tbody>
+              </table>
+            </div>}
+        </div>
+      </>}
+    </main>
+  );
+}
+
+function Schedule({ s }: { s: WpSchedule }) {
+  const total = s.opening + (s.detail === "none" ? s.activity : s.lines.reduce((a, l) => a + l.amount, 0));
+  const diff = Math.round((total - s.ending) * 100) / 100;
+  const sub: React.CSSProperties = { fontSize: "var(--fs-14)", color: "var(--muted)" };
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      {s.flags.map((f, i) => {
+        const Icon = FLAG_ICON[f.level];
+        return <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start", color: FLAG_COLOR[f.level], fontSize: "var(--fs-14)" }}>
+          <Icon size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0, marginTop: 2 }} /><span>{f.text}</span>
+        </div>;
+      })}
+      {s.support?.note && <div style={sub}>{s.support.label}: {s.support.note}</div>}
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
+          <thead><tr><th style={thL}>Date</th><th style={thL}>Description</th><th style={thL}>Ref</th><th style={th}>Amount</th></tr></thead>
+          <tbody>
+            <tr><td style={tdL} /><td style={{ ...tdL, fontWeight: 600 }}>Beginning balance</td><td style={tdL} /><td style={{ ...td, fontWeight: 600 }}>{money(s.opening)}</td></tr>
+            {s.detail === "none" && <tr><td style={tdL} /><td style={{ ...tdL, fontStyle: "italic" }}>Activity — monthly totals only, no entries imported</td><td style={tdL} /><td style={td}>{money(s.activity)}</td></tr>}
+            {s.lines.map((l, i) => <tr key={i}>
+              <td style={tdL}>{dateLabel(l.date)}</td><td style={tdL}>{l.description}</td><td style={{ ...tdL, color: "var(--muted)" }}>{l.ref}</td><td style={td}>{money(l.amount)}</td>
+            </tr>)}
+            <tr><td style={tdL} /><td style={{ ...tdL, fontWeight: 700, borderTop: "2px solid var(--border)" }}>Total</td><td style={{ ...tdL, borderTop: "2px solid var(--border)" }} /><td style={{ ...td, fontWeight: 700, borderTop: "2px solid var(--border)" }}>{money(total)}</td></tr>
+            <tr><td style={tdL} /><td style={tdL}>Per trial balance</td><td style={tdL} /><td style={td}>{money(s.ending)}</td></tr>
+            <tr><td style={tdL} /><td style={{ ...tdL, fontWeight: 600 }}>Difference</td><td style={tdL} />
+              <td style={{ ...td, fontWeight: 600, color: Math.abs(diff) < 0.5 ? "var(--c-067647)" : "var(--c-b42318)" }}>{Math.abs(diff) < 0.5 ? "—" : money(diff)}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// The reports the quarter is proven against: what is in, what is still owed.
+/** The share drive folder this browser connected (KCP - Documents, or any folder down to Bank Account Reconciliations). */
+const SHARE_ID = "share-drive";
+
+const SOURCE_STATUS: Record<WpSourceItem["status"], { word: string; color: string; Icon: typeof CircleCheck }> = {
+  done: { word: "In", color: "var(--c-067647)", Icon: CircleCheck },
+  review: { word: "Finish", color: "var(--c-b54708)", Icon: TriangleAlert },
+  missing: { word: "Needed", color: "var(--c-b42318)", Icon: Circle },
+  na: { word: "Not needed", color: "var(--muted)", Icon: Minus },
+};
+
+function ReportChecklist({ items, quarter, busy, onImport, onPull }: { items: WpSourceItem[]; quarter: string; busy: boolean; onImport: () => void; onPull?: () => void }) {
+  const [canPull, setCanPull] = useState(false);
+  useEffect(() => setCanPull(!!onPull && folderAccessSupported()), [onPull]);
+  const needed = items.filter((i) => i.status !== "na");
+  const inHand = needed.filter((i) => i.status === "done").length;
+  return (
+    <div className="card" style={{ display: "grid", gap: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 17, fontWeight: 700 }}>Reports for {quarter}</div>
+        <div className="muted" style={{ fontSize: "var(--fs-14)" }}>{inHand} of {needed.length} in</div>
+      </div>
+      {items.map((i) => {
+        const st = SOURCE_STATUS[i.status];
+        const importable = i.id === "ar" || i.id === "ap" || i.id === "bank";
+        return (
+          <div key={i.id} className="task-row" style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 2px", borderBottom: "1px solid var(--hairline)", opacity: i.status === "na" ? 0.6 : 1 }}>
+            <st.Icon size={20} strokeWidth={1.75} color={st.color} aria-hidden style={{ flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600 }}>{i.label}</div>
+              <div className="muted" style={{ fontSize: "var(--fs-14)" }}>{i.detail}</div>
+            </div>
+            <span style={{ color: st.color, fontWeight: 600, fontSize: "var(--fs-14)", whiteSpace: "nowrap" }}>{st.word}</span>
+            {i.status !== "na" && i.id === "bank" && canPull && (
+              <button className="btn sm icon-tip" disabled={busy} onClick={onPull} aria-label="Pull from Share Drive" data-tip="Pull from Share Drive"><FolderSync size={16} strokeWidth={1.75} aria-hidden /></button>
+            )}
+            {i.status !== "na" && (importable
+              ? <button className="btn sm icon-tip" disabled={busy} onClick={onImport} aria-label={i.status === "done" ? "Re-import" : "Import"} data-tip={i.status === "done" ? "Re-import" : "Import"}><Upload size={16} strokeWidth={1.75} aria-hidden /></button>
+              : i.href ? <a className="btn sm" href={i.href}>Open</a> : null)}
+          </div>
+        );
+      })}
+    </div>
+  );
+}

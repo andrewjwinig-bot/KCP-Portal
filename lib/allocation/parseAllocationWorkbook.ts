@@ -3,6 +3,28 @@ import { AllocationEmployee, AllocationTable } from "../types";
 import { toNumber } from "../utils";
 
 /**
+ * Fund / category roll-up columns in the allocation workbook.
+ *
+ * These are NOT individual properties — they're category totals ("SC" =
+ * Shopping Centers, "BP" = Business Parks, and the "JV III" / "NI LLC" funds).
+ * Each one is already distributed across its member properties' own columns, so
+ * counting the roll-up alongside the property columns double-counts an
+ * employee's allocation (e.g. an employee whose property columns already sum to
+ * 100% would show 170% once "SC"/"JV III"/"NI LLC" are added). We drop them at
+ * parse time so every downstream sum (export "Total %", allocation-gap check,
+ * the reference modal) reflects only the individual-property allocation and
+ * ties to 100%. The per-property detail is untouched — it lives in the property
+ * columns these roll-ups summarize.
+ */
+export const FUND_ROLLUP_KEYS = new Set(["SC", "BP", "JV III", "NI LLC"]);
+
+function isFundRollupKey(key: string): boolean {
+  const k = key.trim().toUpperCase().replace(/\s+/g, " ");
+  for (const f of FUND_ROLLUP_KEYS) if (f.toUpperCase() === k) return true;
+  return false;
+}
+
+/**
  * Parses the allocation workbook used by the Payroll Invoicer.
  *
  * Expected layout (based on your 2026 workbook screenshot):
@@ -59,6 +81,11 @@ export function parseAllocationWorkbook(buf: ArrayBuffer | Buffer): AllocationTa
     if (!key) continue;
     // Skip obvious non-property columns
     if (["total", ""].includes(key.toLowerCase())) continue;
+    // Skip fund/category roll-up columns (SC, BP, JV III, NI LLC) — they're
+    // category totals already broken out across their member properties, so
+    // summing them alongside the property columns double-counts (see
+    // FUND_ROLLUP_KEYS above).
+    if (isFundRollupKey(key)) continue;
     propertyCols.push({ key, col: c });
   }
 

@@ -1,0 +1,32 @@
+/* Shared by every designed centre page (render.ts injects it): the Available
+   Space table and the leasing-flyer button. From the Parkwood Commons v2 handoff. */
+.pop .visit.flyer{width:100%;border:1px solid var(--s300);background:#fff;color:var(--s900);font:inherit;font-weight:600;cursor:pointer}.pop .visit.flyer:hover{border-color:var(--s900)}.pop .visit.flyer:disabled{opacity:.6;cursor:progress}
+/* available space table */
+.avail{margin-top:72px;display:block!important}
+.avail[hidden]{display:none!important}
+.avail h3{font-family:var(--f-display);font-stretch:118%;font-weight:700;font-size:clamp(24px,2.6vw,32px);letter-spacing:-.015em;margin:0 0 18px;color:#fff}
+.atable{background:#fff;border-radius:6px;overflow:hidden;color:var(--s900)}
+.arow{display:grid;grid-template-columns:44px 1.5fr .9fr 1fr 1.1fr 1fr .8fr;align-items:center;gap:12px;padding:0 22px 0 10px;min-height:56px}
+.ahead{background:var(--s900);color:#fff;font-size:12px;letter-spacing:.12em;text-transform:uppercase;font-weight:600;min-height:48px}
+.aitem{border-bottom:1px solid var(--s200)}.aitem:last-child{border-bottom:0}
+.aitem>.arow{width:100%;border:0;background:#fff;font:inherit;font-size:16px;color:var(--s900);text-align:left;cursor:pointer}
+.aitem>.arow:hover{background:var(--s50)}
+.aitem>.arow b{font-weight:600}
+.chev{width:10px;height:10px;border-right:2px solid var(--s500);border-bottom:2px solid var(--s500);transform:rotate(-45deg);justify-self:center;transition:transform .2s}
+.aitem.open .chev{transform:rotate(45deg)}
+.apanel{display:none;background:var(--s100);padding:24px 22px 26px 54px;gap:28px;grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.aitem.open .apanel{display:grid}
+.apanel .fp{background:#fff;border-radius:4px;box-shadow:0 6px 18px rgba(15,23,42,.08);padding:10px;display:flex;align-items:center;justify-content:center;min-height:200px}
+.apanel .fp img{max-width:100%;max-height:340px;display:block}
+.apanel .fp.none{color:var(--s500);font-size:14px}
+.apanel h4{font-family:var(--f-display);font-stretch:112%;font-size:21px;font-weight:700;margin:0 0 10px;color:var(--s900)}
+.apanel ul{margin:0 0 18px;padding-left:18px;color:var(--s700);font-size:16px;line-height:1.7}
+.apanel .meta{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:14px;color:var(--s500);margin:0 0 20px}
+.apanel .meta b{color:var(--s900);font-weight:600}
+.apanel .acts{display:flex;flex-wrap:wrap;gap:10px}
+.abtn{font:inherit;font-weight:600;font-size:15px;padding:12px 18px;border-radius:3px;cursor:pointer;border:1px solid var(--s900);background:var(--s900);color:#fff}
+.abtn:hover{background:var(--ink)}
+.abtn.sec{background:#fff;color:var(--s900);border-color:var(--s300)}.abtn.sec:hover{border-color:var(--s900)}
+.abtn:disabled{opacity:.6;cursor:progress}
+.apanel .note{margin:18px 0 0;font-size:14px;color:var(--s500)}
+@media (max-width:860px){.arow{grid-template-columns:34px 1.4fr .9fr .8fr;padding-right:14px}.c-term,.c-rate,.c-use{display:none}.apanel{grid-template-columns:1fr;padding-left:22px}}

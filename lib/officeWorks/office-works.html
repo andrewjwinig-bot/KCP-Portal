@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Furnished private offices, virtual offices and lounge and meeting space by the hour at Neshaminy Interplex, Trevose, Bucks County, PA. Receptionist, mail, internet and coffee included.">
+<title>The Office Works</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+/* Image-led: full-bleed color photography, a heavy serif echoing the logo, oak accent, short labels instead of paragraphs. */
+:root{
+  --bg:#ffffff; --soft:#f4f3f0; --ink:#1c1d1f; --ink-2:#4a4c50; --mute:#7a7c80; --line:#e4e2de;
+  --oak:#9a6a36; --oak-hi:#e2bd8c; --char:#26272a; --char-2:#3a3c40;
+  --serif:"DM Serif Display",Georgia,"Times New Roman",serif; --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --gl:max(16px,env(safe-area-inset-left,0px)); --gr:max(16px,env(safe-area-inset-right,0px));
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#17181a;--soft:#1f2022;--ink:#f3f2ef;--ink-2:#cfcdc9;--mute:#9c9a96;--line:#333539;--oak:#d2a56f;--char:#0f1011;--char-2:#26272a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#17181a;--soft:#1f2022;--ink:#f3f2ef;--ink-2:#cfcdc9;--mute:#9c9a96;--line:#333539;--oak:#d2a56f;--char:#0f1011;--char-2:#26272a;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{animation:none!important;transition:none!important}}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.55;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:60;background:var(--bg)}
+.in{max-width:1240px;margin:0 auto;padding-left:var(--gl);padding-right:var(--gr)}
+h1,h2,h3{font-family:var(--serif);font-weight:400;letter-spacing:-.01em;line-height:1;margin:0;text-wrap:balance}
+p{margin:0}
+:focus-visible{outline:2px solid var(--oak);outline-offset:3px}
+.kick{font-size:12px;letter-spacing:.22em;text-transform:uppercase;font-weight:600;color:var(--oak);margin:0 0 16px}
+.btn{display:inline-flex;align-items:center;justify-content:center;font:inherit;font-weight:600;font-size:15px;padding:15px 24px;border-radius:99px;border:1px solid transparent;cursor:pointer;text-decoration:none;transition:background .15s,color .15s,border-color .15s}
+.btn.dark{background:var(--ink);color:var(--bg)}
+.btn.dark:hover{background:var(--oak);color:#fff}
+.btn.light{background:#fff;color:#1c1d1f}
+.btn.light:hover{background:var(--oak-hi)}
+.btn.clear{color:#fff;border-color:rgba(255,255,255,.6)}
+.btn.clear:hover{border-color:#fff}
+
+/* header */
+.mast{position:sticky;top:env(safe-area-inset-top,0px);z-index:50;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.mast .in{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:70px}
+.brand{display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--mute);font-size:12px;letter-spacing:.14em;text-transform:uppercase;line-height:1.3}
+.brand img{height:38px;width:auto;display:block}
+.brand span{border-left:1px solid var(--line);padding-left:14px;max-width:13ch}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .brand img{filter:invert(1)}}
+:root[data-theme="dark"] .brand img{filter:invert(1)}
+.nav{display:flex;align-items:center;gap:28px;font-size:15px}
+.nav a{text-decoration:none;color:var(--ink-2)}
+.nav a:hover{color:var(--ink)}
+.nav .btn{padding:11px 18px;font-size:14px}
+@media (max-width:860px){.nav a:not(.btn){display:none}.brand span{display:none}}
+
+/* hero */
+.hero{position:relative;color:#fff;min-height:min(78vh,760px);display:grid;grid-template-rows:1fr auto;overflow:hidden;background:var(--char)}
+.hero>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 60%;animation:drift 18s ease-out both}
+@keyframes drift{from{transform:scale(1.08)}to{transform:scale(1)}}
+.hero::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(20,21,23,.55) 0%,rgba(20,21,23,.15) 55%,rgba(20,21,23,0) 100%),linear-gradient(180deg,rgba(20,21,23,0) 40%,rgba(20,21,23,.7) 100%)}
+.hero .in{position:relative;z-index:1;width:100%;padding-block:140px 36px;align-self:end}
+.hero h1{font-size:clamp(54px,9vw,132px);line-height:.92;max-width:11ch;text-shadow:0 2px 30px rgba(0,0,0,.25)}
+.hero h1 i{color:var(--oak-hi)}
+.hero .row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:28px;margin-top:30px}
+.hero p{font-size:19px;max-width:38ch;color:#f1f0ed}
+.hero .ctas{display:flex;gap:12px;flex-wrap:wrap}
+.ticker{position:relative;z-index:1;border-top:1px solid rgba(255,255,255,.25);background:rgba(20,21,23,.4);backdrop-filter:blur(6px)}
+.ticker .in{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding-block:0}
+.ticker div{padding:18px 0 20px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ticker b{font-family:var(--serif);font-weight:400;font-size:clamp(24px,2.6vw,34px);line-height:1}
+.ticker span{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#e2e0dc}
+@media (max-width:760px){.ticker .in{grid-template-columns:1fr 1fr}.hero .in{padding-block:110px 28px}}
+
+/* sections */
+.sec{padding-block:110px}
+.sec-h{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:20px;margin-bottom:44px}
+.sec-h h2{font-size:clamp(40px,5.4vw,72px);max-width:14ch}
+.sec-h p{color:var(--ink-2);max-width:34ch}
+@media (max-width:900px){.sec{padding-block:72px}}
+
+/* programs */
+.progs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.prog{position:relative;border-radius:10px;overflow:hidden;background:var(--soft);display:grid;grid-template-rows:auto 1fr;min-width:0}
+.prog .ph{aspect-ratio:4/3;max-width:100%;overflow:hidden;position:relative}
+.prog .ph img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .8s}
+.prog:hover .ph img{transform:scale(1.04)}
+.prog .tag{position:absolute;top:14px;left:14px;font-size:12px;font-weight:600;letter-spacing:.06em;background:#fff;color:#1c1d1f;padding:6px 11px;border-radius:99px}
+.prog .body{padding:26px 26px 28px;display:grid;gap:16px;align-content:start}
+.prog h3{font-size:34px}
+.prog ul{list-style:none;margin:0;padding:0;display:grid;gap:8px;color:var(--ink-2);font-size:15.5px}
+.prog li{display:flex;gap:10px;align-items:baseline}
+.prog li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--oak);flex:none;transform:translateY(-2px)}
+.prog a{justify-self:start;margin-top:4px;font-weight:600;color:var(--ink);text-decoration:none;border-bottom:1.5px solid var(--oak);padding-bottom:2px;font-size:15px}
+.prog a:hover{color:var(--oak)}
+.ph.type{display:grid;place-items:center;background:linear-gradient(140deg,#6b5a33 0%,#3e3520 100%);color:#fff;text-align:center}
+.ph.type span{display:block;font-family:var(--serif);font-size:clamp(46px,5vw,64px);line-height:1;color:#fff}
+.ph.type small{display:block;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--oak-hi);margin-top:12px}
+@media (max-width:900px){.progs{grid-template-columns:1fr}}
+
+/* included */
+.split{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);min-height:620px;background:var(--char);color:#fff}
+.split figure{margin:0;position:relative;overflow:hidden;min-height:340px}
+.split figure img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.split .txt{padding:80px max(32px,env(safe-area-inset-right,0px)) 80px 64px;display:grid;align-content:center;gap:34px}
+.split h2{font-size:clamp(40px,4.6vw,64px)}
+.split h2 i{color:var(--oak-hi)}
+.icons{display:grid;grid-template-columns:1fr 1fr;gap:20px 28px}
+.icons div{display:flex;gap:14px;align-items:center;font-size:16px;color:#ecebe8}
+.icons svg{width:26px;height:26px;color:var(--oak-hi);flex:none}
+@media (max-width:900px){.split{grid-template-columns:1fr}.split .txt{padding:56px var(--gr) 64px var(--gl)}}
+@media (max-width:420px){.icons{grid-template-columns:1fr}}
+
+/* offices */
+.ogrid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.office{background:var(--soft);border:1px solid transparent;border-radius:10px;padding:22px 20px;display:grid;grid-template-rows:auto 150px auto;gap:12px;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:border-color .2s,transform .2s,background .2s}
+.office:hover{border-color:var(--oak);transform:translateY(-3px);background:var(--bg)}
+.office .no{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);font-weight:600}
+.office .stage{display:flex;align-items:flex-end;justify-content:center}
+.office .room{border:2px solid var(--ink);background:repeating-linear-gradient(90deg,transparent 0 9px,color-mix(in srgb,var(--oak) 24%,transparent) 9px 10px);border-radius:1px;position:relative}
+.office:hover .room{background-color:color-mix(in srgb,var(--oak) 14%,transparent)}
+.office .sf{font-family:var(--serif);font-size:40px;line-height:1;display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.office .sf small{font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.08em;color:var(--oak)}
+.onote{margin-top:22px;font-size:14px;color:var(--mute)}
+@media (max-width:1000px){.ogrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:620px){.ogrid{grid-template-columns:1fr 1fr}.office{grid-template-rows:auto 110px auto}}
+
+/* campus */
+.nums{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border-top:1px solid var(--line)}
+.nums div{padding:34px 24px 6px 0;min-width:0}
+.nums b{display:block;font-family:var(--serif);font-weight:400;font-size:clamp(56px,6vw,88px);line-height:.9}
+.nums b sup{font-size:.36em;vertical-align:.95em;margin-left:2px;color:var(--oak)}
+.nums span{display:block;margin-top:12px;font-size:15px;color:var(--ink-2);max-width:20ch}
+.also{display:flex;flex-wrap:wrap;gap:10px;margin-top:40px}
+.also span{font-size:14px;padding:9px 15px;border:1px solid var(--line);border-radius:99px;color:var(--ink-2)}
+@media (max-width:860px){.nums{grid-template-columns:1fr 1fr}}
+
+/* tour */
+.tour{background:var(--soft)}
+.tour .in{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:64px;align-items:start}
+.tour h2{font-size:clamp(44px,5.6vw,78px)}
+.tour h2 i{color:var(--oak)}
+.reach{margin-top:30px;display:grid;gap:12px}
+.reach div{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.reach b{font-family:var(--serif);font-weight:400;font-size:clamp(22px,2.4vw,28px);user-select:all;overflow-wrap:anywhere}
+.copy{font:inherit;font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--ink);background:none;border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer}
+.copy:hover{border-color:var(--ink)}
+.addr{margin-top:28px;font-size:15px;color:var(--mute)}
+form.f{background:var(--bg);border-radius:12px;padding:30px;display:grid;grid-template-columns:1fr 1fr;gap:16px 18px}
+.f .full{grid-column:1/-1}
+.f label{display:grid;gap:7px;font-size:13px;font-weight:600;color:var(--ink-2);min-width:0}
+.f input,.f select{font:inherit;font-size:16px;padding:13px 14px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);width:100%;min-width:0}
+.f input:focus,.f select:focus{outline:2px solid var(--oak);outline-offset:0;border-color:transparent}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg label{display:block;cursor:pointer}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:inline-block;font-size:14px;font-weight:600;padding:10px 16px;border:1px solid var(--line);border-radius:99px;color:var(--ink-2)}
+.seg input:checked+span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.seg input:focus-visible+span{outline:2px solid var(--oak);outline-offset:2px}
+.f .err{color:#b42318;font-size:13px;font-weight:500}
+.done{background:var(--bg);border-radius:12px;padding:30px}
+.done h3{font-size:34px;margin-bottom:10px}
+.done pre{white-space:pre-wrap;font:inherit;font-size:15px;background:var(--soft);border-radius:8px;padding:16px;margin:18px 0;color:var(--ink-2)}
+.done .acts{display:flex;flex-wrap:wrap;gap:10px}
+.btn.outline{border-color:var(--line);color:var(--ink);background:transparent}
+@media (max-width:900px){.tour .in{grid-template-columns:1fr;gap:36px}form.f{grid-template-columns:1fr;padding:22px}}
+
+/* footer */
+.foot{background:var(--char);color:#cfcdc9;font-size:14px}
+.foot .in{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:18px;padding-block:30px}
+.foot img{height:24px;width:auto;display:block}
+.foot small{color:#a9a7a3;font-size:13px}
+
+/* amenities */
+.bento{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-rows:minmax(220px,auto);gap:14px}
+.b-photo{grid-column:span 2;grid-row:span 2;margin:0;position:relative;border-radius:12px;overflow:hidden;min-height:340px}
+.b-photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform 1s}
+.b-photo:hover img{transform:scale(1.03)}
+.b-photo.wide2{grid-row:auto;min-height:240px}
+.b-photo figcaption{position:absolute;left:0;right:0;bottom:0;padding:60px 26px 24px;background:linear-gradient(180deg,transparent,rgba(20,21,23,.7));color:#fff}
+.b-photo b{display:block;font-family:var(--serif);font-weight:400;font-size:30px;line-height:1.05}
+.b-photo span{font-size:14px;color:#e6e4e0}
+.b{border-radius:12px;padding:26px;display:flex;flex-direction:column;justify-content:space-between;gap:16px;min-width:0}
+.b svg{width:30px;height:30px}
+.b h3{font-size:clamp(24px,2.2vw,30px);line-height:1.08}
+.b p{font-size:15px;line-height:1.5}
+.b .big{font-family:var(--serif);font-size:clamp(64px,6vw,92px);line-height:.85}
+.b.olive{background:#5f5230;color:#fff;grid-column:span 2}.b.olive svg,.b.olive i{color:var(--oak-hi)}.b.olive p{color:#e9e4d6}
+.b.cream{background:#efe9df;color:#2a2620}.b.cream .big{color:#9a6a36}.b.cream p{color:#5b544a}
+.b.char{background:var(--char);color:#fff}.b.char svg{color:var(--oak-hi)}.b.char p{color:#d8d6d2}
+.b.oak{grid-column:span 2;background:linear-gradient(150deg,#b78350,#8a5a2b);color:#fff}.b.oak i{color:#fbe6c8}
+.svc-h{font-size:clamp(26px,2.6vw,34px);margin:72px 0 22px}
+.svcs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.svc{background:var(--soft);border-radius:10px;padding:22px 20px;display:grid;gap:6px;align-content:start;transition:background .2s,transform .2s;min-width:0}
+.svc:hover{background:color-mix(in srgb,var(--oak) 12%,var(--soft));transform:translateY(-2px)}
+.svc svg{width:28px;height:28px;color:var(--oak);margin-bottom:10px}
+.svc b{font-weight:600;font-size:16px;line-height:1.3}
+.svc span{font-size:14px;color:var(--mute);line-height:1.4}
+.svcs.camp{margin-top:40px}
+@media (max-width:1000px){.bento{grid-template-columns:1fr 1fr}.svcs{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:640px){.bento{grid-template-columns:1fr}.b-photo,.b.olive,.b.oak{grid-column:auto}.b-photo{grid-row:auto;min-height:280px}.svcs{grid-template-columns:1fr 1fr}}
+
+/* tightening */
+.sec{padding-block:72px}
+.sec-h{margin-bottom:30px;gap:14px}
+.sec-h h2{font-size:clamp(36px,4.4vw,58px)}
+.hero{min-height:min(68vh,640px)}
+.hero .in{padding-block:96px 28px}
+.svc-h{margin:44px 0 16px}
+.svcs.camp{margin-top:26px}
+.nums div{padding-top:24px}
+.bento{grid-auto-rows:minmax(190px,auto)}
+.b{padding:22px}
+.prog .body{padding:22px 22px 24px;gap:12px}
+.office{padding:18px 16px;grid-template-rows:auto 128px auto}
+.onote{margin-top:14px}
+.tour h2{font-size:clamp(38px,4.6vw,64px)}
+@media (max-width:900px){.sec{padding-block:52px}}
+
+.ptop{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.price{white-space:nowrap;color:var(--ink-2)}
+.price b{font-family:var(--serif);font-weight:400;font-size:30px;color:var(--oak);line-height:1}
+.price small{font-size:13px;color:var(--mute);font-weight:600}
+
+.ext{margin:0 0 8px;position:relative;border-radius:12px;overflow:hidden;aspect-ratio:21/9;max-width:100%}
+.ext img{width:100%;height:100%;object-fit:cover;object-position:center 45%;display:block;transition:transform 1.2s}
+.ext:hover img{transform:scale(1.02)}
+.ext figcaption{position:absolute;left:0;bottom:0;padding:50px 28px 22px;background:linear-gradient(180deg,transparent,rgba(20,21,23,.6));color:#fff;right:0}
+.ext b{display:block;font-family:var(--serif);font-weight:400;font-size:clamp(26px,2.8vw,38px);line-height:1}
+.ext span{font-size:14px;color:#ecebe8}
+@media (max-width:700px){.ext{aspect-ratio:4/3}}
+
+.sign{margin:30px 0 0;border-radius:12px;overflow:hidden;position:relative;aspect-ratio:4/3;max-width:100%}
+.sign img{width:100%;height:100%;object-fit:cover;object-position:60% 40%;display:block}
+.sign figcaption{position:absolute;left:12px;bottom:12px;font-size:12px;font-weight:600;letter-spacing:.04em;background:rgba(255,255,255,.92);color:#1c1d1f;padding:6px 11px;border-radius:99px}
+
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:12px 0 8px}
+.trio figure{margin:0;position:relative;border-radius:12px;overflow:hidden;aspect-ratio:3/2;max-width:100%}
+.trio img{width:100%;height:100%;object-fit:cover;display:block;transition:transform 1s}
+.trio figure:hover img{transform:scale(1.04)}
+.trio figcaption{position:absolute;left:12px;bottom:12px;font-size:12px;font-weight:600;letter-spacing:.04em;background:rgba(255,255,255,.92);color:#1c1d1f;padding:6px 11px;border-radius:99px}
+@media (max-width:700px){.trio{grid-template-columns:1fr}}
+
+.ticker div{padding:22px 0 24px;flex-direction:column;align-items:center;text-align:center;gap:6px}
+.ticker b{font-size:clamp(26px,3.3vw,46px);white-space:nowrap}
+@media (max-width:760px){.ticker b{font-size:clamp(22px,6.4vw,30px)}}
+.ticker span{font-size:13px}
+
+.prog .body{grid-template-rows:auto auto 1fr}
+.pfoot{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-top:8px;padding-top:16px;border-top:1px solid var(--line);align-self:end}
+.pfoot .price b{font-size:clamp(40px,3.6vw,52px)}
+.pfoot .price small{font-size:14px}
+.pfoot a{margin:0 0 6px}
+
+.b.photo{position:relative;overflow:hidden;color:#fff;background:#2a2620;justify-content:flex-end}
+.b.photo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 45%;transition:transform 1s}
+.b.photo:hover img{transform:scale(1.04)}
+.b.photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,21,23,.1) 20%,rgba(20,21,23,.78) 100%)}
+.b.photo>*:not(img){position:relative;z-index:1}
+.b.photo .big{color:var(--oak-hi)}
+.b.oak.photo i{color:var(--oak-hi)}
+.b.oak.photo svg{color:var(--oak-hi)}
+.b.photo p{color:#ecebe8}
+.price b.inq{font-size:clamp(30px,2.8vw,40px);margin-right:6px}
+
+/* interactive floor plan */
+.fpbox{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:20px;align-items:start}
+.fpwrap{position:relative;background:#fff;border-radius:12px;border:1px solid var(--line)}
+.fpwrap img{display:block;width:100%;height:auto;border-radius:12px}
+.fpwrap svg{position:absolute;inset:0;width:100%;height:100%}
+#fpov g.ls rect{fill:transparent;pointer-events:none}
+#fpov g.ls text{font:500 40px var(--sans);fill:#1c1d1f;text-anchor:middle}
+#fpov g.av{cursor:pointer;outline:none}
+#fpov g.av rect{fill:rgba(154,106,54,.30);stroke:#9a6a36;stroke-width:6;transition:fill .15s}
+#fpov g.av:hover rect,#fpov g.av:focus-visible rect,#fpov g.av.sel rect{fill:rgba(154,106,54,.6)}
+#fpov g.av text{font:600 40px var(--sans);fill:#1c1d1f;text-anchor:middle;pointer-events:none}
+#fpov text.area.sm{font-size:30px;stroke-width:8px}
+#fpov text.area{font:italic 36px var(--serif);fill:#8a8c90;text-anchor:middle;pointer-events:none}
+.fppop{position:absolute;z-index:5;width:240px;background:var(--bg);color:var(--ink);border-radius:10px;padding:16px 18px;box-shadow:0 18px 50px rgba(0,0,0,.28);transform:translate(-50%,calc(-100% - 12px));display:grid;gap:6px;text-align:center}
+.fppop::after{content:"";position:absolute;left:var(--ax,50%);bottom:-6px;width:12px;height:12px;background:var(--bg);transform:translateX(-50%) rotate(45deg)}
+.fppop.below{transform:translate(-50%,12px)}.fppop.below::after{bottom:auto;top:-6px}
+.fppop .pk{font-size:12px;letter-spacing:.14em;text-transform:uppercase;font-weight:600;color:var(--mute);display:flex;align-items:center;justify-content:center;gap:8px}
+.fppop .pill{background:var(--oak);color:#fff;border-radius:99px;padding:2px 8px;letter-spacing:.08em;font-size:10.5px}
+.fppop .px{position:absolute;right:8px;top:4px;border:0;background:none;font-size:20px;color:var(--mute);cursor:pointer}
+.fppop .psf{font-family:var(--serif);font-weight:400;font-size:34px;line-height:1}
+.fppop p{font-size:14px;color:var(--ink-2)}
+.fppop .btn{padding:11px 16px;font-size:14px;margin-top:6px}
+.fpside{display:grid;gap:14px}
+.leg{display:grid;gap:8px;font-size:14px;color:var(--ink-2)}
+.leg span{display:flex;align-items:center;gap:10px}
+.k{width:16px;height:16px;border-radius:3px;display:inline-block;border:1px solid var(--line)}
+.k.av{background:rgba(154,106,54,.35);border-color:#9a6a36}.k.ls{background:#fff}.k.sh{background:#f2f2f1}
+.fpside h3{font-size:26px;margin-top:8px}
+.fplist{display:grid;gap:6px}
+.fplist button{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:baseline;text-align:left;font:inherit;padding:12px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.fplist button:hover,.fplist button.sel{border-color:var(--oak);background:color-mix(in srgb,var(--oak) 8%,var(--bg))}
+.fplist .ln{font-weight:600}.fplist .ls2{font-family:var(--serif);font-size:20px}.fplist .lw{font-size:12px;color:var(--mute);letter-spacing:.06em;text-transform:uppercase}
+@media (max-width:900px){.fpbox{grid-template-columns:1fr}.fplist{grid-template-columns:1fr 1fr}}
+@media (max-width:480px){.fplist{grid-template-columns:1fr}.fppop{width:210px}}
+
+/* list panel inside the plan's lower-left */
+.fpbox{grid-template-columns:1fr}
+.fpwrap{overflow:hidden}
+.fpside{position:absolute;left:calc(40/2180*100%);top:calc(1290/2320*100%);width:calc(1380/2180*100%);bottom:calc(40/2320*100%);padding:0;align-content:center;gap:clamp(8px,1vw,14px);background:transparent}
+.fpside .leg{display:flex;flex-wrap:wrap;gap:8px 20px}
+.fpside h3{margin-top:2px;font-size:clamp(20px,2vw,28px);color:#1c1d1f}
+.fpside .leg,.fpside .onote{color:#4a4c50}
+.fpside .fplist button{background:#26272a;color:#fff;border-color:#26272a}
+.fpside .fplist button:hover,.fpside .fplist button.sel{background:#9a6a36;border-color:#9a6a36}
+.fpside .fplist .lw{color:#c9c7c3}
+.fpside .fplist button{padding:clamp(7px,.8vw,11px) clamp(10px,1vw,14px)}
+.fpside .fplist .ls2{font-size:clamp(15px,1.4vw,19px)}
+.fpside .leg{font-size:13px}
+.fpside .onote{margin-top:2px;font-size:13px}
+.fpside .fplist{grid-template-columns:repeat(2,minmax(0,1fr))}
+.fpwrap .fppop{z-index:6}
+@media (max-width:860px){.fpwrap{overflow:visible}.fpside{position:static;width:auto;border:0;border-radius:0;padding:20px 0 0;background:transparent}}
+@media (max-width:480px){.fpside .fplist{grid-template-columns:1fr}}
+
+/* panel scales with the plan so it fills the empty corner */
+.fpwrap{container-type:inline-size}
+@container (min-width:861px){
+  .fpside{gap:1.6cqw;top:calc(1240/2320*100%)}
+  .fpside .leg{font-size:1.25cqw;gap:.8cqw 2cqw}
+  .fpside .leg .k{width:1.4cqw;height:1.4cqw}
+  .fpside h3{font-size:3.4cqw;margin:0}
+  .fpside .fplist{gap:1cqw}
+  .fpside .fplist button{padding:1.55cqw 1.6cqw;border-radius:.8cqw}
+  .fpside .fplist .ln{font-size:1.75cqw}
+  .fpside .fplist .ls2{font-size:2.1cqw}
+  .fpside .fplist .lw{font-size:1.05cqw}
+  .fpside .onote{font-size:1.25cqw}
+}
+
+/* adaptive list sizing by number of open offices */
+.fpside{display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+.fpside .fplist{min-height:0;overflow-y:auto;scrollbar-width:thin}
+.fpnone{grid-column:1/-1;color:#4a4c50;font-size:15px;max-width:40ch}
+@container (min-width:861px){
+  .fpside .fplist[data-size="few"] button{padding:2.2cqw 2cqw}
+  .fpside .fplist[data-size="few"] .ln{font-size:2.1cqw}
+  .fpside .fplist[data-size="few"] .ls2{font-size:2.5cqw}
+  .fpside .fplist[data-size="many"],.fpside .fplist[data-size="lots"]{grid-template-columns:repeat(3,minmax(0,1fr));gap:.8cqw}
+  .fpside .fplist[data-size="many"] button,.fpside .fplist[data-size="lots"] button{padding:1.1cqw 1.2cqw;grid-template-columns:1fr auto}
+  .fpside .fplist[data-size="many"] .lw,.fpside .fplist[data-size="lots"] .lw{display:none}
+  .fpside .fplist[data-size="many"] .ln,.fpside .fplist[data-size="lots"] .ln{font-size:1.5cqw}
+  .fpside .fplist[data-size="many"] .ls2,.fpside .fplist[data-size="lots"] .ls2{font-size:1.75cqw}
+  .fpnone{font-size:1.7cqw}
+}
+/* plan sits on the section color; only the suite is white */
+.fpsec{background:var(--soft)}
+.fpwrap,.fpwrap img{background:transparent;border:0;border-radius:0}
+.fpside h3{color:var(--ink)}
+.fpside .leg,.fpside .onote,.fpnone{color:var(--ink-2)}
+.fpside .fplist button{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.fpside .fplist .lw{color:color-mix(in srgb,var(--bg) 70%,var(--ink))}
+.fpside .fplist button:hover,.fpside .fplist button.sel{background:var(--oak);border-color:var(--oak);color:#fff}
+.fpside .fplist button:hover .lw,.fpside .fplist button.sel .lw{color:#f3e6d6}
+.k.ls{background:#fff;border-color:#cfccc6}
+
+/* leased offices read grey; common areas stay white */
+#fpov g.ls rect{fill:#dedbd5;mix-blend-mode:multiply}
+#fpov g.av rect{mix-blend-mode:multiply}
+.k.ls{background:#dedbd5;border-color:#cfccc6}
+
+#fpov text.area{font:italic 400 38px var(--serif);fill:#8a6a44;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:10px;stroke-linejoin:round;letter-spacing:.5px}
+
+#fpov g.av .cap path{fill:#5a3f20}
+#fpov g.av .cap text{font:600 38px var(--sans);fill:#5a3f20;text-anchor:start}
+.fpwrap svg.pi,.pi{position:static;inset:auto;display:inline-block;width:1em;height:1em;fill:currentColor;vertical-align:-.12em;margin-right:.3em}
+.fppop .pcap{font-weight:600;color:var(--ink)}
+.fppop .pcap .pi{color:var(--oak)}
+.fplist button{grid-template-columns:1fr auto auto auto}
+.fplist .lc{font-weight:600;white-space:nowrap}
+.fplist .lc .pi{opacity:.75}
+@container (min-width:861px){.fpside .fplist .lc{font-size:1.5cqw}}
+.fpside .fplist[data-size="many"] button,.fpside .fplist[data-size="lots"] button{grid-template-columns:1fr auto auto}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+</style>
+</head>
+<body>
+<header class="mast">
+  <div class="in">
+    <a class="brand" href="#top" aria-label="The Office Works, home"><img src="/office-works/assets/logo-ow.png" alt="The Office Works" width="900" height="272"><span>at Neshaminy Interplex</span></a>
+    <nav class="nav" aria-label="Sections"><a href="#programs">Programs</a><a href="#included">Amenities</a><a href="#campus">Campus</a><a href="#available">Offices</a><a class="btn dark" href="#tour">Schedule a tour</a></nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-labelledby="h-hero">
+    <img src="/office-works/assets/p-lounge.jpg" alt="The renovated lounge at The Office Works" width="1600" height="901">
+    <div class="in">
+      <h1 id="h-hero">Your office, <i>ready when you are.</i></h1>
+      <div class="row">
+        <p>Furnished private offices with a receptionist and conference rooms.</p>
+        <div class="ctas"><a class="btn light" href="#tour">Schedule a tour</a><a class="btn clear" href="#available">See offices</a></div>
+      </div>
+    </div>
+    <div class="ticker"><div class="in">
+      <div><b>{{OFFICE_RANGE}} SF</b><span>Private offices</span></div>
+      <div><b>24/7</b><span>Access</span></div>
+      <div><b>3</b><span>Meeting rooms</span></div>
+      <div><b>Month-to-Month</b><span>Available</span></div>
+    </div></div>
+  </section>
+
+  <section class="sec" id="programs" aria-labelledby="h-prog">
+    <div class="in">
+      <div class="sec-h"><h2 id="h-prog">Three ways to work here.</h2><p>Same front desk and conference rooms behind every one.</p></div>
+      <div class="progs">
+        <article class="prog">
+          <div class="ph"><img src="/office-works/assets/p-office.jpg" alt="A furnished private office with desk, credenza and a window onto the campus" loading="lazy" style="object-position:center 55%"><span class="tag">Most popular</span></div>
+          <div class="body"><h3>Private Office</h3>
+            <ul><li>Furnished, {{OFFICE_RANGE}} SF</li><li>Receptionist, mail and packages</li><li>Utilities, internet, coffee included</li></ul>
+            <div class="pfoot"><p class="price"><b class="inq">Inquire</b><small>for pricing</small></p><a href="#available">See open offices</a></div></div>
+        </article>
+        <article class="prog">
+          <div class="ph type"><div><span>Your address</span><small>Answered in your name</small></div></div>
+          <div class="body"><h3>Virtual Office</h3>
+            <ul><li>Business mailing address</li><li>Calls answered, voicemail</li><li>Rooms when you need them</li></ul>
+            <div class="pfoot"><p class="price"><small>From</small> <b>$75</b><small>/mo</small></p><a href="#tour" data-prog="Virtual office">Ask about pricing</a></div></div>
+        </article>
+        <article class="prog">
+          <div class="ph"><img src="/office-works/assets/p-lounge2.jpg" alt="The lounge with a wall-mounted TV, bouclé chairs and café tables" loading="lazy" style="object-position:20% 50%"></div>
+          <div class="body"><h3>By the Hour</h3>
+            <ul><li>Lounge access</li><li>Hourly or daily</li><li>No commitment</li></ul>
+            <div class="pfoot"><p class="price"><small>From</small> <b>$30</b><small>/hr</small></p><a href="#tour" data-prog="Occasional use">Book a room</a></div></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec amen-sec" id="included" aria-labelledby="h-inc">
+    <div class="in">
+      <div class="sec-h"><div><p class="kick">Included in your rent</p><h2 id="h-inc">Everything a front office does.</h2></div><p>Staff, rooms and services a small firm would otherwise hire for, all on one bill.</p></div>
+      <div class="bento">
+        <figure class="b-photo"><img src="/office-works/assets/p-cafe.jpg" alt="Café tables with oak wishbone chairs beside the private tenant mailboxes" loading="lazy"><figcaption><b>Lounge, Café &amp; Mailroom</b><span>Shared by every tenant</span></figcaption></figure>
+        <div class="b olive"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18h16M6 18v-5a6 6 0 0112 0v5"/><circle cx="12" cy="5" r="1.3"/></svg><h3>A receptionist <i>on your payroll</i>, without the payroll.</h3><p>Calls answered in your company's name. Clients greeted and seated.</p></div>
+        <div class="b cream photo"><img src="/office-works/assets/p-boardroom.jpg" alt="The large conference room with a long table and seating for twelve" loading="lazy"><span class="big">3</span><h3>Meeting Rooms</h3><p>Two conference rooms and a meeting room, bookable whenever you need them.</p></div>
+        <div class="b char"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V7a3 3 0 016 0v4"/><rect x="5" y="11" width="14" height="10" rx="1.5"/></svg><span class="big">24/7</span><p>Access to your private office, early and late.</p></div>
+        <div class="b oak photo"><img src="/office-works/assets/p-coffee.jpg" alt="The coffee station with two espresso machines, a sink and a beverage fridge" loading="lazy" style="object-position:center 40%"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h11v6a4 4 0 01-4 4H9a4 4 0 01-4-4V9zM16 10h1.5a2.5 2.5 0 010 5H16M8 3v3M11 3v3M14 3v3"/></svg><h3>Stocked kitchen. <i>Unlimited coffee.</i></h3></div>
+        <figure class="b-photo wide2"><img src="/office-works/assets/p-conf.jpg" alt="A small conference room with an oval table and four chairs" loading="lazy" style="object-position:center 55%"><figcaption><b>Small Conference Room</b><span>Seats four, bookable by the hour</span></figcaption></figure>
+      </div>
+      <h3 class="svc-h">Services at the Front Desk &amp; in the Suite</h3>
+      <div class="svcs"><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="12" rx="1.5"/><path d="M3 8l9 6 9-6"/></svg><b>Mail &amp; Packages</b><span>Signed for and held at the front desk</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M4 9h16M4 15h16M12 3v18"/><circle cx="9" cy="6" r=".6"/><circle cx="16" cy="12" r=".6"/></svg><b>Locking Mailboxes</b><span>Your own box in the mailroom</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.5 5 5.5.8-4 3.9 1 5.5L12 15.6 7 18.2l1-5.5-4-3.9 5.5-.8z"/></svg><b>Notary Public</b><span>On staff, no appointment needed</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8V3h10v5M7 17H4v-7a2 2 0 012-2h12a2 2 0 012 2v7h-3"/><rect x="7" y="14" width="10" height="7"/></svg><b>Copying &amp; Scanning</b><span>Color copies, scans, printing</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16M6 16l9-9 3 3-9 9H6v-3zM13 9l3 3"/></svg><b>Secretarial Services</b><span>Admin help when you need it</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15h16M5 15a7 7 0 0114 0M12 6v2M3 18h18"/></svg><b>Catering</b><span>For meetings and client visits</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9a15 15 0 0120 0M5 12.5a10 10 0 0114 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19" r="1"/></svg><b>High-Speed Internet</b><span>Network and phone ready day one</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L5 14h6l-1 8 8-12h-6z"/></svg><b>Utilities Included</b><span>Power, heat and cooling</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M10 21V11h4v10M9 11V7l3-4 3 4v4"/></svg><b>Janitorial &amp; Maintenance</b><span>Cleaned and kept up for you</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><b>Lobby Directory</b><span>Your company name in the lobby</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10h18M5 10v9M19 10v9M8 14h8"/><path d="M7 10V6h10v4"/></svg><b>Furnished Offices</b><span>Desk, chairs, storage, ready to work</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M10 16V8h3a2.5 2.5 0 010 5h-3"/></svg><b>Free Parking</b><span>Included with every office</span></div></div>
+    </div>
+  </section>
+
+
+  <section class="sec" id="campus" aria-labelledby="h-campus" style="padding-top:8px">
+    <div class="in">
+      <div class="sec-h"><div><p class="kick">Neshaminy Interplex · Trevose</p><h2 id="h-campus">More than a building.</h2></div><p>A Best of Bucks business center, five years running.</p></div>
+      <figure class="ext"><img src="/office-works/assets/p-ext.jpg" alt="Neshaminy Interplex Building Five at dusk, with The Office Works signage on the facade" loading="lazy" width="1920" height="1175"><figcaption><b>Building Five</b><span>The Office Works, second floor</span></figcaption></figure>
+      <div class="trio">
+        <figure><img src="/office-works/assets/p-fountain.jpg" alt="The courtyard fountain surrounded by trees at Neshaminy Interplex" loading="lazy" width="1200" height="800"><figcaption>Courtyard &amp; Fountain</figcaption></figure>
+        <figure><img src="/office-works/assets/p-events.jpg" alt="Tenants at a barbecue lunch event outside an Interplex building" loading="lazy" width="1200" height="800"><figcaption>Tenant Appreciation Events</figcaption></figure>
+        <figure><img src="/office-works/assets/p-trail.jpg" alt="The Exer-Trail fitness path winding through trees on campus" loading="lazy" width="1200" height="800"><figcaption>Exer-Trail</figcaption></figure>
+      </div>
+      <div class="nums">
+        <div><b>274</b><span>Radisson hotel rooms on campus for your clients</span></div>
+        <div><b>5<sup>min</sup></b><span>to Trevose SEPTA Regional Rail</span></div>
+        <div><b>200</b><span>free parking spaces</span></div>
+        <div><b>27<sup>min</sup></b><span>to Trenton-Mercer Airport</span></div>
+      </div>
+      <div class="svcs camp"><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V8l9-5 9 5v12M7 20v-6h10v6M3 20h18"/></svg><b>Radisson Hotel</b><span>274 rooms for visiting clients</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h3M18 12h3M6 8v8M18 8v8M9 10v4M15 10v4M9 12h6"/></svg><b>Fitness Center</b><span>On campus</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c4-1 4-6 8-7s4-6 8-7"/><circle cx="20" cy="6" r="1.5"/></svg><b>Exercise Trail</b><span>Outdoor loop</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3"/><path d="M5 21c0-4 3-7 7-7s7 3 7 7"/></svg><b>Child Care Center</b><span>On site</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8M5 3v4a2 2 0 004 0V3M7 11v10M16 3c-1.5 0-3 2-3 5s1.5 4 3 4v9"/></svg><b>Food Trucks &amp; Restaurants</b><span>Lunch close to your desk</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/></svg><b>Banking</b><span>On site</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21v-6M8 15h8l-4-9z"/></svg><b>Courtyard</b><span>Outdoor space between buildings</span></div><div class="svc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg><b>Property Manager</b><span>Korman staff on site</span></div></div>
+    </div>
+  </section>
+  <section class="sec fpsec" id="available" style="padding-top:20px" aria-labelledby="h-avail">
+    <div class="in">
+      <div class="sec-h"><div><p class="kick">Available now · Building Five, second floor</p><h2 id="h-avail">Pick your office.</h2></div><p><b id="fpcount"></b> offices open now. Hover or tap a highlighted office for details.</p></div>
+      <div class="fpbox">
+        <div class="fpwrap" id="fp">
+          <img src="/office-works/assets/plan-ow.webp" alt="Floor plan of The Office Works, second floor of Neshaminy Interplex Building Five" width="2180" height="2320">
+          <svg viewBox="0 0 2180 2320" id="fpov" role="group" aria-label="Offices">
+          </svg>
+          <div class="fppop" id="fppop" hidden></div>
+        <div class="fpside">
+          <div class="leg"><span><i class="k av"></i>Available</span><span><i class="k ls"></i>Leased</span></div>
+          <h3>Open offices</h3>
+          <div class="fplist" id="fplist"></div>
+          <p class="onote">Furnished and ready. Rates on request.</p>
+        </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <section class="sec tour" id="tour" aria-labelledby="h-tour">
+    <div class="in">
+      <div>
+        <h2 id="h-tour">Come see it. <i>Coffee's on.</i></h2>
+        <div class="reach">
+          <div><b><a href="tel:+12152445175">215.244.5175</a></b><button class="copy" type="button" data-copy="215.244.5175">Copy</button></div>
+          <div><b><a href="mailto:info@kormancommercial.com">info@kormancommercial.com</a></b><button class="copy" type="button" data-copy="info@kormancommercial.com">Copy</button></div>
+        </div>
+        <figure class="sign"><img src="/office-works/assets/p-sign.jpg" alt="The Office Works sign at the Neshaminy Interplex entrance" loading="lazy" width="1360" height="1000"><figcaption>Look for our sign at the Interplex entrance</figcaption></figure>
+        <p class="addr">Neshaminy Interplex, Building Five, second floor<br>Route 1 and Old Lincoln Highway, Trevose, PA 19053</p>
+      </div>
+      <div>
+        <form class="f" id="tourform" novalidate>
+          <div class="full"><div class="seg" role="radiogroup" aria-label="Program">
+            <label><input type="radio" name="prog" id="pr-1" value="Private office" checked><span>Private office</span></label>
+            <label><input type="radio" name="prog" id="pr-2" value="Virtual office"><span>Virtual office</span></label>
+            <label><input type="radio" name="prog" id="pr-3" value="Occasional use"><span>By the hour</span></label>
+          </div></div>
+          <label>Name<input id="f-name" autocomplete="name" required></label>
+          <label>Company<input id="f-co" autocomplete="organization"></label>
+          <label>Email<input id="f-email" type="email" autocomplete="email" required></label>
+          <label>Phone<input id="f-phone" type="tel" autocomplete="tel"></label>
+          <label>Office<select id="f-office"><option value="">No preference</option></select></label>
+          <label>Preferred date<input id="f-date" type="date"></label>
+          <label class="hp" aria-hidden="true">Website<input id="f-web" tabindex="-1" autocomplete="off"></label>
+          <p class="err full" id="f-err" hidden></p>
+          <div class="full"><button class="btn dark" type="submit" id="f-send">Request a tour</button></div>
+        </form>
+        <div class="done" id="done" hidden>
+          <h3>Thanks — your request is in.</h3>
+          <p style="color:var(--ink-2)">We'll be in touch to confirm your tour. Questions in the meantime? Call 215.244.5175.</p>
+          <pre id="summary"></pre>
+          <div class="acts"><button class="btn outline" type="button" id="editreq">Request another</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="in">
+    <img src="/office-works/assets/logo-white.png" alt="Korman Commercial Properties" width="235" height="34">
+    <small>The Office Works® is a Korman Commercial Properties business · 215.244.5175</small>
+  </div>
+</footer>
+
+<script>
+const OFFICES=/*@OFFICES@*/[];
+(function(){
+  const ns="http://www.w3.org/2000/svg",svg=document.getElementById("fpov"),pop=document.getElementById("fppop"),wrap=document.getElementById("fp"),list=document.getElementById("fplist"),opt=document.getElementById("f-office");
+  let pinned=null;
+  const desc=o=>`${o.win?"Window office":"Interior office"} · Furnished`;
+  const sfTxt=o=>`${o.est?"≈ ":""}${o.sf} SF`;
+  function choose(o){document.getElementById("pr-1").checked=true;opt.value=o.id;document.getElementById("tour").scrollIntoView({behavior:"smooth"});setTimeout(()=>document.getElementById("f-name").focus({preventScroll:true}),500)}
+  function show(o,pin){
+    pinned=pin?o.id:null;
+    svg.querySelectorAll("g.av").forEach(g=>g.classList.toggle("sel",g.dataset.id===o.id));
+    list.querySelectorAll("button").forEach(b=>b.classList.toggle("sel",b.dataset.id===o.id));
+    pop.innerHTML=`<div class="pk">Office ${o.id}<span class="pill">Available</span></div>${pin?'<button type="button" class="px" aria-label="Close">&times;</button>':""}<b class="psf">${sfTxt(o)}</b><p class="pcap"><svg class="pi" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-4 0-7 2-7 4.5V20h14v-1.5C19 16 16 14 12 14z"/></svg>Up to ${o.cap} ${o.cap>1?"people":"person"}</p><p>${desc(o)}${o.m2m?" · Month-to-month":""}</p><button type="button" class="btn dark pgo">Request a tour</button>`;
+    pop.hidden=false;
+    const B=wrap.getBoundingClientRect(),k=B.width/2180,pw=pop.offsetWidth,ph=pop.offsetHeight;
+    const cx=(o.x+o.w/2)*k,left=Math.min(Math.max(cx,pw/2+8),B.width-pw/2-8);
+    const below=o.y*k<ph+16;
+    pop.classList.toggle("below",below);
+    pop.style.left=left+"px";pop.style.top=((below?o.y+o.h:o.y)*k)+"px";pop.style.setProperty("--ax",(pw/2+cx-left)+"px");
+    pop.querySelector(".pgo").onclick=e=>{e.stopPropagation();choose(o)};
+    const x=pop.querySelector(".px");if(x)x.onclick=e=>{e.stopPropagation();hide(true)};
+  }
+  function hide(force){if(pinned&&!force)return;pinned=null;pop.hidden=true;svg.querySelectorAll("g.sel").forEach(g=>g.classList.remove("sel"));list.querySelectorAll("button.sel").forEach(b=>b.classList.remove("sel"))}
+  OFFICES.forEach(o=>{
+    const g=document.createElementNS(ns,"g");g.setAttribute("class",o.av?"av":"ls");g.dataset.id=o.id;
+    const r=document.createElementNS(ns,"rect");Object.entries({x:o.x,y:o.y,width:o.w,height:o.h}).forEach(([k,v])=>r.setAttribute(k,v));g.append(r);
+    if(o.av){const cx=o.x+o.w/2,cy=o.y+o.h/2;const t=document.createElementNS(ns,"text");t.setAttribute("x",cx);t.setAttribute("y",cy-4);t.textContent=o.id;g.append(t);
+      const c=document.createElementNS(ns,"g");c.setAttribute("class","cap");c.setAttribute("transform",`translate(${cx} ${cy+40})`);
+      c.innerHTML=`<path transform="translate(-34 -24) scale(1.9)" d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-4 0-7 2-7 4.5V20h14v-1.5C19 16 16 14 12 14z"/><text x="18" y="12">${o.cap}</text>`;g.append(c)}
+    if(o.av){
+      g.setAttribute("tabindex","0");g.setAttribute("role","button");g.setAttribute("aria-label",`Office ${o.id}, available, ${sfTxt(o)}, up to ${o.cap} ${o.cap>1?"people":"person"}`);
+      g.addEventListener("mouseenter",()=>{if(!pinned)show(o,false)});
+      g.addEventListener("mouseleave",()=>{if(!pinned)hide()});
+      g.addEventListener("click",e=>{e.stopPropagation();pinned===o.id?hide(true):show(o,true)});
+      g.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();show(o,true)}});
+      const b=document.createElement("button");b.type="button";b.dataset.id=o.id;
+      b.innerHTML=`<span class="ln">${o.id}</span><span class="lc"><svg class="pi" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-4 0-7 2-7 4.5V20h14v-1.5C19 16 16 14 12 14z"/></svg>${o.cap}</span><span class="ls2">${sfTxt(o)}</span><span class="lw">${o.win?"Window":"Interior"}</span>`;b.setAttribute("aria-label",`Office ${o.id}, ${sfTxt(o)}, up to ${o.cap} ${o.cap>1?"people":"person"}`);
+      b.addEventListener("mouseenter",()=>{if(!pinned)show(o,false)});b.addEventListener("mouseleave",()=>{if(!pinned)hide()});
+      b.addEventListener("click",e=>{e.stopPropagation();show(o,true)});
+      list.append(b);
+      const op=document.createElement("option");op.value=o.id;op.textContent=`Office ${o.id} · ${sfTxt(o)}`;opt.append(op);
+    }
+    svg.append(g);
+  });
+  const nOpen=OFFICES.filter(o=>o.av).length;
+  document.getElementById("fpcount").textContent=nOpen;
+  // layout adapts to how many offices are open
+  list.dataset.size=nOpen===0?"none":nOpen<=4?"few":nOpen<=8?"mid":nOpen<=12?"many":"lots";
+  if(nOpen===0){list.innerHTML='<p class="fpnone">All offices are currently leased. Call 215.244.5175 or request a tour to join the waitlist.</p>';
+    document.getElementById("fpcount").closest("p").innerHTML="All offices are currently leased.";const on=document.querySelector(".fpside .onote");if(on)on.hidden=true;}
+  document.addEventListener("click",e=>{if(pinned&&!pop.contains(e.target))hide(true)});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")hide(true)});
+  window.addEventListener("resize",()=>hide(true));
+})();
+
+document.querySelectorAll("[data-prog]").forEach(a=>a.addEventListener("click",()=>{const v=a.dataset.prog;document.querySelectorAll('input[name="prog"]').forEach(r=>r.checked=r.value===v)}));
+
+function copyText(t,btn,el){const ok=()=>{const l=btn.textContent;btn.textContent="Copied";setTimeout(()=>btn.textContent=l,1600)};
+  try{navigator.clipboard.writeText(t).then(ok).catch(()=>sel(el))}catch(e){sel(el)}}
+function sel(el){if(!el)return;const r=document.createRange();r.selectNodeContents(el);const s=getSelection();s.removeAllRanges();s.addRange(r)}
+document.querySelectorAll(".copy").forEach(b=>b.addEventListener("click",()=>copyText(b.dataset.copy,b,b.previousElementSibling)));
+
+(function(){
+  const f=document.getElementById("tourform"),done=document.getElementById("done"),err=document.getElementById("f-err"),sum=document.getElementById("summary");
+  document.getElementById("f-date").min=new Date().toISOString().slice(0,10);
+  f.addEventListener("submit",async e=>{e.preventDefault();const v=id=>document.getElementById(id).value.trim();
+    const em=v("f-email"),miss=[];if(!v("f-name"))miss.push("your name");if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em))miss.push("a valid email");
+    if(miss.length){err.textContent="Add "+miss.join(" and ")+" so we can confirm your tour.";err.hidden=false;return}err.hidden=true;
+    const d=v("f-date"),prog=f.querySelector('input[name="prog"]:checked').value,btn=document.getElementById("f-send");
+    const lines=[`Program: ${prog}`,`Office: ${v("f-office")?"Office "+v("f-office"):"No preference"}`,`Preferred date: ${d?new Date(d+"T12:00").toLocaleDateString("en-US",{weekday:"long",month:"long",day:"numeric"}):"Flexible"}`,"",`Name: ${v("f-name")}`];
+    if(v("f-co"))lines.push(`Company: ${v("f-co")}`);lines.push(`Email: ${em}`);if(v("f-phone"))lines.push(`Phone: ${v("f-phone")}`);
+    btn.disabled=true;btn.textContent="Sending…";
+    try{
+      const r=await fetch("/api/website/tour",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({program:prog,name:v("f-name"),company:v("f-co"),email:em,phone:v("f-phone"),office:v("f-office"),date:d,website:v("f-web")})});
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok||!j.success)throw new Error(j.message||"Your request could not be sent. Please call 215.244.5175.");
+      sum.textContent=lines.join("\n");f.hidden=true;done.hidden=false;f.reset();
+    }catch(x){err.textContent=x.message||"Your request could not be sent. Please call 215.244.5175.";err.hidden=false}
+    finally{btn.disabled=false;btn.textContent="Request a tour"}});
+  document.getElementById("editreq").addEventListener("click",()=>{done.hidden=true;f.hidden=false});
+})();
+</script>
+
+</body>
+</html>

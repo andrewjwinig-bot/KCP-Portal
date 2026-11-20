@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { storeJSON, listJSON } from "@/lib/storage";
+import { recordImport } from "@/lib/tracker/importEvents";
+
+// Always read fresh — otherwise Next caches the GET and the dashboard freezes on
+// a stale "most recent payroll" until redeploy.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET() {
   try {
@@ -23,7 +29,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, payroll, invoices, employees } = body;
+    const { name, payroll, invoices, employees, savedBy } = body;
     if (!name?.trim() || !invoices) {
       return NextResponse.json({ error: "name and invoices are required" }, { status: 400 });
     }
@@ -33,11 +39,14 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       payDate: payroll?.payDate ?? null,
       savedAt: new Date().toISOString(),
+      savedBy: typeof savedBy === "string" && savedBy.trim() ? savedBy.trim() : null,
       payroll,
       invoices,
       employees,
     };
     await storeJSON("periods", id, period);
+    // Ticks Harry's "Payroll Report" import (biweekly) on the dashboard.
+    try { await recordImport("imp-payroll", { at: period.savedAt, by: period.savedBy }); } catch { /* best-effort */ }
     return NextResponse.json({ id, savedAt: period.savedAt });
   } catch (e: any) {
     const msg = e?.message || e?.toString() || "Unknown error";
