@@ -4,6 +4,7 @@ import { DEFAULT_SHARE_IMAGE, PAGE_DESCRIPTIONS, SITE_NAME, SITE_ORIGIN } from "
 import SiteHeader from "./_components/SiteHeader";
 import SiteFooter from "./_components/SiteFooter";
 import { SiteLoadingProvider } from "./_components/SiteLoading";
+import { CompareBar } from "./_property/compare";
 
 // THE COMPANY WEBSITE (kormancommercial.com), rebuilt inside the portal from
 // the vendor's site in 10/2026 so we own it. Public — exempt from site auth in
@@ -31,6 +32,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
         <SiteHeader />
         <main className="pt-16">{children}</main>
         <SiteFooter />
+        <CompareBar />
       </SiteLoadingProvider>
     </div>
   );

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AVAILABLE_SPACE_PAGE, SITE_PROPERTIES } from "@/lib/site/content";
 import { liveSiteListings } from "@/lib/site/liveListings";
+import { withPropertyInfo } from "@/lib/site/spaces";
 import AvailableSpaceExplorer from "./AvailableSpaceExplorer";
 import { PAGE_DESCRIPTIONS, pageMeta } from "@/lib/site/seo";
 
@@ -16,11 +17,7 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMeta({ title: "Office & Retail Space for Lease", description: PAGE_DESCRIPTIONS.availableSpace, path: "/available-space" });
 
 export default async function AvailableSpacePage() {
-  const bySlug = new Map(SITE_PROPERTIES.map((p) => [p.slug, p]));
-  const listings = (await liveSiteListings()).map((l) => {
-    const p = bySlug.get(l.property);
-    return { ...l, propertyName: p?.name ?? "Other Properties", category: p?.category ?? "other", city: p?.city ?? null };
-  });
+  const listings = withPropertyInfo(await liveSiteListings(), SITE_PROPERTIES);
   const title = AVAILABLE_SPACE_PAGE.title || "Available Space";
 
   return (
