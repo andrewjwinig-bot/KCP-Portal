@@ -182,3 +182,12 @@
 .kcs .sp-points .as-contact-btn{white-space:nowrap}
 @media (max-width:900px){.kcs .sp-points{grid-template-columns:1fr;gap:16px}.kcs .sp-points-logo{height:48px}.kcs .sp-brand-logo img{height:44px}}
 .kcs .sp-cards{margin-top:48px}
+/* The brand card beside the space's headline (replaces the brand row and the
+   selling-points strip lower down). */
+.kcs .sp-head.with-brand{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:40px;align-items:start}
+.kcs .sp-brand-card{border:1px solid #e4e7ec;border-radius:12px;padding:20px 22px;background:#fff}
+.kcs .sp-brand-card .sp-brand-logo img{height:52px;width:auto}
+.kcs .sp-brand-card ul{list-style:none;margin:16px 0 14px;padding:0;display:grid;gap:8px}
+.kcs .sp-brand-card li{display:flex;gap:8px;align-items:flex-start;color:#344054;font-size:15px;line-height:1.35}
+.kcs .sp-brand-card li svg{color:#0b4a7d;flex:none;margin-top:2px}
+@media (max-width:1023px){.kcs .sp-head.with-brand{grid-template-columns:1fr;gap:24px}}
