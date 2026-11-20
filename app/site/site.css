@@ -168,3 +168,17 @@
 .kcs .site-footer{padding-top:3rem;padding-bottom:2.5rem}
 .kcs .site-footer-legal{margin-top:2.5rem;padding-top:2rem}
 .kcs .site-values{padding-top:1.5rem;padding-bottom:2.5rem}
+
+/* A property's own brand on its space pages (lib/site/propertyBrand.ts). */
+.kcs .sp-brand{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid #eaecf0}
+.kcs .sp-brand-logo img{display:block;height:56px;width:auto}
+.kcs .sp-brand-link{display:inline-flex;align-items:center;font-weight:600;color:#0b4a7d}
+.kcs .sp-brand-link:hover{text-decoration:underline}
+.kcs .sp-points{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:28px;margin-top:40px;padding:24px 28px;background:#fff;border:1px solid #e4e7ec;border-radius:12px}
+.kcs .sp-points-logo{height:64px;width:auto}
+.kcs .sp-points ul{display:flex;flex-wrap:wrap;gap:10px 28px;margin:0;padding:0;list-style:none}
+.kcs .sp-points li{display:inline-flex;align-items:center;gap:8px;color:#344054;font-size:15px}
+.kcs .sp-points li svg{color:#0b4a7d;flex:none}
+.kcs .sp-points .as-contact-btn{white-space:nowrap}
+@media (max-width:900px){.kcs .sp-points{grid-template-columns:1fr;gap:16px}.kcs .sp-points-logo{height:48px}.kcs .sp-brand-logo img{height:44px}}
+.kcs .sp-cards{margin-top:48px}
