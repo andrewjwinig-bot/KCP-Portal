@@ -22,11 +22,11 @@ const FILL: React.CSSProperties = { position: "absolute", height: "100%", width:
 export default function CurrentPropertiesPage() {
   return (
     <main className="min-h-screen flex flex-col">
-      <section className="bg-white py-16 border-b border-slate-100">
+      <section className="bg-white site-title-band border-b border-slate-100">
         <div className="container mx-auto px-4">
           <div className="flex flex-col items-start gap-0">
             <div className="bg-slate-800 h-1 w-16 mb-4" />
-            <h1 className="text-5xl md:text-6xl font-light text-slate-800 leading-tight">Current Properties</h1>
+            <h1 className="site-h1 font-light text-slate-800 leading-tight">Current Properties</h1>
           </div>
         </div>
       </section>

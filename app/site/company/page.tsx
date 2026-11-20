@@ -122,7 +122,7 @@ function ChapterSection({ c }: { c: Chapter }) {
     </div>
   );
   return (
-    <section className={`pt-8 pb-20 md:pb-24 ${c.bg}`}>
+    <section className={`site-chapter ${c.bg}`}>
       <div className="container mx-auto px-4">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-16 items-start">
@@ -138,7 +138,7 @@ export default function CompanyPage() {
   return (
     <main className="min-h-screen">
       <CompanyCollage />
-      <section className="pb-12 pt-12 bg-white">
+      <section className="site-values bg-white">
         <div className="container mx-auto px-4">
           <div className="max-w-6xl mx-auto">
             <div className="mb-12">

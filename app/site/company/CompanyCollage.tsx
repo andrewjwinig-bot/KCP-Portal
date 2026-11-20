@@ -29,9 +29,9 @@ export default function CompanyCollage() {
   }, []);
 
   return (
-    <section className="relative min-h-[65vh] md:min-h-[75vh] lg:min-h-[85vh] bg-white overflow-hidden flex items-center justify-center ">
+    <section className="site-collage relative bg-white overflow-hidden flex items-center justify-center ">
       <div
-        className="relative w-full max-w-screen-xl h-[65vh] md:h-[75vh] lg:h-[85vh] grid gap-2 md:gap-3 lg:gap-4"
+        className="site-collage-grid relative w-full max-w-screen-xl grid gap-2 md:gap-3 lg:gap-4"
         style={{ gridTemplateColumns: "repeat(24, 1fr)", gridTemplateRows: "repeat(8, 1fr)" }}
       >
         {TILES.map((t, i) => (
