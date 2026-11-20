@@ -56,14 +56,8 @@ export default function SpaceView({ l, property, brand, others, similar, pageUrl
 
       <section className="bg-white border-b border-slate-100">
         <div className="container mx-auto px-4 py-10">
-          {brand && (
-            <div className="sp-brand">
-              <a href={brand.href} className="sp-brand-logo" aria-label={brand.name}>
-                <img src={brand.logo.src} alt={brand.name} width={brand.logo.w} height={brand.logo.h} />
-              </a>
-              <a href={brand.href} className="sp-brand-link">{brand.linkLabel} <ArrowRight className="ml-1 h-4 w-4" /></a>
-            </div>
-          )}
+          <div className={brand ? "sp-head with-brand" : "sp-head"}>
+          <div>
           <div className="sp-eyebrow">{kind(l.category)} space for lease{property?.city ? ` · ${property.city}, ${property.state}` : ""}</div>
           <h1 className="text-4xl md:text-5xl font-light text-slate-800 leading-tight mt-2">{l.space}</h1>
           <p className="text-lg text-slate-600 mt-2">
@@ -80,6 +74,19 @@ export default function SpaceView({ l, property, brand, others, similar, pageUrl
             </button>
             <CompareToggle slug={spaceSlug(l)} label={label} />
             <a href="#inquire" className="as-contact-btn">Ask about this space</a>
+          </div>
+          </div>
+          {/* The property's own brand sits beside the space, not on a row of its
+              own (owner: "more compact"): logo, its selling points, the link back. */}
+          {brand && (
+            <aside className="sp-brand-card" aria-label={`About ${brand.name}`}>
+              <a href={brand.href} className="sp-brand-logo" aria-label={brand.name}>
+                <img src={brand.logo.src} alt={brand.name} width={brand.logo.w} height={brand.logo.h} />
+              </a>
+              <ul>{brand.points.map((t) => <li key={t}><Check className="h-4 w-4" />{t}</li>)}</ul>
+              <a href={brand.href} className="sp-brand-link">{brand.linkLabel} <ArrowRight className="ml-1 h-4 w-4" /></a>
+            </aside>
+          )}
           </div>
         </div>
       </section>
@@ -125,14 +132,6 @@ export default function SpaceView({ l, property, brand, others, similar, pageUrl
             <InquiryForm l={l} />
           </aside>
         </div>
-
-        {brand && (
-          <section className="sp-points" aria-label={`About ${brand.name}`}>
-            <img src={brand.logo.src} alt="" className="sp-points-logo" />
-            <ul>{brand.points.map((t) => <li key={t}><Check className="h-4 w-4" />{t}</li>)}</ul>
-            <a href={brand.href} className="as-contact-btn">{brand.linkLabel}</a>
-          </section>
-        )}
 
         {brand && others.length > 0 && <SpaceCards title={brand.othersLabel} spaces={others} />}
         {similar.length > 0 && <SpaceCards title="Similar spaces" spaces={similar} />}

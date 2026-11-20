@@ -1372,9 +1372,11 @@ handoff's screenshot crop.
   "more interplex branding … at least put the logo on the downloads so they know
   thats where it is"; `lib/site/propertyBrand.ts`). CO-BRANDING, not a re-skin —
   the page keeps the website's look so compare / inquiry / similar work across
-  every property. For a branded property (the Interplex, The Office Works): its
-  logo + a link back to its page above the space, a strip of its selling points
-  (the property page's own wording — never new claims), "Other suites at the
+  every property. For a branded property (the Interplex, The Office Works): a
+  BRAND CARD beside the space's headline (owner: "in this box … not on its own
+  row to make it more compact"; `.sp-brand-card`, stacks under it below 1024px)
+  — its logo, its selling points (the property page's own wording — never new
+  claims) and the link back to its page — then "Other suites at the
   Interplex" before Similar spaces (which then looks at other properties), and
   the logo above the space on the downloaded flyer (`downloadSpaceFlyer`'s
   `brand`). A new branded property is one entry in `PROPERTY_BRANDS`.
