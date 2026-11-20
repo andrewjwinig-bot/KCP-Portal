@@ -62,6 +62,9 @@ export const INVOICE_HISTORY_PAGE = "/invoices";
 /** A cardholder's own credit-card charges (Greg). NOT /expenses — that grant
  *  is the whole statement (`/api/expenses/working`'s full access). */
 export const MY_CARD_PAGE = "/expenses/mine";
+/** Every inquiry from the website's space pages (owner, 11/2026, #8): Drew,
+ *  Nancy, Harry and Alison see who asked about what and how they found us. */
+export const WEBSITE_LEADS_PAGE = "/website-leads";
 
 /** The monthly tenant notices — Greg approves and sends them (owner, 11/2026:
  *  "greg should approve … give him access to that page"). Granted on its own,
@@ -134,12 +137,14 @@ export const USERS: Record<UserId, UserDef> = {
       "investor-k1",
       "uo-tax",
       "invoice-history",
+      "website-leads",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
       "/budget-inputs",
       UO_PAGE,
       INVOICE_HISTORY_PAGE,
+      WEBSITE_LEADS_PAGE,
       "/tracker",
       "/properties",
       "/investors",
@@ -198,10 +203,10 @@ export const USERS: Record<UserId, UserDef> = {
   nancy: {
     id: "nancy",
     label: "NANCY",
-    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets", "open-credits", "uo-tax"]),
+    navKeys: new Set([...universalNav, "leasing-activity", "base-years", "commissions", "reservations", "maintenance", "deposits", "financials-budgets", "open-credits", "uo-tax", "website-leads"]),
     // Financials is limited to Budgets only — no Operating Statements,
     // Reprojections, or Cash Sheet.
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials/budgets", "/cam-recon", OPEN_CREDITS_PAGE, UO_PAGE],
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/commissions", "/reservations", "/maintenance", "/deposits", "/financials/budgets", "/cam-recon", OPEN_CREDITS_PAGE, UO_PAGE, WEBSITE_LEADS_PAGE],
     defaultRentRollCategory: "Office",
     defaultPropertyType: "Office",
     dashboardScope: { codes: OFFICE_AND_OW_INDIVIDUAL },
@@ -223,10 +228,10 @@ export const USERS: Record<UserId, UserDef> = {
     // "financials-budgets": Harry owns the shopping centres' leasing
     // assumptions, which live on the master budget page — without the grant
     // he could not open the page, or save a decision, on work assigned to him.
-    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets", "bank-balances", "open-credits", "nnn-quote", "uo-tax"]),
+    navKeys: new Set([...universalNav, "expenses", "expenses-history", "payroll-invoicer", "investors", "investor-k1", "commissions-retail", "deposits", "bank-transfers", "task-tracker", "base-years", "financials-budgets", "bank-balances", "open-credits", "nnn-quote", "uo-tax", "website-leads"]),
     // "/financials/cash-analysis" is Bank Balances — VIEW ONLY for Harry
     // (owner): `canEditCashSheet` keeps the import and reserves to Drew/admin.
-    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/financials/budgets", "/financials/cash-analysis", OPEN_CREDITS_PAGE, UO_PAGE, "/"],
+    allowedPathPrefixes: ["/dashboard", "/properties", "/rentroll", "/units", "/expenses", "/investors", "/investor-k1", "/commissions/retail", "/deposits", "/bank-transfers", "/cam-recon", "/tracker", "/financials/budgets", "/financials/cash-analysis", OPEN_CREDITS_PAGE, UO_PAGE, WEBSITE_LEADS_PAGE, "/"],
     defaultRentRollCategory: "Retail",
     defaultPropertyType: "Retail",
     dashboardScope: { codes: SC_INDIVIDUAL },
@@ -266,9 +271,10 @@ export const USERS: Record<UserId, UserDef> = {
     label: "ALISON",
     // President — a high-level view: dashboard, properties, investors,
     // rent roll, debt. No operational tools or action items.
-    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "bank-balances", "investor-k1", "open-credits", "nnn-quote", "uo-tax"]),
+    navKeys: new Set([...universalNav, "investors", "debt", "base-years", "bank-transfers", "financials-budgets", "financials-statements", "bank-balances", "investor-k1", "open-credits", "nnn-quote", "uo-tax", "website-leads"]),
     allowedPathPrefixes: [
       UO_PAGE,
+      WEBSITE_LEADS_PAGE,
       "/dashboard", "/properties", "/rentroll", "/units", "/investors", "/debt", OPEN_CREDITS_PAGE,
       "/bank-transfers", "/financials", "/cam-recon", "/reports", "/insurance",
       // Capability key, not a page — the K-1 tooling renders inside /investors.
@@ -481,6 +487,7 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   // Philadelphia U&O — the returns, the delinquent review, the JE.
   ["/api/uo", UO_PAGE],
   ["/api/invoice-history", INVOICE_HISTORY_PAGE],
+  ["/api/website-leads", WEBSITE_LEADS_PAGE],
   ["/api/commissions/retail", "/commissions/retail"],
   // The quarter's sent-log (dates only) — Harry's retail reminder reads it too.
   ["/api/commissions/avidbill-sent", ["/commissions", "/commissions/retail"]],

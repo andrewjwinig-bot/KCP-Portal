@@ -11,7 +11,9 @@ export type SitemapUrl = { loc: string; priority: number; changefreq: "daily" | 
 
 const DESIGNED_CENTRE_SLUGS = ["lafayette-hill", "brookwood", "grays-ferry", "parkwood", "parkwood-professional"];
 
-export function sitemapUrls(): SitemapUrl[] {
+/** `spaces`: every available space's page path (/site/space/<slug>) — the
+ *  route reads them from the live listings, so a leased space drops out. */
+export function sitemapUrls(spaces: string[] = [], landings: string[] = []): SitemapUrl[] {
   const out: SitemapUrl[] = [
     { loc: canonicalUrl("/"), priority: 1, changefreq: "weekly" },
     { loc: canonicalUrl("/available-space"), priority: 0.9, changefreq: "daily" },
@@ -32,6 +34,8 @@ export function sitemapUrls(): SitemapUrl[] {
     const loc = centerCanonical(slug);
     if (loc.startsWith(SITE_ORIGIN)) out.push({ loc, priority: 0.8, changefreq: "daily" });
   }
+  for (const path of landings) out.push({ loc: canonicalUrl(path), priority: 0.8, changefreq: "daily" });
+  for (const path of spaces) out.push({ loc: canonicalUrl(path), priority: 0.7, changefreq: "daily" });
   const seen = new Set<string>();
   return out.filter((u) => !seen.has(u.loc) && seen.add(u.loc));
 }

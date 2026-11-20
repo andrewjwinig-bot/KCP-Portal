@@ -204,6 +204,9 @@ describe("Tenant Notices — Greg approves and sends the month's notices", () =>
 describe("Tanya — invoices and receivables, never payroll by employee", () => {
   it("reads every invoice archive and U&O, writes only receivables", () => {
     expect(authorizeRequest("tanya", "/api/invoice-history")).toBe(true);
+    // Website Leads carry prospects' contact details: the leasing side only.
+    for (const u of ["drew", "nancy", "harry", "alison"] as const) expect(authorizeRequest(u, "/api/website-leads")).toBe(true);
+    for (const u of ["tanya", "tami", "greg", "randy"] as const) expect(authorizeRequest(u, "/api/website-leads")).toBe(false);
     expect(authorizeRequest("tanya", "/invoices")).toBe(true);
     expect(authorizeRequest("tanya", "/api/uo")).toBe(true);
     expect(authorizeRequest("tanya", "/api/allocation/history")).toBe(true);

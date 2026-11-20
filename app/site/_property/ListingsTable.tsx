@@ -4,6 +4,8 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, X } from "../_components/icons";
 import type { SiteImage, SiteListing } from "@/lib/site/content";
 import { FILL } from "./shared";
+import { CompareToggle } from "./compare";
+import { spacePath, spaceSlug } from "@/lib/site/spaces";
 
 // The AVAILABLE SPACE table — on a property page (one property, controls
 // inline with the title) and on /available-space (every property, a heading
@@ -125,10 +127,10 @@ function ListingPhotos({ l, onOpen }: { l: ListingWithProperty; onOpen: (imgs: S
 }
 
 /** A plan (floorplate, floor / site plan, campus map) is shown whole, never cropped. */
-const isPlan = (url: string) => /floorplate|floorplan|floor-plan|plan-|site-?plan|campus-map|\.svg($|\?)/i.test(url);
+export const isPlan = (url: string) => /floorplate|floorplan|floor-plan|plan-|site-?plan|campus-map|\.svg($|\?)/i.test(url);
 
 /** The listing's big call-out: who to call, their phone and email. */
-function ContactCallout({ l }: { l: ListingWithProperty }) {
+export function ContactCallout({ l }: { l: ListingWithProperty }) {
   if (!l.requestMoreInfoEmail && !l.contactPhone) return null;
   const where = l.propertyName ? `${l.space} at ${l.propertyName}` : l.space;
   const mail = l.requestMoreInfoEmail ? `mailto:${l.requestMoreInfoEmail}?subject=${encodeURIComponent(`Leasing inquiry: ${where}`)}` : null;
@@ -147,6 +149,16 @@ function ContactCallout({ l }: { l: ListingWithProperty }) {
         {tel && <a href={tel} className="as-contact-btn">Call {l.contactName?.split(" ")[0] ?? "us"}</a>}
         {mail && <a href={mail} className="as-contact-btn primary">Email about this space</a>}
       </div>
+    </div>
+  );
+}
+
+/** Every listing opens its own page and can go on the compare shortlist. */
+function SpaceLinks({ l }: { l: ListingWithProperty }) {
+  return (
+    <div className="as-space-links" onClick={(e) => e.stopPropagation()}>
+      <a href={spacePath(l)} className="as-link">Full details, flyer &amp; inquiry</a>
+      <CompareToggle slug={spaceSlug(l)} label={`${l.space} · ${l.propertyName}`} />
     </div>
   );
 }
@@ -210,7 +222,7 @@ function Table({ listings, format, cols, onOpen }: { listings: ListingWithProper
                         </div>
                         <div className="md:w-2/3 flex flex-col justify-between">
                           <div>
-                            <h3 className="text-xl font-medium text-slate-800 mb-4">{l.space}</h3>
+                            <h3 className="text-xl font-medium text-slate-800 mb-4"><a href={spacePath(l)} onClick={(e) => e.stopPropagation()} className="hover:underline">{l.space}</a></h3>
                             <ul className="space-y-2">
                               {(l.details ?? []).map((d, k) => (
                                 <li key={k} className="flex items-start">
@@ -221,6 +233,7 @@ function Table({ listings, format, cols, onOpen }: { listings: ListingWithProper
                             </ul>
                           </div>
                           <ContactCallout l={l} />
+                          <SpaceLinks l={l} />
                         </div>
                       </div>
                     </div>
@@ -277,6 +290,7 @@ function Cards({ listings, format, cols, onOpen }: { listings: ListingWithProper
                   ))}
                 </ul>
                 <ContactCallout l={l} />
+                          <SpaceLinks l={l} />
               </div>
             </div>
           </div>

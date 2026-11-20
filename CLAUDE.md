@@ -1348,6 +1348,40 @@ handoff's screenshot crop.
   SF across 4 properties") and Clear filters; the filters ride in the URL so a
   filtered view can be sent to a prospect. Styled by scoped `.as-*` rules at
   the end of site.css (no Tailwind compiler here).
+- **EVERY AVAILABLE SPACE HAS ITS OWN PAGE** (owner, 11/2026: "does giving
+  every vacant space its own page help with SEO? … suggest other similar spaces
+  … add to compare up to three … a download flyer for each space";
+  `lib/site/spaces.ts`, `app/site/space/[slug]`). `/site/space/<slug>` (the
+  slug is the listing id, URL-safe — `spaceSlug`) for every live listing:
+  search title + description, RealEstateListing + breadcrumb JSON-LD, in the
+  sitemap (the route reads the live listings, so a leased space drops out and
+  its address redirects to Available Space). The page: the highlighted plan and
+  photos, the facts, the contact call-out, **Download flyer**
+  (`spaceFlyer.ts`, one landscape page built in the browser with jsPDF —
+  WebP / SVG drawn through a canvas; `?flyer=1` downloads it on arrival),
+  **Compare**, the inquiry form, and **Similar spaces** (`similarSpaces`: same
+  type, nearest in size by ratio, another property nudged ahead). **Compare up
+  to three** (`app/site/_property/compare.tsx`): the shortlist is the
+  visitor's own (localStorage), a bar pinned to the bottom of every website
+  page (in the site layout), `/site/compare?spaces=a,b,c` side by side
+  (noindex). The Available Space table's expanded rows link each space's page
+  and carry Compare. The Office / Retail choice leads the page as two photo
+  tiles (300px).
+- **THE INQUIRY FORM ON EVERY SPACE, WITH AN AUTO-REPLY AND A LEAD LOG**
+  (owner, #8: "the autoreply can be in the formatting weve built for
+  emails"; `lib/site/spaceInquiry.ts`, `POST /api/website/space-inquiry`).
+  Honeypot + 5/hour. The SPACE is looked up on the server, so it goes to the
+  listing's own leasing contact (Nancy office, Harry retail), never an address
+  the form sent; the contact gets it in the website-submission look (Reply-To
+  the prospect), the prospect an auto-reply in `portalEmail`'s look ("KORMAN |
+  COMMERCIAL PROPERTIES") with the space's facts and a button to the page +
+  flyer, signed with the contact's company signature. Every inquiry is kept
+  (`website-leads`, `leadStore.ts`) with its channel (`leadChannel`:
+  utm_source, else the referrer — google / loopnet / direct …) and whether
+  both emails went. **Website Leads** (`/website-leads`, sidebar Directory;
+  Drew, Nancy, Harry, Alison — `WEBSITE_LEADS_PAGE`, its API
+  `/api/website-leads`, NOT under the public `/api/website/`) lists them with
+  the most-asked space and top source. Pinned by `spaceInquiry.test.ts`.
 - **EVERY LISTING SHOWS THE SITE PLAN, THEN A PHOTO** (owner: "none of the
   site plans are pulling … if there is not site plan available can you also
   show a property photo"; `withPropertyImages` in `liveListings.ts`): after a
