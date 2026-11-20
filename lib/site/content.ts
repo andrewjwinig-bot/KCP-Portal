@@ -61,6 +61,10 @@ export type SiteListing = {
    *  (liveListings.ts `withContact`); the listing's big call-out. */
   contactName?: string | null;
   contactPhone?: string | null;
+  /** The space's own type where it differs from its property's — Parkwood's
+   *  second-floor suites are OFFICE in a retail centre. A SiteCategory;
+   *  typed `string` so the pages' `& { category: string }` shapes still meet. */
+  category?: string;
 };
 
 export type SiteCategoryInfo = { slug: SiteCategory; title: string; description: PortableBlock[] | string | null };

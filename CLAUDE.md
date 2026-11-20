@@ -1382,6 +1382,14 @@ handoff's screenshot crop.
   Drew, Nancy, Harry, Alison — `WEBSITE_LEADS_PAGE`, its API
   `/api/website-leads`, NOT under the public `/api/website/`) lists them with
   the most-asked space and top source. Pinned by `spaceInquiry.test.ts`.
+- **PARKWOOD'S SECOND FLOOR IS OFFICE SPACE** (owner: "for office space it
+  should also show the second floor of 7010 since thats office";
+  `isOfficeSuite` in `liveListings.ts`): a designed suite whose floor line
+  reads "Second floor" (or whose use is an office suite) is listed with
+  `category: "office"` (`SiteListing.category`, read by `withPropertyInfo`
+  over the property's), so it falls under the Office tile, Similar spaces and
+  compare as office, and out of the retail landing pages. Parkwood shows in
+  the Property picker under both types.
 - **SEARCH LANDING PAGES** (owner, #6; `lib/site/landings.ts`,
   `app/site/lease/[slug]`): one page per search a prospect types — Office
   Space in Trevose & Bensalem, Small Office Space & Private Offices in Bucks
