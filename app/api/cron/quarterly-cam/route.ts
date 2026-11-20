@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { autoSendQuarterly, remindOverdueQuarters } from "@/lib/cam/retail/quarterlySend";
+import { sendCapexJeReminders } from "@/lib/cam/retail/capexJeReminderSend";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 
 export const runtime = "nodejs";
@@ -38,5 +39,8 @@ export async function GET(req: Request) {
   // Anything past its due date and still unsent: Drew is emailed, weekly,
   // until it goes (11/16/26 — Q3 2026 sat unsent with nothing saying so).
   const reminded = await remindOverdueQuarters().catch(() => []);
-  return NextResponse.json({ results, reminded });
+  // Each December 1st through the term: the capitalized CAM project's journal
+  // entry (2300's 2021 paving, 2026–2031).
+  const jeReminders = await sendCapexJeReminders().catch(() => []);
+  return NextResponse.json({ results, reminded, jeReminders });
 }
