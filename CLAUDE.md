@@ -1368,6 +1368,16 @@ handoff's screenshot crop.
   (noindex). The Available Space table's expanded rows link each space's page
   and carry Compare. The Office / Retail choice leads the page as two photo
   tiles (300px).
+- **A PROPERTY'S OWN BRAND ON ITS SPACE PAGES AND FLYERS** (owner, 11/2026:
+  "more interplex branding … at least put the logo on the downloads so they know
+  thats where it is"; `lib/site/propertyBrand.ts`). CO-BRANDING, not a re-skin —
+  the page keeps the website's look so compare / inquiry / similar work across
+  every property. For a branded property (the Interplex, The Office Works): its
+  logo + a link back to its page above the space, a strip of its selling points
+  (the property page's own wording — never new claims), "Other suites at the
+  Interplex" before Similar spaces (which then looks at other properties), and
+  the logo above the space on the downloaded flyer (`downloadSpaceFlyer`'s
+  `brand`). A new branded property is one entry in `PROPERTY_BRANDS`.
 - **THE INQUIRY FORM ON EVERY SPACE, WITH AN AUTO-REPLY AND A LEAD LOG**
   (owner, #8: "the autoreply can be in the formatting weve built for
   emails"; `lib/site/spaceInquiry.ts`, `POST /api/website/space-inquiry`).

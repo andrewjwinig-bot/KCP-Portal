@@ -9,6 +9,7 @@
 // a PDF takes JPEG / PNG and the website's images are WebP and SVG.
 
 import type { SiteImage } from "@/lib/site/content";
+import type { PropertyBrand } from "@/lib/site/propertyBrand";
 import { sizeText, type SpaceListing } from "@/lib/site/spaces";
 
 const NAVY: [number, number, number] = [11, 74, 125];
@@ -60,7 +61,7 @@ function place(doc: any, im: Img, x: number, y: number, w: number, h: number, co
 
 const isPlan = (url: string) => /floorplate|floorplan|floor-plan|plan-|site-?plan|campus-map|\.svg($|\?)/i.test(url);
 
-export async function downloadSpaceFlyer(l: SpaceListing, pageUrl: string) {
+export async function downloadSpaceFlyer(l: SpaceListing, pageUrl: string, brand?: PropertyBrand | null) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "letter" });
   const W = 792, H = 612, M = 36;
@@ -74,22 +75,33 @@ export async function downloadSpaceFlyer(l: SpaceListing, pageUrl: string) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(13);
   doc.text(`${l.category === "retail" ? "RETAIL" : l.category === "office" ? "OFFICE" : ""} SPACE FOR LEASE`.trim(), W - M, 39, { align: "right" });
 
+  // The property's own logo leads the page where it has one (the Interplex,
+  // The Office Works — lib/site/propertyBrand.ts), so the reader knows where
+  // the space is before reading a word; everything below moves down for it.
+  let dy = 0;
+  const logo = brand ? await toJpeg(brand.logo.src, 1200) : null;
+  if (logo) {
+    const lh = 44, lw = Math.min(300, lh * (logo.w / logo.h));
+    doc.addImage(logo.data, "JPEG", M, 82, lw, lw * (logo.h / logo.w));
+    dy = 50;
+  }
+
   // Title
   doc.setTextColor(...INK); doc.setFont("helvetica", "bold"); doc.setFontSize(24);
-  doc.text(doc.splitTextToSize(l.space, 300)[0], M, 104);
+  doc.text(doc.splitTextToSize(l.space, 300)[0], M, 104 + dy);
   doc.setFont("helvetica", "normal"); doc.setFontSize(12.5); doc.setTextColor(...MUTED);
-  doc.text(doc.splitTextToSize(`${l.propertyName}${l.city ? ` · ${l.city}` : ""}`, 300), M, 124);
+  doc.text(doc.splitTextToSize(`${l.propertyName}${l.city ? ` · ${l.city}` : ""}`, 300), M, 124 + dy);
 
   // Size, big
   doc.setTextColor(...NAVY); doc.setFont("helvetica", "bold"); doc.setFontSize(22);
-  doc.text(sizeText(l), M, 166);
+  doc.text(sizeText(l), M, 166 + dy);
 
   // Facts
   const facts: [string, string | null | undefined][] = [
     ["Rental rate", l.rentalRate], ["Rent type", l.rentType], ["Term", l.term],
     ["Use", l.spaceUse], ["Condition", l.condition], ["Available", l.available],
   ];
-  let y = 192;
+  let y = 192 + dy;
   doc.setFontSize(10);
   for (const [k, v] of facts) {
     if (!v || !String(v).trim()) continue;

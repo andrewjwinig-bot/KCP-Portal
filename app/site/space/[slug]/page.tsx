@@ -4,6 +4,7 @@ import { SITE_PROPERTIES } from "@/lib/site/content";
 import { liveSiteListings } from "@/lib/site/liveListings";
 import { propertyPath, sitePath } from "@/lib/site/paths";
 import { absolute, breadcrumbLd, canonicalUrl, ldJson, pageMeta } from "@/lib/site/seo";
+import { brandFor } from "@/lib/site/propertyBrand";
 import { similarSpaces, sizeText, spaceDescription, spacePath, spaceSlug, spaceTitle, withPropertyInfo } from "@/lib/site/spaces";
 import SpaceView from "./SpaceView";
 
@@ -33,7 +34,11 @@ export default async function SpacePage({ params }: { params: { slug: string } }
   const { all, l, p } = await load(params.slug);
   if (!l) redirect(sitePath("/available-space"));
   const url = spacePath(l);
-  const similar = similarSpaces(l, all, 3);
+  // A branded property (the Interplex, The Office Works) lists its own other
+  // spaces first; "Similar spaces" then looks elsewhere so nothing shows twice.
+  const brand = brandFor(l.property);
+  const others = brand ? all.filter((x) => x.property === l.property && x.id !== l.id).slice(0, 6) : [];
+  const similar = similarSpaces(l, brand ? all.filter((x) => x.property !== l.property) : all, 3);
   const propertyHref = p ? propertyPath(p.category, p.slug) : sitePath("/available-space");
 
   const ld = [
@@ -64,7 +69,7 @@ export default async function SpacePage({ params }: { params: { slug: string } }
   return (
     <>
       {ld.map((d, i) => <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(d) }} />)}
-      <SpaceView l={l} property={p} similar={similar} pageUrl={canonicalUrl(url)} propertyHref={propertyHref} />
+      <SpaceView l={l} property={p} brand={brand} others={others} similar={similar} pageUrl={canonicalUrl(url)} propertyHref={propertyHref} />
     </>
   );
 }
