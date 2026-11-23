@@ -207,6 +207,9 @@ describe("Tanya — invoices and receivables, never payroll by employee", () => 
     // Website Leads carry prospects' contact details: the leasing side only.
     for (const u of ["drew", "nancy", "harry", "alison"] as const) expect(authorizeRequest(u, "/api/website-leads")).toBe(true);
     for (const u of ["tanya", "tami", "greg", "randy"] as const) expect(authorizeRequest(u, "/api/website-leads")).toBe(false);
+    // Backups hold every document in the store — Drew and admin only.
+    expect(authorizeRequest("drew", "/api/backups")).toBe(true);
+    for (const u of ["alison", "harry", "nancy", "tanya", "tami", "greg", "randy"] as const) expect(authorizeRequest(u, "/api/backups")).toBe(false);
     expect(authorizeRequest("tanya", "/invoices")).toBe(true);
     expect(authorizeRequest("tanya", "/api/uo")).toBe(true);
     expect(authorizeRequest("tanya", "/api/allocation/history")).toBe(true);

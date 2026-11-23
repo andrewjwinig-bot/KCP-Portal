@@ -65,6 +65,9 @@ export const MY_CARD_PAGE = "/expenses/mine";
 /** Every inquiry from the website's space pages (owner, 11/2026, #8): Drew,
  *  Nancy, Harry and Alison see who asked about what and how they found us. */
 export const WEBSITE_LEADS_PAGE = "/website-leads";
+/** Backups of the portal's data (lib/backup) — Drew and admin only: a snapshot
+ *  holds every document in the store, K-1s and payroll included. */
+export const BACKUPS_PAGE = "/backups";
 
 /** The monthly tenant notices — Greg approves and sends them (owner, 11/2026:
  *  "greg should approve … give him access to that page"). Granted on its own,
@@ -138,10 +141,12 @@ export const USERS: Record<UserId, UserDef> = {
       "uo-tax",
       "invoice-history",
       "website-leads",
+      "backups",
     ]),
     allowedPathPrefixes: [
       "/dashboard",
       "/budget-inputs",
+      BACKUPS_PAGE,
       UO_PAGE,
       INVOICE_HISTORY_PAGE,
       WEBSITE_LEADS_PAGE,
@@ -488,6 +493,7 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   ["/api/uo", UO_PAGE],
   ["/api/invoice-history", INVOICE_HISTORY_PAGE],
   ["/api/website-leads", WEBSITE_LEADS_PAGE],
+  ["/api/backups", BACKUPS_PAGE],
   ["/api/commissions/retail", "/commissions/retail"],
   // The quarter's sent-log (dates only) — Harry's retail reminder reads it too.
   ["/api/commissions/avidbill-sent", ["/commissions", "/commissions/retail"]],
