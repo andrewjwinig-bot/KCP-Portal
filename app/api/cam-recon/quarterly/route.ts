@@ -4,6 +4,9 @@ import { saveQuarterlyCell, type QuarterlyField } from "@/lib/cam/retail/quarter
 import { loadQuarterly } from "@/lib/cam/retail/quarterlyLoad";
 import { sendRecordsFor } from "@/lib/cam/retail/quarterlySend";
 
+// A send is one email per invoice — it must not be cut off midway (bug audit 11/2026).
+export const maxDuration = 300;
+
 export const runtime = "nodejs";
 
 /** GET /api/cam-recon/quarterly?key=9510-WAWA-Q&year=2025

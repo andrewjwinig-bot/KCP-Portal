@@ -5,6 +5,9 @@ import { sendAllocation, previewAllocationSend } from "@/lib/allocated-invoicer/
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, USERS, type UserId } from "@/lib/users";
 
+// A send is one email per invoice — it must not be cut off midway (bug audit 11/2026).
+export const maxDuration = 300;
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

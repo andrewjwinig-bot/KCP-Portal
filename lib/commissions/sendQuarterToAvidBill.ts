@@ -16,7 +16,7 @@ import { deliverInvoicesToAvid } from "@/lib/invoicing/avidDelivery";
 import { sendApRegister } from "@/lib/invoicing/apRegister";
 import { createHash } from "node:crypto";
 import { getAvidSent } from "@/lib/invoicing/avidSentStore";
-import { recordSentInvoices } from "./history";
+import { loadCommissionHistory, recordSentInvoices } from "./history";
 import { renderCommissionInvoicePdf, invoiceNumberFor, commissionInvoiceNumber, priorInvoiceNumbers, COMMISSION_VENDOR_CODE } from "@/lib/pdf/renderCommissionInvoicePdf";
 import type { CommissionEntry } from "@/lib/commissions";
 import { canonicalQuarter, parseQuarterLabel, quarterShortCode } from "@/lib/commissions";
@@ -121,8 +121,26 @@ export async function sentTheOldWay(quarterLabel: string): Promise<boolean> {
 export async function deliveredEntryIds(quarterLabel: string, rows: QuarterInvoiceRow[]): Promise<Set<string>> {
   const parsed = parseQuarterLabel(quarterLabel);
   if (!parsed) return new Set();
-  const ledger = await getAvidSent("commissions", quarterShortCode(parsed.quarter, parsed.year));
-  return new Set(rows.filter((r) => inLedger(ledger.invoices, r.entry)).map((r) => r.entry.id));
+  const [ledger, history] = await Promise.all([
+    getAvidSent("commissions", quarterShortCode(parsed.quarter, parsed.year)),
+    loadCommissionHistory(),
+  ]);
+  const sentIds = sentHistoryIds(history, quarterLabel);
+  return new Set(rows.filter((r) => inLedger(ledger.invoices, r.entry) || sentIds.has(r.entry.id)).map((r) => r.entry.id));
+}
+
+/** The entry ids the as-sent history holds for a quarter. It is keyed by ENTRY
+ *  ID, so it still knows an invoice after an edit changed its tenant, suite or
+ *  building — and with it its file name, which the Avid ledger is keyed by
+ *  (bug audit 11/2026: an edited sent commission read as unsent and went to
+ *  Avid again under a new number). */
+function sentHistoryIds(history: Awaited<ReturnType<typeof loadCommissionHistory>>, quarterLabel: string): Set<string> {
+  const canon = canonicalQuarter(quarterLabel);
+  const ids = new Set<string>();
+  for (const [q, byId] of Object.entries(history ?? {})) {
+    if (canonicalQuarter(q) === canon) for (const id of Object.keys(byId ?? {})) ids.add(id);
+  }
+  return ids;
 }
 
 async function loadEntries(prefix: string, id: string): Promise<CommissionEntry[]> {
@@ -167,7 +185,8 @@ export async function sendQuarterToAvidBill(opts: {
   }
   const code = quarterShortCode(parsed.quarter, parsed.year);
 
-  const [sentLog, ledger] = await Promise.all([loadSentLog(), getAvidSent("commissions", code)]);
+  const [sentLog, ledger, history] = await Promise.all([loadSentLog(), getAvidSent("commissions", code), loadCommissionHistory()]);
+  const sentIds = sentHistoryIds(history, quarterLabel);
   // Sent before invoices went one per email: there is no per-invoice record,
   // so nothing can tell which invoices Avid actually took. Never re-send it
   // on its own — that is a person's call (`force`), after checking with AP.
@@ -187,7 +206,7 @@ export async function sendQuarterToAvidBill(opts: {
     return { ok: true, quarterLabel, count: 0, total: 0, reason: "No commissions logged for that quarter" };
   }
 
-  const pending = rows.filter((r) => !inLedger(ledger.invoices, r.entry));
+  const pending = rows.filter((r) => !inLedger(ledger.invoices, r.entry) && !sentIds.has(r.entry.id));
   if (pending.length === 0 && ledger.teamSummaryAt) {
     // Already out — make sure the history holds it (quarters sent before it existed).
     if (!dryRun) await recordSentInvoices(quarterLabel, rows).catch(() => {});
@@ -211,8 +230,13 @@ export async function sendQuarterToAvidBill(opts: {
     return { ok: false, quarterLabel, count: rows.length, total, reason: "Mail not configured" };
   }
 
+  // Only the invoices NOT yet at Avid go (bug audit 11/2026): handing the
+  // helper every row let one sent under an earlier file name ("Q3-26 Int Com
+  // - …") go again whenever a late entry made the quarter pending — the
+  // helper skips only an exact file-name match.
+  const toSend = pending.length ? pending : [];
   // Render all PDFs in parallel — pure CPU, no I/O.
-  const invoices = await Promise.all(rows.map(async (row) => {
+  const invoices = await Promise.all(toSend.map(async (row) => {
     const { entry } = row;
     const bytes = await renderQuarterInvoice(row);
     return {
@@ -224,7 +248,8 @@ export async function sendQuarterToAvidBill(opts: {
 
   // The team summary's "by building" table.
   const byBuilding = new Map<string, number>();
-  for (const r of rows) byBuilding.set(r.entry.building || "—", (byBuilding.get(r.entry.building || "—") ?? 0) + r.amount);
+  const summaryRows = pending.length ? pending : rows;
+  for (const r of summaryRows) byBuilding.set(r.entry.building || "—", (byBuilding.get(r.entry.building || "—") ?? 0) + r.amount);
   const byProperty = [...byBuilding].map(([code, amount]) => ({ code, name: "Leasing Commissions", amount }));
 
   const res = await deliverInvoicesToAvid({
@@ -234,7 +259,7 @@ export async function sendQuarterToAvidBill(opts: {
     period: code,
     invoices,
     byProperty,
-    total,
+    total: summaryRows.reduce((t, r) => t + r.amount, 0),
     teamCc: TEAM_CC,
   });
 
@@ -252,7 +277,7 @@ export async function sendQuarterToAvidBill(opts: {
   // the other three flows send it. A quarter goes out in pieces (office, retail,
   // a single retail entry), so each set of invoices is its own register.
   {
-    const regRows = rows.map((r) => ({
+    const regRows = summaryRows.map((r) => ({
       invoiceNumber: commissionInvoiceNumber(r.entry),
       code: r.entry.building ?? "",
       name: [r.entry.tenant, r.entry.suite ? `Suite ${r.entry.suite}` : ""].filter(Boolean).join(" · "),

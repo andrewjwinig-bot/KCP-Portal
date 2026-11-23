@@ -103,8 +103,10 @@ export async function previewQuarter(key: string, year: number, q: Quarter) {
     to: def.sendTo, from: FROM, bcc: COPY_TO,
     subject: email.subject, body: email.textBody, html: email.htmlBody, attachmentName: email.attachmentName,
     figures,
-    ready: quarterPosted(q, gl.maxPosted),
-    maxPosted: gl.maxPosted,
+    // Ready only once the quarter is OVER (Eastern) and a FULL GL reaches its
+    // last month — never on a posting report's interim figures.
+    ready: quarterClosed(year, q, todayEt(new Date())) && quarterPosted(q, gl.fullPosted),
+    maxPosted: gl.fullPosted,
     lastMonth: quarterLastMonth(q),
     auto: isAutoQuarter(def, year, q),
     spikes: spikes.map(spikeText),
@@ -147,6 +149,12 @@ export async function sendQuarter(
   if (prev?.status === "sending" && prev.startedAt && Date.now() - Date.parse(prev.startedAt) < 10 * 60_000) {
     return { ok: false, error: "This quarter is being sent right now." };
   }
+  // A send that never recorded its outcome may well have reached Wawa — a
+  // person checks before it goes again (bug audit 11/2026: it used to re-send
+  // on its own after ten minutes).
+  if (prev?.status === "sending" && !opts.force) {
+    return { ok: false, error: `A send of ${q} ${year} started ${prev.startedAt ? new Date(prev.startedAt).toLocaleString("en-US", { timeZone: "America/New_York" }) : "earlier"} and never finished recording. Check whether Wawa received it, then send again from the page if not.` };
+  }
   if (!p.ready && !opts.force) {
     return { ok: false, error: `The ${p.loaded.def.parentProperty} GL is posted through month ${p.maxPosted}; ${q} needs month ${p.lastMonth}.` };
   }
@@ -184,10 +192,12 @@ export async function sendQuarter(
     testMode: (res as { testMode?: boolean }).testMode ?? false,
     auto: !!opts.auto,
   };
+  // Recorded as SENT the moment the mail went — before anything else can fail.
+  await store.set(k, rec);
   try {
     rec.detail = quarterDetail(def, q, year, await assembledTransactions(def.parentProperty, year), effective);
+    await store.set(k, rec);
   } catch { /* the live detail still serves */ }
-  await store.set(k, rec);
   try {
     const occ = taskOccurrence(year, q);
     await markTaskComplete(occ.year, occ.month0, TASK_ID, { at: rec.sentAt!, by: opts.by ?? "auto", source: "wawa-quarterly" });
@@ -210,7 +220,7 @@ export async function autoSendQuarterly(parent: string | null, by: string | null
       for (const q of QUARTERS) {
         if (!isAutoQuarter(def, year, q)) continue;
         const rec = await getSendRecord(def.key, year, q);
-        if (rec?.status === "sent") continue;
+        if (rec?.status === "sent" || rec?.status === "sending") continue;
         const p = await previewQuarter(def.key, year, q);
         if (!p || !p.ready) continue;
         const reasons = [...p.spikes];

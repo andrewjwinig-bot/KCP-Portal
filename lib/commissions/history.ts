@@ -28,7 +28,7 @@ export type HistoryInvoice = {
 export type CommissionHistory = Record<string, Record<string, HistoryInvoice>>;
 
 export async function loadCommissionHistory(): Promise<CommissionHistory> {
-  const raw = await getJSON(PREFIX, HISTORY_ID);
+  const raw = await getJSON(PREFIX, HISTORY_ID, { retryOnMiss: true });
   return (raw && typeof raw === "object" ? raw : {}) as CommissionHistory;
 }
 

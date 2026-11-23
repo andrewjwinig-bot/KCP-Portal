@@ -174,7 +174,16 @@ export async function uoTick(now = new Date()): Promise<Record<string, unknown>>
     });
     if ((await send(UO_FILER_TO, e)).ok) { rec.overdueEmailedAt = at; done.push("overdue emailed"); }
   }
-  if (done.some((d) => !d.startsWith("assessments"))) await saveUoMonth(rec);
+  // Save ONLY the stamps this run set, onto a FRESH read — the review, the
+  // confirm and "filed" marks made on the page while it ran stay (bug audit
+  // 11/2026: the run's whole stale copy was written back over them).
+  if (done.some((d) => !d.startsWith("assessments"))) {
+    const fresh = (await getUoMonth(month)) ?? emptyMonth(month);
+    for (const k of ["reviewEmailedAt", "reviewRemindedAt", "readyEmailedAt", "overdueEmailedAt"] as const) {
+      if (rec[k] && !fresh[k]) fresh[k] = rec[k];
+    }
+    await saveUoMonth(fresh);
+  }
   return { month, stage, done };
 }
 

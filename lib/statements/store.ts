@@ -148,7 +148,9 @@ export async function mergeIntoPeriod(
 ): Promise<{ run: StatementRun; stats: MergeStats }> {
   if (!PERIOD_RE.test(period)) throw new Error(`Invalid statement period "${period}".`);
   const now = new Date().toISOString();
-  const existing = await store.get(period);
+  // The month's other buildings ride on this read — a blip must not read as an
+  // empty month and save this one file over it (bug audit 11/2026).
+  const existing = await store.get(period, { retryOnMiss: true });
 
   // Stamp provenance so a carried-over tenant stays identifiable later.
   const stamped = statements.map((s) => ({ ...s, importedAt: source.importedAt, sourceFile: source.filename, exportedAt: source.exportedAt ?? null }));

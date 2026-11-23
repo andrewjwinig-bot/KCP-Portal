@@ -35,7 +35,8 @@ function recordId(key: string): string {
 
 export type CollectionStore<T> = {
   /** One record by key, or null. */
-  get(key: string): Promise<T | null>;
+  /** `retryOnMiss` for a read a WRITE is built on — a blip must not read as "none". */
+  get(key: string, opts?: { retryOnMiss?: boolean }): Promise<T | null>;
   /** Every record in the collection. */
   all(): Promise<T[]>;
   /** Create or replace one record. Never touches other records. */
@@ -87,9 +88,9 @@ export function createCollectionStore<T>(opts: {
   const legacy: LegacyMigration<T> | undefined = opts.legacy ? { ...opts.legacy, keyOf } : undefined;
   const ensure = async () => { if (legacy) await migrate(prefix, legacy); };
   return {
-    async get(key) {
+    async get(key, getOpts) {
       await ensure();
-      return (await getJSON(prefix, recordId(key))) as T | null;
+      return (await getJSON(prefix, recordId(key), getOpts?.retryOnMiss ? { retryOnMiss: true } : undefined)) as T | null;
     },
     async all() {
       await ensure();

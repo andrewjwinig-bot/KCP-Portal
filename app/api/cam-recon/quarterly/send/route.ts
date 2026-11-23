@@ -9,7 +9,7 @@ import { buildQuarterlyPdf } from "@/lib/cam/retail/quarterlyPdf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 async function currentUser(): Promise<string | null> {
   const secret = process.env.SITE_AUTH_SECRET;

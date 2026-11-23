@@ -1010,6 +1010,36 @@ file) lives in ONE Vercel Blob store and had no second copy. `lib/backup/`:
   `data/allocation.xlsx`, `data/budgets/*.xlsx` and the onboarding handbook
   (EINs, bank details) are committed to git.
 
+# Bug audit 11/2026 — the automated sends, made idempotent
+
+- **Commissions send only invoices NOT yet at Avid** (`pending`, never every
+  row — the helper skips only an exact file-name match, so one sent under an
+  earlier name went again), and the as-sent HISTORY (keyed by entry id) counts
+  as sent too, so an EDITED sent commission is never re-sent (`sentHistoryIds`).
+- **Wawa's quarter is ready only when it is OVER and a FULL GL reaches its last
+  month** (`fullGlPostedThrough` — a posting report never makes it ready). The
+  send record turns "sent" the moment the mail goes; a record stuck at
+  "sending" is NEVER re-sent on its own — a person checks and sends with force.
+- **Tenant notices**: one writer at a time (`lib/lock.ts`, `withBatchLock` —
+  Send, the cron and a rebuild); `saveBatch` never lets a stored "sent" go back
+  to unsent; a notice is saved SENT before its correspondence is recorded; a
+  failed read of the batch THROWS (never "no batch").
+- **Allocated ledger**: read with `retryOnMiss`, and once any ledger was saved
+  (`ledger-exists`) a miss THROWS; the commit runs under ONE global lock
+  (`alloc-ledger-commit`) on a fresh read; a ledger that does not save leaves
+  the month OPEN and NOT marked sent (the retry commits it; Avid's per-invoice
+  ledger stops anything going twice).
+- **Avid's per-invoice ledger and the laser statement's month merge read with
+  `retryOnMiss`**; the retail commission send takes a per-entry lock and writes
+  only its own log entry; the AP register is retried on an "already sent" path
+  (it keeps its own record); **payroll invoices are archived as sent**; the U&O
+  cron saves only its own stamps onto a fresh read; every long send route has
+  `maxDuration = 300`.
+- **KNOWN, owner's call**: the tenant notices' automatic send (2 business days
+  after the build) meets the 24-hour data rule, so it only sends if the Credit
+  Balance Report was re-imported that day — otherwise Greg gets the stale-data
+  email.
+
 # Shared links — the host they are built on
 
 **Every emailed link is built by `linkOrigin(req)` (`lib/linkOrigin.ts`), never

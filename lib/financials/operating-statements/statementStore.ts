@@ -180,6 +180,16 @@ export async function latestGl(key: string, year: number): Promise<StoredGl | nu
   return getGl(versions[0].id);
 }
 
+/** The last month a FULL GL upload reaches — posting-report deltas left out.
+ *  A posting report is an interim figure; a bill sent to a tenant must wait
+ *  for the month's GL (bug audit 11/2026: a mid-month A/P posting report
+ *  raised the posted month and Wawa's quarter went on a partial month). */
+export async function fullGlPostedThrough(key: string, year: number): Promise<number> {
+  const all = await listFullGls();
+  const base = assembleGls(all.filter((g) => g.key === key && g.year === year));
+  return base?.maxPeriodInFile ?? 0;
+}
+
 /** All uploaded GLs for a property/year merged into one continuous series, so
  *  every uploaded month is present (cumulative or month-by-month uploads). */
 export async function assembledGl(key: string, year: number): Promise<StoredGl | null> {

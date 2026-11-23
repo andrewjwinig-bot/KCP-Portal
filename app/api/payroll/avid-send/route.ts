@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { saveSentInvoiceArchive } from "@/lib/invoicing/sentInvoiceArchive";
 import archiver from "archiver";
 import { PassThrough } from "stream";
 import { z } from "zod";
@@ -15,6 +16,9 @@ import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
 import { readFile } from "fs/promises";
 import path from "path";
+
+// A send is one email per invoice — it must not be cut off midway (bug audit 11/2026).
+export const maxDuration = 300;
 
 // The review-before-send gate's release step for payroll: the reviewer has
 // okayed the run on-screen, so the PROPERTY-LEVEL invoices go to AP (Avid) for
@@ -73,7 +77,23 @@ export async function POST(req: Request) {
     if (!isMailConfigured()) {
       return NextResponse.json({ sent: false, reason: "mail-not-configured", byProperty, total, invoiceCount: invoices.length, sentAt });
     }
+    // AP's register — every invoice # and amount, to match against Avid. It
+    // keeps its own record, so calling it again only sends one that has not
+    // gone (bug audit 11/2026: a register that failed once was never retried,
+    // because every retry stopped at "already sent" below).
+    const sendRegister = (by: string | null) => sendApRegister({
+      source: "payroll", label: "Payroll", period: payDate, periodLabel: `Pay date ${payDate}`, by,
+      rows: invoices
+        .map((inv: any) => ({
+          invoiceNumber: String(inv.invoiceNumber || payrollInvoiceNumber(inv, payDate)),
+          code: String(inv.propertyCode || inv.propertyKey || ""),
+          name: String(inv.propertyLabel || inv.propertyKey || ""),
+          amount: Math.round((Number(inv.total) || 0) * 100) / 100,
+        }))
+        .filter((r: { amount: number }) => r.amount > 0),
+    });
     if (!body.force && (await reportAlreadySent(DEDUP, payDate))) {
+      await sendRegister(null).catch(() => {});
       return NextResponse.json({ sent: false, reason: "already-sent", byProperty, total, invoiceCount: invoices.length, sentAt });
     }
 
@@ -122,22 +142,24 @@ export async function POST(req: Request) {
       archiveZip: zipBuf,
       privacyNote: true,
     });
+    // Keep the invoices AS SENT for Invoice History (bug audit 11/2026: the
+    // payroll page never archived them, so Tanya's history had no payroll PDFs).
+    if (result.avidSent > 0 || result.allDelivered) {
+      await saveSentInvoiceArchive({
+        source: "payroll", period: payDate, sentAt, sentBy: sender ? USERS[sender]?.label ?? sender : null,
+        invoices: invoices.map((inv: any, i: number) => ({
+          fileName: invoicePdfs[i].fileName, propertyLabel: invoicePdfs[i].propertyLabel,
+          code: String(inv.propertyCode || inv.propertyKey || "") || null,
+          amount: Math.round((Number(inv.total) || 0) * 100) / 100,
+          pdfBase64: invoicePdfs[i].pdf.toString("base64"),
+        })),
+      }).catch((e) => console.warn(`[payroll avid-send] invoice archive for ${payDate} not saved:`, e?.message ?? e));
+    }
     // Only mark done once all invoices + summary went out (retry-safe).
     if (result.allDelivered) {
       await markReportSent(DEDUP, payDate, AVID_TO);
       // AP's register — every invoice # and amount, to match against Avid.
-      await sendApRegister({
-        source: "payroll", label: "Payroll", period: payDate, periodLabel: `Pay date ${payDate}`,
-        by: sender ? USERS[sender]?.label ?? sender : null,
-        rows: invoices
-          .map((inv: any) => ({
-            invoiceNumber: String(inv.invoiceNumber || payrollInvoiceNumber(inv, payDate)),
-            code: String(inv.propertyCode || inv.propertyKey || ""),
-            name: String(inv.propertyLabel || inv.propertyKey || ""),
-            amount: Math.round((Number(inv.total) || 0) * 100) / 100,
-          }))
-          .filter((r: { amount: number }) => r.amount > 0),
-      });
+      await sendRegister(sender ? USERS[sender]?.label ?? sender : null);
     }
 
     return NextResponse.json({ sent: result.emailed, byProperty, total, invoiceCount: (result.avidSent + result.alreadySent) || invoices.length, sentAt });
