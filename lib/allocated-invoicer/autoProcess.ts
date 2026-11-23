@@ -25,6 +25,7 @@
 // skipped (prepare won't re-stage it, send won't re-finalize it), and a pending
 // send that's already been sent stays sent.
 
+import { takeLock, releaseLock } from "@/lib/lock";
 import "server-only";
 import { createHash } from "crypto";
 import { parseGLExcel, type GLParseResult, type GLTransaction, type GLAccountTotal } from "./glParser";
@@ -729,6 +730,8 @@ export async function sendAllocation(period: string, by?: string | null): Promis
       await markTaskComplete(now.getFullYear(), now.getMonth(), "m-alloc-exp", { at: now.toISOString(), source: "allocated" });
       if (await reportAlreadySent("allocated", period)) {
         delivered = true; // already fully sent on a prior run
+        // The register keeps its own record — sent now only if it never went.
+        await sendApRegister({ source: "allocated", label: "Allocated Expenses", period, periodLabel: billedOf(res).billedLabel || period, rows: batches.flatMap(registerRows), held: heldRowsFor(batches), by }).catch(() => {});
       } else {
         // Zip of all invoice PDFs — for the team's records only (never to Avid).
         let archiveZip: Buffer | null = null;
@@ -777,8 +780,20 @@ export async function sendAllocation(period: string, by?: string | null): Promis
     // matches every other Avid send path, which no-ops on mail-not-configured.)
     const commit = delivered;
     let finalized = false;
+    // The ledger is committed under ONE lock for every period, re-read inside
+    // it: two sends for different months (the cron and an import, or a 2010
+    // re-run) each saved their stale copy, and the last one dropped the
+    // other's finalize (bug audit 11/2026).
+    let ledgerToken: string | null = null;
     if (commit) {
-      let led = ledger;
+      for (let i = 0; i < 12 && !ledgerToken; i++) {
+        ledgerToken = await takeLock("alloc-ledger-commit", 5 * 60_000);
+        if (!ledgerToken) await new Promise((r) => setTimeout(r, 5_000));
+      }
+    }
+    let committed = false;
+    if (commit && ledgerToken) try {
+      let led = await getAllocLedger();
       // Fresh months: record the run + finalize carryover (chaining holds).
       for (const m of res.months) {
         try {
@@ -803,7 +818,14 @@ export async function sendAllocation(period: string, by?: string | null): Promis
       // Persist the recognized baselines for EVERY month this GL touched (fresh,
       // legacy-backfilled, and catch-up), so a later re-import bills only new deltas.
       try { led = applyRecognized(led, res.recognizedUpdates, nowISO()); } catch { /* best-effort */ }
-      try { await saveAllocLedger(led); } catch { /* best-effort */ }
+      // A ledger that did not save is NOT committed: the month stays open and
+      // is NOT marked sent, so the retry (Avid's per-invoice ledger keeps it
+      // from mailing anything twice) commits it — marking it sent here let the
+      // next import bill it again as a fresh month.
+      for (let i = 0; i < 3 && !committed; i++) {
+        try { await saveAllocLedger(led); committed = true; } catch (e) { if (i === 2) console.error(`[allocated] ${period}: the ledger did not save — month left open`, e); }
+      }
+      if (!committed) throw new Error("ledger not saved");
       try { await markPendingSent("allocated", period, by, billedOf(res)); } catch { /* best-effort */ }
       // Keep the PDFs exactly as sent — a finalized month can't be regenerated.
       try {
@@ -812,9 +834,21 @@ export async function sendAllocation(period: string, by?: string | null): Promis
           invoices: invoices.map((i) => ({ fileName: i.zipPath || i.fileName, propertyLabel: i.propertyLabel, pdfBase64: i.pdf.toString("base64") })),
         });
       } catch { /* best-effort */ }
+    } catch (e) {
+      console.error(`[allocated] ${period}: not committed`, e);
+    } finally {
+      if (ledgerToken) await releaseLock("alloc-ledger-commit", ledgerToken);
     }
 
     const sentAt = new Date().toISOString();
+    if (commit && !committed) {
+      return {
+        ok: false, reason: "ledger-not-committed",
+        statementMonth: period, periodText: gl.periodText,
+        total: res.total, byProperty: res.byProperty, emailed,
+        invoiceCount: pdfCount, monthCount: batches.length,
+      };
+    }
     if (!commit) {
       return {
         ok: false, reason: mailConfigured ? "partial-send" : "mail-not-configured",

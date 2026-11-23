@@ -5,7 +5,7 @@ import { cronAuthorized } from "@/lib/cronAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 /**
  * Daily safety net for the automatic quarterly CAM send (Wawa @ 9510): a

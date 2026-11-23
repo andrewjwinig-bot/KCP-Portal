@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
       if (!before.items.some(willSend)) return NextResponse.json({ error: "Nothing is ticked to send." }, { status: 400 });
       const r = await sendBatch(month, by);
       if (r.stale) return NextResponse.json({ error: r.stale, stale: true }, { status: 409 });
+      if (r.busy) return NextResponse.json({ error: r.busy }, { status: 409 });
       await logAudit({ event: "tenant-notices.send", user: by, ip: auditIp(req), detail: `${month} · ${r.sent} sent · ${r.failed} failed · ${r.remaining} left` });
       return NextResponse.json({ ok: true, ...r, counts: r.batch ? batchCounts(r.batch.items) : null });
     }

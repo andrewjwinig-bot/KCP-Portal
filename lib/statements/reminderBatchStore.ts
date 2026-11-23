@@ -13,6 +13,7 @@
 //   summary    — the business day before the 25th, every credit asked for,
 //                unposted first, to Drew and Tami
 
+import { takeLock, releaseLock } from "@/lib/lock";
 import "server-only";
 import { getJSON, listJSON, storeJSON } from "@/lib/storage";
 import { allRuns } from "./store";
@@ -51,10 +52,34 @@ const STALE_COPY_TO = (process.env.TENANT_NOTICE_STALE_CC ?? "dwinig@kormancomme
 export const CREDIT_SUMMARY_TO = (process.env.CREDIT_SUMMARY_TO ?? `dwinig@kormancommercial.com, ${AR_CONTACT_EMAIL}`).trim();
 
 
+/** The month's batch. A failed READ throws — it is never "no batch" (bug
+ *  audit 11/2026: a blip read as null made buildBatch start the month over,
+ *  every notice unsent, saved over the real batch — and the next send re-sent
+ *  everything already delivered). */
 export async function getBatch(month: string): Promise<ReminderBatch | null> {
-  return (await getJSON(BATCHES, month, { retryOnMiss: true }).catch(() => null)) as ReminderBatch | null;
+  return (await getJSON(BATCHES, month, { retryOnMiss: true })) as ReminderBatch | null;
 }
+
+/** ONE writer at a time: Greg's Send, the cron's automatic send and a Credit
+ *  Balance import's rebuild all rewrite the batch, and two at once sent
+ *  tenants twice (bug audit 11/2026). */
+const lockName = (month: string) => `tenant-notices-${month}`;
+async function withBatchLock<T>(month: string, busy: () => T, fn: () => Promise<T>): Promise<T> {
+  const token = await takeLock(lockName(month));
+  if (!token) return busy();
+  try { return await fn(); } finally { await releaseLock(lockName(month), token); }
+}
+/** Save the batch — and a notice the STORED copy shows as sent stays sent,
+ *  whoever is saving (Greg unticking, a rebuild, the cron) and however old
+ *  their copy is. Only ever adds "sent"; never takes it away. */
 async function saveBatch(b: ReminderBatch): Promise<void> {
+  const cur = (await getJSON(BATCHES, b.month).catch(() => null)) as ReminderBatch | null;
+  if (cur?.items?.length) {
+    const sentNow = new Map(cur.items.filter((i) => i.status === "sent").map((i) => [i.unitRef, i]));
+    b.items = b.items.map((i) => (i.status !== "sent" && sentNow.has(i.unitRef) ? sentNow.get(i.unitRef)! : i));
+    const have = new Set(b.items.map((i) => i.unitRef));
+    for (const [ref, i] of sentNow) if (!have.has(ref)) b.items.push(i);
+  }
   await storeJSON(BATCHES, b.month, b);
 }
 export async function listBatches(): Promise<ReminderBatch[]> {
@@ -126,6 +151,11 @@ async function loadAccounts(): Promise<{ accounts: AccountIn[]; dataAsOf: string
  * figures. The first build emails Greg; a rebuild after that does not.
  */
 export async function buildBatch(opts: { by: string | null; origin: string; notify?: boolean; today?: string }): Promise<ReminderBatch> {
+  const month = (opts.today ?? etToday()).slice(0, 7);
+  return withBatchLock(month, () => { throw new Error("The notices are being sent right now — import again in a few minutes to rebuild them."); }, () => buildBatchLocked(opts));
+}
+
+async function buildBatchLocked(opts: { by: string | null; origin: string; notify?: boolean; today?: string }): Promise<ReminderBatch> {
   const today = opts.today ?? etToday();
   const month = today.slice(0, 7);
   const prev = await getBatch(month);
@@ -239,7 +269,14 @@ export async function previewNotice(b: ReminderBatch, item: BatchItem) {
 
 /** Send every ticked notice. Progress is saved after each email, so a timeout
  *  or a second press never sends a tenant twice. */
-export async function sendBatch(month: string, by: string | null, deadlineMs = 270_000): Promise<{ batch: ReminderBatch | null; sent: number; failed: number; remaining: number; stale?: string }> {
+type SendResult = { batch: ReminderBatch | null; sent: number; failed: number; remaining: number; stale?: string; busy?: string };
+export async function sendBatch(month: string, by: string | null, deadlineMs = 270_000): Promise<SendResult> {
+  return withBatchLock<SendResult>(month,
+    () => ({ batch: null, sent: 0, failed: 0, remaining: 0, busy: "The notices are already being sent — this run stopped so no tenant gets two." }),
+    () => sendBatchLocked(month, by, deadlineMs));
+}
+
+async function sendBatchLocked(month: string, by: string | null, deadlineMs: number): Promise<SendResult> {
   const started = Date.now();
   const b = await getBatch(month);
   if (!b) return { batch: null, sent: 0, failed: 0, remaining: 0 };
@@ -248,8 +285,10 @@ export async function sendBatch(month: string, by: string | null, deadlineMs = 2
   if (!fresh.fresh) return { batch: b, sent: 0, failed: 0, remaining: b.items.filter(willSend).length, stale: staleMessage(fresh) };
   if (!b.approvedAt) { b.approvedAt = new Date().toISOString(); b.approvedBy = by; await saveBatch(b); }
   let sent = 0, failed = 0;
-  for (const item of b.items) {
+  for (const item of [...b.items]) {
     if (!willSend(item)) continue;
+    // The store may know it went (saveBatch keeps a stored "sent").
+    if (b.items.find((x) => x.unitRef === item.unitRef)?.status === "sent") continue;
     if (Date.now() - started > deadlineMs) break;
     try {
       const x = await noticeInputFor(b, item);
@@ -263,6 +302,12 @@ export async function sendBatch(month: string, by: string | null, deadlineMs = 2
       });
       if (!result.ok) throw new Error(result.error ?? "the email did not send");
       const id = newCorrespondenceId(item.unitRef);
+      // SENT is saved the moment the mail went — a failure recording the
+      // correspondence must not turn a delivered notice into "failed", which a
+      // Retry would send again (bug audit 11/2026).
+      Object.assign(item, { status: "sent", sentAt: new Date().toISOString(), sentTo: item.recipients, error: null, correspondenceId: id });
+      sent++;
+      await saveBatch(b);
       await recordTenantEmail({
         id, kind: "monthly-notice", unitRef: item.unitRef, propertyCode: item.propertyCode, tenantName: item.tenantName,
         sentAt: new Date().toISOString(), sentBy: by, from, to: item.recipients, bcc: null, replyTo: AR_CONTACT_EMAIL,
@@ -270,10 +315,9 @@ export async function sendBatch(month: string, by: string | null, deadlineMs = 2
         attachment: att ? { name: att.name, contentType: att.contentType, size: att.content.byteLength, base64: Buffer.from(att.content).toString("base64") } : null,
         summary: item.tier === "credit" ? "Credit balance notice" : item.tier === "past-due" ? "Past-due notice" : "Account reminder",
         refId: null, balance: item.acct.net,
-      });
-      Object.assign(item, { status: "sent", sentAt: new Date().toISOString(), sentTo: item.recipients, error: null, correspondenceId: id });
-      sent++;
+      }).catch((err) => console.error(`[tenant-notices] ${item.unitRef}: sent, but the correspondence record failed`, err));
     } catch (e) {
+      if (item.status === "sent") continue;
       Object.assign(item, { status: "failed", error: e instanceof Error ? e.message : String(e) });
       failed++;
     }

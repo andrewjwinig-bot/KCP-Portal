@@ -9,6 +9,9 @@ import { budgetUser } from "@/lib/financials/budgets/currentUser";
 import { USERS } from "@/lib/users";
 import { saveSentInvoiceArchive, codeOfLabel } from "@/lib/invoicing/sentInvoiceArchive";
 
+// A send is one email per invoice — it must not be cut off midway (bug audit 11/2026).
+export const maxDuration = 300;
+
 // The review-before-send gate's release step for the Credit Card and Payroll
 // invoicers. AvidXchange can't open a ZIP and takes one invoice per email, so
 // each invoice PDF goes to AP (kormancommercial@avidbill.com) as its own email;
@@ -83,6 +86,14 @@ export async function POST(req: Request) {
   }
   try {
     if (!body.force && (await reportAlreadySent(dedupKey(body.source), body.period))) {
+      // The register keeps its own record — a retry sends it only if it never went.
+      if (body.register?.length) {
+        await sendApRegister({
+          source: body.source, label, period: body.period, periodLabel: monthLabel(body.period),
+          rows: body.register.map((r) => ({ invoiceNumber: String(r.invoiceNumber), code: String(r.code), name: String(r.name), amount: Number(r.amount) })),
+          held: (body.held ?? []).map((h) => ({ code: String(h.code), name: String(h.name), amount: Number(h.amount) })), by: null,
+        }).catch(() => {});
+      }
       return NextResponse.json({ sent: false, reason: "already-sent", byProperty: body.byProperty, total: body.total, invoiceCount, sentAt });
     }
 

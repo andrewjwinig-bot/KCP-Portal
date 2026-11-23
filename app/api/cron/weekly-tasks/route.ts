@@ -9,6 +9,9 @@ import { recentlyVacatedTenants, type VacatedTenant } from "@/lib/leasing/recent
 import { collectNotPosted, significantNotPosted, type NotPostedItem } from "@/lib/financials/operating-statements/notPosted";
 import { buildDigest, weekBounds } from "@/lib/tracker/weeklyDigest";
 
+// A send is one email per invoice — it must not be cut off midway (bug audit 11/2026).
+export const maxDuration = 300;
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 

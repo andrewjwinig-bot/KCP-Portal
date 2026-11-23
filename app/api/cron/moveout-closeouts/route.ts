@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { runMoveoutWatch } from "@/lib/cam/moveout/watcher";
 import { cronAuthorized } from "@/lib/cronAuth";
 
+// A send is one email per invoice — it must not be cut off midway (bug audit 11/2026).
+export const maxDuration = 300;
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 

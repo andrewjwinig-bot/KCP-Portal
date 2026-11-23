@@ -10,6 +10,7 @@
 //   3. Harry the commission before markup, for payroll.
 // Each step is logged, so a retry finishes what failed and never repeats.
 
+import { takeLock, releaseLock } from "@/lib/lock";
 import "server-only";
 import * as XLSX from "xlsx";
 import { getJSON, storeJSON } from "@/lib/storage";
@@ -71,6 +72,15 @@ export type RetailEntrySendResult = {
 };
 
 export async function sendRetailEntry(id: string, by: string | null): Promise<RetailEntrySendResult> {
+  // One run per entry at a time: Save and the morning cron overlapping each
+  // passed "not yet sent" and emailed Marie the JE import twice (bug audit
+  // 11/2026). Avid itself has its own lock and ledger.
+  const token = await takeLock(`retail-commission-${id}`);
+  if (!token) return { ok: false, avid: false, marie: false, harry: false, reason: "This commission is being sent right now" };
+  try { return await sendRetailEntryLocked(id, by); } finally { await releaseLock(`retail-commission-${id}`, token); }
+}
+
+async function sendRetailEntryLocked(id: string, by: string | null): Promise<RetailEntrySendResult> {
   const entries: CommissionEntry[] = (await getJSON(PREFIX, RETAIL_ID)) ?? [];
   const entry = entries.find((e) => e.id === id);
   if (!entry) return { ok: false, avid: false, marie: false, harry: false, reason: "Commission not found" };
@@ -79,9 +89,15 @@ export async function sendRetailEntry(id: string, by: string | null): Promise<Re
   if (!parsed) return { ok: false, avid: false, marie: false, harry: false, reason: "No quarter on the commission" };
   if (!isMailConfigured()) return { ok: false, avid: false, marie: false, harry: false, reason: "Mail not configured" };
 
-  const log: EntryLog = ((await getJSON(PREFIX, LOG_ID)) ?? {}) as EntryLog;
+  const log: EntryLog = ((await getJSON(PREFIX, LOG_ID, { retryOnMiss: true })) ?? {}) as EntryLog;
   const rec = log[id] ?? {};
-  const save = async () => { log[id] = rec; await storeJSON(PREFIX, LOG_ID, log); };
+  // Re-read the log before each write and change only THIS entry, so a run
+  // for another entry is never written over with a stale copy.
+  const save = async () => {
+    const fresh = ((await getJSON(PREFIX, LOG_ID, { retryOnMiss: true })) ?? {}) as EntryLog;
+    fresh[id] = rec;
+    await storeJSON(PREFIX, LOG_ID, fresh);
+  };
   const invoiceNumber = commissionInvoiceNumber({ ...entry, quarter: quarterLabel });
   const commission = round2(Number(entry.incentiveAmount) || 0);
   const code = quarterShortCode(parsed.quarter, parsed.year);

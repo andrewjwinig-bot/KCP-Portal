@@ -20,7 +20,9 @@ export type AvidSentRecord = {
 };
 
 export async function getAvidSent(source: string, period: string): Promise<AvidSentRecord> {
-  const rec = (await getJSON(PREFIX, idFor(source, period))) as AvidSentRecord | null;
+  // retryOnMiss: this record is the ONLY guard against mailing Avid an invoice
+  // twice, so a momentary empty read must not read as "nothing sent".
+  const rec = (await getJSON(PREFIX, idFor(source, period), { retryOnMiss: true })) as AvidSentRecord | null;
   return {
     source, period,
     invoices: rec?.invoices ?? {},

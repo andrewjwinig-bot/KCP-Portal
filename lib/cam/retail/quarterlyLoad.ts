@@ -1,5 +1,5 @@
 import "server-only";
-import { assembledGl } from "@/lib/financials/operating-statements/statementStore";
+import { assembledGl, fullGlPostedThrough } from "@/lib/financials/operating-statements/statementStore";
 import {
   QUARTERLY_BILLINGS, QUARTERLY_OVERRIDE_SEED, autoQuarterlyFromGl, computeQuarterly, emptyQuarterlyData, mergeQuarterly,
   type QuarterlyBillingDef, type QuarterlyComputed, type QuarterlyData,
@@ -15,7 +15,7 @@ export type LoadedQuarterly = {
   /** auto < manual — what the worksheet shows and what is billed. */
   effective: QuarterlyData;
   computed: QuarterlyComputed;
-  gl: { hasGl: boolean; maxPosted: number; uploadedAt: string | null };
+  gl: { hasGl: boolean; maxPosted: number; uploadedAt: string | null; fullPosted: number };
 };
 
 /** ONE read of a quarter-billed tenant's year: the parent property's GL
@@ -26,7 +26,7 @@ export async function loadQuarterly(key: string, year: number): Promise<LoadedQu
   const def = QUARTERLY_BILLINGS[key];
   if (!def) return null;
   const manual = await getQuarterly(key, year);
-  const gl = await assembledGl(def.parentProperty, year);
+  const [gl, fullPosted] = await Promise.all([assembledGl(def.parentProperty, year), fullGlPostedThrough(def.parentProperty, year).catch(() => 0)]);
   const maxPosted = gl?.maxPeriodInFile ?? 0;
   const glAuto = gl ? autoQuarterlyFromGl(def, gl.monthly, maxPosted) : emptyQuarterlyData();
   const seed = QUARTERLY_OVERRIDE_SEED[`${key}-${year}`] ?? emptyQuarterlyData();
@@ -35,6 +35,6 @@ export async function loadQuarterly(key: string, year: number): Promise<LoadedQu
   return {
     def, manual, auto, effective,
     computed: computeQuarterly(def, effective),
-    gl: { hasGl: !!gl, maxPosted, uploadedAt: gl?.uploadedAt ?? null },
+    gl: { hasGl: !!gl, maxPosted, uploadedAt: gl?.uploadedAt ?? null, fullPosted },
   };
 }
