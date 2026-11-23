@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readSecureFile, SECURE_FILES } from "@/lib/secureFiles";
 import { saveSentInvoiceArchive } from "@/lib/invoicing/sentInvoiceArchive";
 import archiver from "archiver";
 import { PassThrough } from "stream";
@@ -60,7 +61,7 @@ export async function POST(req: Request) {
     const payDate: string = body.payroll?.payDate ?? "";
     if (!payDate) return NextResponse.json({ error: "Payroll has no pay date." }, { status: 400 });
 
-    const allocBuf = await readFile(path.join(process.cwd(), "data", "allocation.xlsx"));
+    const allocBuf = await readSecureFile(SECURE_FILES.allocation);
     const allocation = parseAllocationWorkbook(allocBuf);
     const invoices = body.invoices?.length ? body.invoices : buildInvoices(body.payroll, allocation as any);
     if (!invoices.length) return NextResponse.json({ error: "No payroll invoices to send." }, { status: 400 });

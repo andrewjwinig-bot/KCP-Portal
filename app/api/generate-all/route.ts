@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readSecureFile, SECURE_FILES } from "@/lib/secureFiles";
 import archiver from "archiver";
 import { PassThrough } from "stream";
 import { z } from "zod";
@@ -23,8 +24,7 @@ export async function POST(req: Request) {
   try {
     const body = BodySchema.parse(await req.json());
 
-    const allocationPath = path.join(process.cwd(), "data", "allocation.xlsx");
-    const allocBuf = await readFile(allocationPath);
+    const allocBuf = await readSecureFile(SECURE_FILES.allocation);
     const allocation = parseAllocationWorkbook(allocBuf);
 
     const invoices = body.invoices?.length ? body.invoices : buildInvoices(body.payroll, allocation as any);

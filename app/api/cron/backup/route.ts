@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { runBackup } from "@/lib/backup/run";
 import { alertBackupFailed } from "@/lib/backup/alert";
 import { easternDate } from "@/lib/backup/plan";
+import { seedSecureFiles } from "@/lib/secureFiles";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,9 @@ export async function GET(req: Request) {
 
   const start = Date.now();
   const now = new Date();
+  // Sensitive files still shipping in data/ move into protected storage
+  // (lib/secureFiles.ts) before the snapshot, so tonight's backup has them.
+  await seedSecureFiles().catch((e) => console.error(`[secure-files] seed failed: ${e instanceof Error ? e.message : e}`));
   try {
     const r = await runBackup({ deadline: start + 250_000, now });
     if (r.status === "partial" && now.getUTCHours() >= LAST_WINDOW_UTC) {

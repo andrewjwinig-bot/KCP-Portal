@@ -9,6 +9,7 @@
 // never re-seed even if every entry is later deleted — staff can
 // wipe a seed without it coming back.
 
+import { readSecureFile, SECURE_FILES } from "@/lib/secureFiles";
 import "server-only";
 import fs from "fs/promises";
 import path from "path";
@@ -489,7 +490,7 @@ function seedNeedsReparse(wb: BudgetWorkbook): boolean {
 
 async function parseSeed(cfg: SeedConfig): Promise<BudgetWorkbook | null> {
   try {
-    const buf = await fs.readFile(path.join(process.cwd(), "data", "budgets", cfg.file));
+    const buf = await readSecureFile(SECURE_FILES.budget(cfg.file));
     const wb = parseBudgetWorkbook(buf, cfg.label);
     // Pin id + year — the file's internal metadata may differ (the SC
     // file says 2026 in its own header even though the user told us the

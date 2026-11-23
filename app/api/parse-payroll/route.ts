@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { readSecureFile, SECURE_FILES } from "@/lib/secureFiles";
 import { readFile } from "fs/promises";
 import path from "path";
 
@@ -48,8 +49,7 @@ export async function POST(req: Request) {
     console.log(`[parse2] ${payroll.employees.map(e=>`${e.name}:tEr=${e.taxesErAmt}`).join(' | ')}`);
 
     // Load allocation workbook from the fixed location on disk
-    const allocPath = path.join(process.cwd(), "data", "allocation.xlsx");
-    const allocBuf = await readFile(allocPath);
+    const allocBuf = await readSecureFile(SECURE_FILES.allocation);
     const allocation = parseAllocationWorkbook(allocBuf);
 
     // Build invoices: matching is done internally by buildInvoices
