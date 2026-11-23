@@ -59,7 +59,9 @@ describe("the emails", () => {
     const x = { ...base, tier: "past-due" as const, monthlyCharges: 6125, acct: acct([ch("2026-08-01", "Base Rent", 5200)]) };
     const p = monthlyReminderParts(x);
     const { html } = renderMonthlyReminder(x, p.opening, p.closing);
-    expect(html).toContain("Payment already on its way?");
+    expect(html).toContain("If a payment was made or is already on its way to us");
+    // It is READ FIRST: before the opening paragraph and the balance panel.
+    expect(html.indexOf("If a payment was made")).toBeLessThan(html.indexOf("Balance due"));
     expect(html.toLowerCase()).not.toContain("refund");
     expect(html).not.toMatch(/\d{3}\.\d{3}\.\d{4}/);
   });
