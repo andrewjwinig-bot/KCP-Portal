@@ -2330,6 +2330,14 @@ workbooks and the "ShopCtrs U&O direct debit" JE sheet. NOTHING IS KEYED:
   property whose year is not certified yet is named in the email. No Skyline
   import file: the UO charge's sequence number differs by tenant, and a wrong
   one adds a second charge instead of replacing the first.
+- **EVERY U&O EMAIL IS PAUSED UNTIL LAUNCH** (owner, 11/23/26: "pause the
+  U&O email distributions since were not 100% ready"; `lib/uo/mail.ts`). All
+  U&O mail — the review / reminder to Greg & Harry, the returns and overdue
+  notice to Drew, the assessment alarm and changes, Tanya's January charges —
+  goes through its `sendMailDetailed`, which sends nothing and stamps nothing
+  while paused, so each goes out on the next cron run once live. The page, the
+  calculations and the cron's reads keep running. **To launch: set
+  `UO_EMAILS_LIVE=1` in Vercel.** Pinned by `mail.test.ts`.
 - **One return per OPA parcel with a U&O account** (`UO_PROPERTIES` in
   `lib/uo/config.ts`): 1100, 1500, 4500 (centre + the REAR PARCEL, no tenants,
   wholly vacant every month), 5600, 7010, 7200, 7300, 8200. City tax account

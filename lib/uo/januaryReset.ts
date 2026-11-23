@@ -16,7 +16,8 @@
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
-import { sendMailDetailed, VERIFIED_FROM } from "@/lib/mail";
+import { VERIFIED_FROM } from "@/lib/mail";
+import { sendMailDetailed, UO_PAUSED_MESSAGE } from "./mail";
 import { portalEmail } from "@/lib/email/portalEmail";
 import { etToday } from "@/lib/statements/reminderSchedule";
 import { chargesWorkbook } from "./chargesExport";
@@ -76,7 +77,7 @@ export async function sendJanuaryReset(year: number, now = new Date()): Promise<
     to: `${UO_CHARGES_TO}, ${UO_FILER_TO}`, from: `KCP Portal <${VERIFIED_FROM}>`, subject: e.subject, htmlBody: e.html, textBody: e.text,
     attachments: [{ name: `U&O by Tenant - January ${year}.xlsx`, content: new Uint8Array(xlsx), contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }],
   });
-  if (!res.ok) return { ok: false, rows: rows.length, error: "The email could not be sent." };
+  if (!res.ok) return { ok: false, rows: rows.length, error: res.error === UO_PAUSED_MESSAGE ? res.error : "The email could not be sent." };
   await storeJSON(PREFIX, String(year), { year, sentAt: now.toISOString(), rows: rows.length, to: UO_CHARGES_TO });
   return { ok: true, rows: rows.length };
 }

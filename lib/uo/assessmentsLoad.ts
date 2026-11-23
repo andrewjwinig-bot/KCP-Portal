@@ -5,7 +5,8 @@
 
 import "server-only";
 import { getJSON, storeJSON } from "@/lib/storage";
-import { sendMailDetailed, VERIFIED_FROM } from "@/lib/mail";
+import { VERIFIED_FROM } from "@/lib/mail";
+import { sendMailDetailed } from "./mail";
 import { portalEmail } from "@/lib/email/portalEmail";
 import { UO_PROPERTIES } from "./config";
 import {

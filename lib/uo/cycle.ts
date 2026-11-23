@@ -16,7 +16,8 @@
 
 import "server-only";
 import * as XLSX from "xlsx";
-import { sendMailDetailed, VERIFIED_FROM } from "@/lib/mail";
+import { VERIFIED_FROM } from "@/lib/mail";
+import { sendMailDetailed } from "./mail";
 import { portalEmail } from "@/lib/email/portalEmail";
 import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { etToday, isBusinessDay } from "@/lib/statements/reminderSchedule";
