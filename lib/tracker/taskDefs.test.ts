@@ -50,5 +50,6 @@ describe("Post PM and AP names the month it posts", () => {
     const { tasksForMonth } = await import("./taskDefs");
     expect(tasksForMonth(2026, 10).find((t) => t.id === "m-post")?.label).toBe("Post Oct PM and AP");
     expect(tasksForMonth(2027, 0).find((t) => t.id === "m-post")?.label).toBe("Post Dec PM and AP");
+    expect(tasksForMonth(2026, 10).find((t) => t.id === "m-close")?.label).toBe("Close Oct");
   });
 });
