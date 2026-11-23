@@ -52,6 +52,8 @@ type Q = {
   action?: string;
   /** A second way out: the page a tracker task's work happens on. */
   pageHref?: string;
+  /** The second button's words (default "Go to page"). */
+  pageLabel?: string;
   /** Whose move it is: "me" or a person / "Automatic" / "GL". */
   who: string;
   done?: boolean;
@@ -78,6 +80,32 @@ const when = (iso: string) => {
   return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 };
 const monthKey = (d: Date) => `tracker-v2-${d.getFullYear()}-${d.getMonth()}`;
+/** The Task Tracker, opened on this one task. */
+const trackerHref = (o: { id: string; date: Date; owner: string }) =>
+  `/tracker?task=${encodeURIComponent(o.id)}&date=${isoDay(o.date)}&owner=${o.owner}`;
+
+/** A task's main button names the page it opens ("Go to Receivables"). */
+const PAGE_NAMES: [string, string][] = [
+  ["/tenant-statements/credits", "Open Credits"], ["/tenant-statements", "Receivables"], ["/uo-tax", "U&O"],
+  ["/allocated-invoicer", "Allocated Invoicer"], ["/expenses", "CC Expense Coder"], ["/financials/cash-analysis", "Bank Balances"],
+  ["/commissions/retail", "Commissions"], ["/commissions", "Commissions"], ["/cam-recon/estimates", "CAM Estimates"],
+  ["/cam-recon", "CAM Recon"], ["/insurance", "Insurance SOV"], ["/financials/management-fees", "Management Fees"],
+  ["/financials/reprojections", "Reprojections"], ["/financials/workpapers", "Workpapers"], ["/financials/ten99", "1099 Register"],
+  ["/financials/budgets/draft", "Budget Draft"], ["/financials/budgets", "Budgets"], ["/bank-transfers", "Bank Transfers"],
+];
+const isExternal = (href: string) => /^https?:/i.test(href);
+function pageAction(link: string): string {
+  if (isExternal(link)) {
+    if (/chase\.com/i.test(link)) return "Open Chase";
+    if (/avidxchange/i.test(link)) return "Open AvidXchange";
+    return "Open site";
+  }
+  const hit = PAGE_NAMES.find(([p]) => link === p || link.startsWith(`${p}?`) || link.startsWith(`${p}/`));
+  return hit ? `Go to ${hit[1]}` : "Go to page";
+}
+/** An outside site opens in a new tab. */
+const extProps = (href: string) => (isExternal(href) ? { target: "_blank", rel: "noopener noreferrer" } : {});
+
 const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
@@ -243,10 +271,14 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
         id: `occ-${o.id}-${o.date.toISOString().slice(0, 10)}`, kind: "Task", icon: CircleCheck, tone: "neutral",
         title: o.label, meta: "Recurring", source: mine ? "Task Tracker" : `${o.owner[0].toUpperCase()}${o.owner.slice(1)}'s task`,
         bucket: bucketOf(startOfDay(o.date), now), dueText: dueOf(startOfDay(o.date), now),
-        // Open lands on THIS task in the Task Tracker (owner, 11/17/26); the
-        // page its work happens on is the second button.
-        href: `/tracker?task=${encodeURIComponent(o.id)}&date=${isoDay(o.date)}&owner=${o.owner}`, action: "Open in Task Tracker",
-        pageHref: o.link,
+        // A task whose work has a page opens THAT page (owner, 11/23/26: "tasks
+        // to open on the page where they are to be imported/uploaded/completed
+        // … only things that dont have pages … should open in task tracker");
+        // the Task Tracker is then the second button. Posting and closing in
+        // Skyline have no page, so they open on the tracker.
+        ...(o.link
+          ? { href: o.link, action: pageAction(o.link), pageHref: trackerHref(o), pageLabel: "Open in Task Tracker" }
+          : { href: trackerHref(o), action: "Open in Task Tracker" }),
         who: mine ? "me" : `${o.owner[0].toUpperCase()}${o.owner.slice(1)}`, done, toggle: mine ? () => toggleOcc(o) : undefined,
         steps: TASK_IMPORT[o.id],
       });
@@ -427,7 +459,7 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
                         <span style={{ fontSize: "var(--fs-12)", color: "var(--muted)", whiteSpace: "nowrap" }}>{q.source}</span>
                       </div>
                       {q.action && q.href && !q.done && (
-                        <Link href={q.href} className={`btn sm${q.tone === "red" || q.kind === "Close-out" ? " primary" : ""}`} style={{ textDecoration: "none" }} onClick={(e) => e.stopPropagation()}>{q.action}</Link>
+                        <Link href={q.href} {...extProps(q.href)} className={`btn sm${q.tone === "red" || q.kind === "Close-out" ? " primary" : ""}`} style={{ textDecoration: "none" }} onClick={(e) => e.stopPropagation()}>{q.action}</Link>
                       )}
                     </div>
                   </div>
@@ -448,8 +480,8 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
                 <span style={{ fontSize: "var(--fs-14)", color: "var(--muted)" }}>{[selected.meta, selected.source].filter(Boolean).join(" · ")}</span>
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {selected.href && <Link href={selected.href} className="btn primary" style={{ textDecoration: "none" }}>{selected.action ?? "Open"}</Link>}
-                {selected.pageHref && <Link href={selected.pageHref} className="btn" style={{ textDecoration: "none" }}>Go to page</Link>}
+                {selected.href && <Link href={selected.href} {...extProps(selected.href)} className="btn primary" style={{ textDecoration: "none" }}>{selected.action ?? "Open"}</Link>}
+                {selected.pageHref && <Link href={selected.pageHref} {...extProps(selected.pageHref)} className="btn" style={{ textDecoration: "none" }}>{selected.pageLabel ?? "Go to page"}</Link>}
                 {selected.toggle && <button className="btn" onClick={() => complete(selected)}>{selected.done ? "Mark not done" : "Mark done"}</button>}
               </div>
               {selected.left && selected.left.length > 0 && (
