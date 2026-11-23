@@ -452,7 +452,7 @@ the portal pages to open), the handbook's 90-day checklist
 (`onboarding-progress/<user>`, `/api/onboarding`) so Drew follows along by
 viewing as Randy; `/api/onboarding` is in `READ_ONLY_WRITES_ALLOWED` so Randy,
 read-only, can still record it. **The handbook .docx carries EINs and bank
-details**, so it lives in `data/onboarding/` and is served by
+details**, so it lives in PROTECTED STORAGE (`lib/secureFiles.ts`) and is served by
 `/api/onboarding/handbook` behind the `/onboarding` grant — never from
 `/public`. Randy's dashboard leads with `OrientationCard`; the sidebar's
 Orientation item shows only to a profile with the explicit `onboarding` key.
@@ -978,6 +978,19 @@ file) lives in ONE Vercel Blob store and had no second copy. `lib/backup/`:
   whole folder behind a confirm. A restore saves what is there NOW to
   `backups/pre-restore/<stamp>/` first and is in the audit log.
 - `/api/blob` refuses `backups/` paths to anyone without the Backups page.
+
+# Sensitive files live in PROTECTED STORAGE, not the repo (lib/secureFiles.ts)
+
+Owner, 11/23/26: "whatever is most secure". The payroll allocation workbook
+(pay by employee), the 2026 budget workbooks and the New Accountant Handbook
+(EINs, bank details) are read ONLY through `readSecureFile(SECURE_FILES.…)` —
+private Blob at `secure-files/<name>`, never served by `/api/blob` (not in
+`BLOB_FOLDERS`), copied by the nightly backup. While a copy still ships in
+`data/`, the first read — or the backup cron's `seedSecureFiles` — uploads it.
+A new allocation workbook is uploaded on the Payroll Invoicer (**Replace
+Workbook**, `POST /api/allocation`, checked it parses before it is saved,
+audit-logged), never committed. NEVER add a sensitive file to `data/` or
+`public/` again; put it through this helper.
 - NEXT: push each night's snapshot to SharePoint automatically once the
   Microsoft Graph app registration exists.
 
@@ -1011,8 +1024,8 @@ file) lives in ONE Vercel Blob store and had no second copy. `lib/backup/`:
   sign-in, above). **STILL OPEN (owner's call / later)**: `authorizeRequest` is default-ALLOW for
   unlisted APIs; PIN / login rate limits are per server instance; commission
   review and credit-apply links never expire; `xlsx@0.18.5` has known CVEs;
-  `data/allocation.xlsx`, `data/budgets/*.xlsx` and the onboarding handbook
-  (EINs, bank details) are committed to git.
+  the sensitive files are moving to protected storage (above) — once
+  seeded, delete them from `data/` and purge them from git history.
 
 # Bug audit 11/2026 — the automated sends, made idempotent
 

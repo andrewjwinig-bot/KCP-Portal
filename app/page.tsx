@@ -160,6 +160,7 @@ export default function Page() {
   const [empTab, setEmpTab] = useState<"breakdown" | "history">("breakdown");
   const [empHistory, setEmpHistory] = useState<EmpHistoryRow[] | null>(null);
   const [empHistoryLoading, setEmpHistoryLoading] = useState(false);
+  const [allocMsg, setAllocMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [allocEmployees, setAllocEmployees] = useState<import("../lib/allocation/export").AllocExportEmployee[]>([]);
   const { user } = useUser();
   const canSeeEmployeeDetail = user.id === "admin";
@@ -1048,11 +1049,32 @@ export default function Page() {
               </table>
             </div>
             <hr />
-            <div className="small muted">Allocation is read from <code>/data/allocation.xlsx</code> on the server. <span style={{ color: "#888" }}>(Data\LIK Management\Payroll)</span></div>
+            <div className="small muted">The allocation workbook is kept in the portal&apos;s protected storage. Use Replace Workbook below to load a new version.</div>
           </>
         )}
         <div style={{ marginTop: 10 }}>
           <button className="btn" onClick={downloadAllocTemplate} disabled={!allocEmployees.length}>Export Allocations</button>
+          <label className="btn" style={{ marginLeft: 8, cursor: "pointer" }}>
+            Replace Workbook
+            <input type="file" accept=".xlsx" style={{ display: "none" }} onChange={async (e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (!f) return;
+              const fd = new FormData();
+              fd.append("file", f);
+              const r = await fetch("/api/allocation", { method: "POST", body: fd });
+              const d = await r.json().catch(() => ({}));
+              if (!r.ok) { setAllocMsg({ ok: false, text: d.error || "Could not replace the workbook." }); return; }
+              const fresh = await fetch("/api/allocation").then((x) => x.json()).catch(() => null);
+              if (fresh?.employees) setAllocEmployees(fresh.employees);
+              setAllocMsg({ ok: true, text: `${d.employees} employees · ${f.name}` });
+            }} />
+          </label>
+          {allocMsg && (
+            <StatusBanner compact tone={allocMsg.ok ? "success" : "danger"} title={allocMsg.ok ? "Allocation workbook replaced" : "Workbook not replaced"} style={{ marginTop: 10 }}>
+              {allocMsg.text}
+            </StatusBanner>
+          )}
         </div>
       </div>
 
