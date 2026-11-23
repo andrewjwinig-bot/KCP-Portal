@@ -398,6 +398,8 @@ export const TASK_DEFS: TaskDef[] = [
   {
     id: "m-stmts",
     label: "Laser Statements",
+    // Which month's (owner: "it should say November Laser Statements").
+    labelFor: (year, month) => `${MONTHS[month]} Laser Statements`,
     category: "routine",
     dueDay: 5,
     link: "/tenant-statements",

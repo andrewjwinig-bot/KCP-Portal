@@ -33,7 +33,7 @@ type QuarterDue = {
 };
 
 /** A tracker task that IS an import (the Bank Balances Monday task). */
-const TASK_IMPORT: Record<string, string> = { "w-bank": "imp-bank" };
+const TASK_IMPORT: Record<string, string> = { "w-bank": "imp-bank", "m-stmts": "imp-stmts" };
 
 type Bucket = "overdue" | "today" | "week" | "later";
 type Tone = "red" | "amber" | "brand" | "neutral" | "green";
@@ -296,7 +296,8 @@ export default function WorkQueue({ firstName, owner = "drew" }: { firstName: st
     // A weekly import that is also a tracker task (Bank Balances) is listed
     // once — the task, which the import ticks.
     const taskLabels = new Set(occ.filter((o) => o.owner === owner).map((o) => o.label.toLowerCase()));
-    for (const r of IMPORT_REMINDERS.filter((x) => (x.owner ?? "drew") === owner && !taskLabels.has(x.label.toLowerCase()))) {
+    const taskImports = new Set(occ.filter((o) => o.owner === owner).map((o) => TASK_IMPORT[o.id]).filter(Boolean));
+    for (const r of IMPORT_REMINDERS.filter((x) => (x.owner ?? "drew") === owner && !taskLabels.has(x.label.toLowerCase()) && !taskImports.has(x.id))) {
       const st = reminderStatus(r, events[r.id]?.at, now, coverage[r.id]);
       const cov = coverage[r.id];
       const period = reminderPeriodLabel(r, now);

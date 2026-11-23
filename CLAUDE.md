@@ -4591,6 +4591,7 @@ behind `GL_VIEW_SHOWN = false` — kept intact, not deleted.
   "delete this"); the email itself still goes. To change who gets it, edit
   `SEEDED_RECIPIENTS` (or POST `/api/financials/bank-balances/email`, which
   remains, as does its `{send:true}`). Each send is Bcc'd to Drew (`CASH_POSITION_COPY_TO`).
+- **A LASER STATEMENT IMPORT TICKS THAT MONTH'S "Laser Statements" TASK** (owner: imported Oct–Dec and November still read overdue): `/api/tenant-statements` marks `m-stmts` complete for the statement's own PERIOD, and `/api/tracker/completions` counts a period already in the statement store (last / this / next month) as done, so months imported before the tick count too. The task reads "November Laser Statements" (`labelFor`), and the Work Queue lists it once (`TASK_IMPORT` maps it to `imp-stmts`).
 - **The monthly "Operating Statements" task is GONE** (`m-opstmt` / `drew-m-opstmt`; owner: "now that i import them that really is the task") — the General Ledger import reminder (`imports.ts`) is the task.
 - **The monthly "Cash Analysis Report" task is GONE** (`m-cash` in `taskDefs.ts`, `drew-m-cash` in `marie-tasks.ts`; owner: "now i just import the weekly bank balances instead"). The weekly Bank Balances import below replaces it.
 - **"Bank Balances" is also a WEEKLY TASK on Drew's tracker, every Monday**
