@@ -76,10 +76,18 @@ export async function POST(req: NextRequest) {
   }
   let ok: boolean;
   let passwordPending = false;
+  let sharedPassword = false;
   try {
     const r = await checkPassword(user, password, { adminTier: isAdmin });
     ok = r.ok;
-    passwordPending = r.ok && r.mustChange;
+    // The shared office password is a way IN, never a way to STAY: whoever
+    // signs in with it is confined to /security until they choose their own
+    // (owner, 11/2026: "personal passwords is good"). The admin tier's
+    // HISTORY_PASSWORD is the owner's own and is left alone, and so is the
+    // shared SERVICE login (`maint`) — several people use it, so it has no
+    // one person to choose a password for it.
+    sharedPassword = r.ok && r.source === "shared" && !isAdmin && user !== "maint";
+    passwordPending = r.ok && (r.mustChange || sharedPassword);
   } catch {
     return NextResponse.json({ error: "Sign-in is unavailable for a moment — try again." }, { status: 503 });
   }
@@ -127,6 +135,6 @@ export async function POST(req: NextRequest) {
     res.cookies.set(HISTORY_COOKIE, hist.value, { ...COOKIE_OPTS, maxAge: hist.maxAge });
   }
 
-  await logAudit({ event: "login.success", user, ip: auditIp(req), detail: `${isAdmin ? "admin tier" : "employee tier"}${enrollPending ? " · enrollment required" : ""}${passwordPending ? " · one-time password" : ""}` });
+  await logAudit({ event: "login.success", user, ip: auditIp(req), detail: `${isAdmin ? "admin tier" : "employee tier"}${enrollPending ? " · enrollment required" : ""}${sharedPassword ? " · shared password, must choose own" : passwordPending ? " · one-time password" : ""}` });
   return res;
 }
