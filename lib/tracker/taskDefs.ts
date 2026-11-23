@@ -349,6 +349,7 @@ export const TASK_DEFS: TaskDef[] = [
   {
     id: "m-close",
     label: "Close Prior Month",
+    labelFor: (year, month) => `Close ${MONTHS[(month + 11) % 12].slice(0, 3)}`,
     category: "routine",
     dueDay: 20,
     approxDay: true,
