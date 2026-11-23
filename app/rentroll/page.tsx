@@ -1840,7 +1840,7 @@ export default function RentRollPage() {
         actions={<>
             <input
               ref={fileInputRef}
-              type="file"
+              type="file" data-import="Rent Roll"
               accept=".xlsx,.xls"
               style={{ display: "none" }}
               onChange={handleFileChange}

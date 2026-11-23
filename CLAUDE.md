@@ -303,6 +303,7 @@ touched UI to it.
   KPI tiles sit BELOW it** (owner: "the box should cut after the pickers
   before the … KPI boxes") — NNN Quote is the reference.
 - **NO DROP-ZONE CARDS** (owner: "the drop the october 2026 folder here is different than the other import buttons"): an import is the header's `.btn.import` + its (i) (where the files live, as a `FilePath`), and drag-and-drop lands on the header (`PageHeader`'s `dropHandlers` / `dragging`). Bank Recs' dashed "Drop the folder here" box went for this; its folder picker is a button inside the (i).
+- **A FILE DROPPED ANYWHERE ON A PAGE GOES TO ITS IMPORT** (owner: "allow user to drag and drop files on all pages instead of having to click import"; `PageDrop`, mounted once in `AppShell`). A page opts an import in by marking its hidden file input `data-import="<Thing>"` ("Laser Statement", "Rent Roll"); the drop is fed through that input (`feedInput`), so the page's own import runs unchanged. An attachment input (receipt, floor plan, check image) is never marked, so it never catches a stray drop; a drop target that handles its own drop wins. A file only one import accepts (by its `accept`) goes straight in; several (Receivables' Laser Statement and Credit Balance Report both read .xls) → "Import this file as…". A NEW import input gets `data-import`.
 - **Imports are `.btn.import` with the Lucide `Upload` icon, labelled
   "Import <thing>"** (Import GL, Import Rent Roll, Import Laser Statement,
   Import Credit Balance Report): a SOFT NAVY TINT, so it reads apart from the

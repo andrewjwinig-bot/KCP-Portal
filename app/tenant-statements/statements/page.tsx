@@ -338,7 +338,7 @@ export default function TenantStatementsPage() {
             </MetaLine>
           );
         })()}>
-        <input ref={fileRef} type="file" accept=".pdf,.xls,.xlsx" multiple style={{ display: "none" }}
+        <input ref={fileRef} type="file" data-import="Laser Statement" accept=".pdf,.xls,.xlsx" multiple style={{ display: "none" }}
           onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; void processFiles(f); }} />
       </PageHeader>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import PageDrop from "./PageDrop";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Sidebar from "./Sidebar";
@@ -83,6 +84,7 @@ export default function AppShell({ children, website = false }: { children: Reac
     <div style={{ paddingLeft: sidebarW, transition: "padding-left 0.2s ease", minHeight: "100vh", overflowX: "hidden" }}>
       <TitleTips enabled={tipsOn} />
       <ScrollSync />
+      <PageDrop />
       {isNarrow && (
         <button
           type="button"

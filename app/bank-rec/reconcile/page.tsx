@@ -216,7 +216,7 @@ export default function BankRecPage() {
             </InfoPopover>
             <input ref={folderInput} type="file" hidden multiple {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
               onChange={(e) => { importFiles([...(e.target.files ?? [])]); e.target.value = ""; }} />
-            <input ref={fileInput} type="file" hidden multiple accept=".pdf,.xls,.xlsx"
+            <input ref={fileInput} type="file" data-import="Bank Rec Files" hidden multiple accept=".pdf,.xls,.xlsx"
               onChange={(e) => { importFiles([...(e.target.files ?? [])]); e.target.value = ""; }} />
           </>}
           {r && !signed && <button className="btn" disabled={!!busy || reconciling} onClick={() => run()}>Re-run</button>}

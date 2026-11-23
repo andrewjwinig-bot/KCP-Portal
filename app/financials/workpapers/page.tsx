@@ -265,7 +265,7 @@ export default function WorkpapersPage() {
               <div className="small muted">Imported here, the tenant aging stays out of Open Credits and the monthly tenant notices.</div>
             </div>
           </InfoPopover>
-          <input ref={apInput} type="file" hidden multiple accept=".pdf,.xls,.xlsx" onChange={(ev) => { const fs = Array.from(ev.target.files ?? []); if (fs.length) importFiles(fs); ev.target.value = ""; }} />
+          <input ref={apInput} type="file" data-import="Aging Reports" hidden multiple accept=".pdf,.xls,.xlsx" onChange={(ev) => { const fs = Array.from(ev.target.files ?? []); if (fs.length) importFiles(fs); ev.target.value = ""; }} />
           {wp && <DownloadMenu label="Export" items={[{ label: "Excel workbook", description: "Summary, trial balance and a schedule per account", href: `/api/financials/workpapers?key=${encodeURIComponent(key)}&year=${y}&month=${m}&format=xlsx` }]} />}
         </>}
         meta={wp && <MetaLine>
