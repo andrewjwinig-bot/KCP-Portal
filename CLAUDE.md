@@ -4919,7 +4919,7 @@ email with the subject and graphic, an empty To and no From, so it goes from
 his own mailbox to his distribution lists. Afterwards he clicks "I sent it —
 mark sent" (`POST /api/communications { action: "sent" }`), recorded as
 `viaOutlook` so the seasonal dashboard prompt clears and the history keeps it.
-The API refuses any other action — there is no send or test path any more.
+The API refuses any other action — there is no send or test path any more. **A download lands silently and a web page cannot launch Outlook** (Greg: "nothing happened"), so after the click the modal SAYS where the file went, and **Copy Email** puts the same HTML on the clipboard to paste into a New Email — the path that works in the new Outlook for Windows and Outlook on the web, which do not open an `.eml` as a draft.
 Pinned by `draftEml.test.ts`. Tenant Emails sits in the sidebar's Service
 group.
 
