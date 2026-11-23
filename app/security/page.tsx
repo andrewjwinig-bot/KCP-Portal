@@ -19,6 +19,7 @@ export default function SecurityPage() {
   const [status, setStatus] = useState<Status | null>(null);
   const [enroll, setEnroll] = useState<Enrollment | null>(null);
   const [code, setCode] = useState("");
+  const [currentCode, setCurrentCode] = useState("");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -40,7 +41,7 @@ export default function SecurityPage() {
   async function startEnroll() {
     setBusy(true); setMsg(null);
     try {
-      const j = await fetch("/api/2fa/enroll", { method: "POST" }).then((r) => r.json());
+      const j = await fetch("/api/2fa/enroll", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: currentCode }) }).then((r) => r.json());
       if (j.error) setMsg(j.error); else { setEnroll(j); setCode(""); }
     } finally { setBusy(false); }
   }
@@ -57,11 +58,18 @@ export default function SecurityPage() {
       } else setMsg(j.error ?? "Could not verify the code.");
     } finally { setBusy(false); }
   }
+  async function resetUser(id: string, label: string) {
+    if (!window.confirm(`Clear ${label}'s two-factor? They sign in with their password alone until they set it up again.`)) return;
+    const r = await fetch("/api/2fa/reset", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: id }) });
+    setMsg(r.ok ? `${label}'s two-factor was reset.` : "Could not reset it.");
+  }
   async function disable() {
     setBusy(true); setMsg(null);
     try {
-      await fetch("/api/2fa/disable", { method: "POST" });
+      const j = await fetch("/api/2fa/disable", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: currentCode }) }).then((r) => r.json()).catch(() => ({ error: "Could not turn it off." }));
+      if (j.error) { setMsg(j.error); return; }
       setMsg("Two-factor authentication is off.");
+      setCurrentCode("");
       setStatus((s) => (s ? { ...s, enabled: false } : s));
     } finally { setBusy(false); }
   }
@@ -94,7 +102,7 @@ export default function SecurityPage() {
           </StatusBanner>
         )}
 
-        {msg && <StatusBanner compact tone="success" title={msg} />}
+        {msg && <StatusBanner compact tone={/^(Enter|Could not|That code|Start)/.test(msg) ? "danger" : "success"} title={msg} />}
 
         {!enroll && !status?.enabled && (
           <button className="btn primary" disabled={busy} onClick={startEnroll} style={{ alignSelf: "flex-start", fontSize: "var(--fs-14)", padding: "9px 16px", fontWeight: 700 }}>
@@ -103,9 +111,12 @@ export default function SecurityPage() {
         )}
 
         {!enroll && status?.enabled && (
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button className="btn" disabled={busy} onClick={startEnroll} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>Re-enroll (new device)</button>
-            <button className="btn" disabled={busy} onClick={disable} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, borderColor: "var(--tint-red-line, rgba(180,35,24,0.45))", color: "var(--c-b42318)" }}>Turn off</button>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <input value={currentCode} onChange={(e) => setCurrentCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+              inputMode="numeric" placeholder="Current code" aria-label="Current 6-digit code"
+              style={{ width: 150, textAlign: "center", letterSpacing: 2 }} />
+            <button className="btn" disabled={busy || currentCode.length !== 6} onClick={startEnroll} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700 }}>Re-enroll (new device)</button>
+            <button className="btn" disabled={busy || currentCode.length !== 6} onClick={disable} style={{ fontSize: "var(--fs-13)", padding: "8px 14px", fontWeight: 700, borderColor: "var(--tint-red-line, rgba(180,35,24,0.45))", color: "var(--c-b42318)" }}>Turn off</button>
           </div>
         )}
 
@@ -150,11 +161,14 @@ export default function SecurityPage() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {reqUsers.map((u) => (
-              <label key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "var(--fs-14)", cursor: "pointer" }}>
-                <input type="checkbox" checked={u.required} onChange={(e) => toggleRequired(u.id, e.target.checked)} />
-                <span style={{ fontWeight: 600 }}>{u.label}</span>
-                <span className="muted small">{u.id}</span>
-              </label>
+              <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: "var(--fs-14)" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", flex: 1 }}>
+                  <input type="checkbox" checked={u.required} onChange={(e) => toggleRequired(u.id, e.target.checked)} />
+                  <span style={{ fontWeight: 600 }}>{u.label}</span>
+                  <span className="muted small">{u.id}</span>
+                </label>
+                <button className="btn sm" onClick={() => resetUser(u.id, u.label)}>Reset 2FA</button>
+              </div>
             ))}
           </div>
         </div>
@@ -162,7 +176,7 @@ export default function SecurityPage() {
 
       <PasswordResetCard />
 
-      <p className="muted small" style={{ margin: 0 }}>Lost your device? An admin can clear 2FA via the <code>SITE_2FA_DISABLED</code> env var to restore password-only login.</p>
+      <p className="muted small" style={{ margin: 0 }}>Lost your device? Ask an admin to reset your two-factor, then set it up again.</p>
     </main>
   );
 }

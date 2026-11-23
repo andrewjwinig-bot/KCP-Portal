@@ -198,7 +198,9 @@ export async function POST(req: NextRequest) {
           { status: 400 },
         );
       }
-      if (file.type && !ALLOWED_IMAGE_TYPES.has(file.type)) {
+      // The type must be declared AND be an image, and the name must end like
+      // one — an empty type with a ".html" name used to be stored as HTML.
+      if (!ALLOWED_IMAGE_TYPES.has(file.type) || !/\.(jpe?g|png|gif|webp|heic|heif)$/i.test(file.name)) {
         return NextResponse.json(
           { error: `Photo "${file.name}" must be an image (JPEG/PNG/GIF/WebP/HEIC).` },
           { status: 400 },

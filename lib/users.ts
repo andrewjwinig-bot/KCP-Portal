@@ -501,6 +501,21 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   // The Allocated Invoicer's history + archived invoices (property-level
   // billing). Only these two — /api/allocation itself also serves the
   // Payroll Invoicer.
+  // Security audit 11/2026: these were open to every login.
+  // Investor contacts (emails, phones, addresses), the trustee directory, the
+  // Statement of Values estimates and the ownership send — Investor Info's.
+  ["/api/ownership", "/investors"],
+  // Credit-card statements: the coder and Expense History; a cardholder's own
+  // page (Greg) reads only `?charges=1`, which the route scopes to his card —
+  // a whole statement by id is refused to him in /api/statements/[id].
+  ["/api/statements/invoices", ["/expenses", "/expenses/history"]],
+  ["/api/statements", ["/expenses", "/expenses/history", MY_CARD_PAGE]],
+  // The Allocated Invoicer's other routes (send, carryover, run log, staging).
+  ["/api/allocation/carryover", "/allocated-invoicer"],
+  ["/api/allocation/last-run", "/allocated-invoicer"],
+  ["/api/allocation/pending-send", "/allocated-invoicer"],
+  ["/api/allocation/prepare", "/allocated-invoicer"],
+  ["/api/allocation/pending-gl", ["/allocated-invoicer", "/financials/operating-statements"]],
   ["/api/allocation/history", "/allocated-invoicer"],
   ["/api/allocation/invoices", "/allocated-invoicer"],
   ["/api/allocation/repair", "/allocated-invoicer"],
@@ -508,6 +523,16 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   ["/api/allocation/recover-held", "/allocated-invoicer"],
   // Budgets API maps to the Budgets page specifically (Nancy is limited to it);
   // listed before the broad /api/financials → /financials mapping.
+  // The employee allocation workbook and the payroll APIs — the Payroll
+  // Invoicer's (it is the page at "/"). Listed AFTER every /api/allocation/*
+  // entry above, which the Allocated Invoicer owns.
+  ["/api/allocation", "/"],
+  ["/api/payroll", "/"],
+  ["/api/parse-payroll", "/"],
+  ["/api/generate-all", "/"],
+  ["/api/generate-pdf", "/"],
+  // The invoicer's report email (Payroll, Allocated, Credit Card send it).
+  ["/api/invoicer-report", ["/", "/allocated-invoicer", "/expenses"]],
   ["/api/financials/budgets", "/financials/budgets"],
   // The Expenses-step inputs: Greg's page, AND the master budget page (Step 3),
   // where Harry, Nancy and Drew collaborate. Reading them is harmless there —
@@ -559,7 +584,13 @@ const underPrefix = (pathname: string, p: string) => pathname === p || pathname.
 /** A WRITE under these APIs needs the full page, not a view grant: Open
  *  Credits is VIEW-ONLY for anyone without Monthly Statements (owner: "give
  *  harry, alison, and nancy viewing access") — no import, email or note. */
-const VIEW_ONLY_API: [apiPrefix: string, writePage: string][] = [["/api/tenant-statements", "/tenant-statements"]];
+const VIEW_ONLY_API: [apiPrefix: string, writePage: string][] = [
+  ["/api/tenant-statements", "/tenant-statements"],
+  // A credit-card statement is saved / deleted only from the coder.
+  ["/api/statements", "/expenses"],
+  // Importing a rent roll (or deleting a month) needs the Rent Roll page.
+  ["/api/rentroll", "/rentroll"],
+];
 
 /** Server-side authorization for a request path. Pages use isPathAllowed;
  *  sensitive API groups map to their governing page; everything else stays

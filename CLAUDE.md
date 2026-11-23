@@ -976,6 +976,40 @@ file) lives in ONE Vercel Blob store and had no second copy. `lib/backup/`:
 - NEXT: push each night's snapshot to SharePoint automatically once the
   Microsoft Graph app registration exists.
 
+# Security rules from the 11/2026 audit — keep them
+
+- **`/api/blob` serves UPLOADED FILES only** (`lib/blobAccess.ts`): a full
+  `https://*.blob.vercel-storage.com` URL (never a bare pathname — `get()`
+  takes one, and every JSON document sits at a guessable `payroll/<prefix>/
+  <id>.json`), only in `BLOB_FOLDERS` (maintenance, suites, centers,
+  property-tax-docs, cc-receipts open to staff; cam-attachments, deposits,
+  bank-transfers, backups behind their page). A new upload folder goes in that
+  list. **Only a PDF or a raster image is served inline**; anything else
+  (HTML, SVG, Office) is a sandboxed download (`inlineSafe`) — the CAM
+  attachment routes too. The public maintenance form takes images only, by
+  type AND extension.
+- **Scheduled jobs take `CRON_SECRET` only** (`lib/cronAuth.ts`): no staff
+  cookie. A manual run belongs on its page, behind that page's gate.
+- **A cross-site write is refused** (middleware): a POST / PUT / PATCH / DELETE
+  to `/api/*` whose `Origin` is another host gets 403.
+- **Two-factor can't be removed with a session alone**: turning it off or
+  re-pairing takes a CURRENT code; a lost phone is the admin's **Reset 2FA**
+  on Security (`/api/2fa/reset`, admin cookie).
+- **API gates added**: `/api/ownership` → Investor Info; `/api/statements` →
+  the Expense pages (Greg's own `?charges=1` only; a whole statement by id
+  needs `/expenses` or `/expenses/history`); every `/api/allocation/*` the
+  Allocated Invoicer uses → its page; `/api/allocation` (the employee
+  workbook), `/api/payroll`, `/api/parse-payroll`, `/api/generate-*` → the
+  Payroll Invoicer (`/`); writes to `/api/rentroll` need Rent Roll, to
+  `/api/statements` the coder. Pinned by `authz.test.ts` / `blobAccess.test.ts`.
+- **STILL OPEN (owner's call / later)**: the shared tier password signs in as
+  any non-admin who has not set their own (require personal passwords + 2FA
+  for K-1 / payroll / banking users); `authorizeRequest` is default-ALLOW for
+  unlisted APIs; PIN / login rate limits are per server instance; commission
+  review and credit-apply links never expire; `xlsx@0.18.5` has known CVEs;
+  `data/allocation.xlsx`, `data/budgets/*.xlsx` and the onboarding handbook
+  (EINs, bank details) are committed to git.
+
 # Shared links — the host they are built on
 
 **Every emailed link is built by `linkOrigin(req)` (`lib/linkOrigin.ts`), never

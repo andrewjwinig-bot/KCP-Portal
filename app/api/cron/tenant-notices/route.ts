@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { autoSendTick } from "@/lib/statements/reminderBatchStore";
-import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
+import { cronAuthorized } from "@/lib/cronAuth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,24 +13,11 @@ export const maxDuration = 300;
  * send automatically"). Unticked tenants stay held. Also finishes a send that
  * ran out of time.
  *
- * GET: Vercel cron (`Authorization: Bearer <CRON_SECRET>`) or a signed-in user.
+ * GET: Vercel cron (`Authorization: Bearer <CRON_SECRET>`) only (lib/cronAuth.ts).
  * Sits outside the site-auth middleware — see middleware.ts matcher.
  */
 async function authorized(req: Request): Promise<boolean> {
-  const secret = process.env.CRON_SECRET;
-  const header = req.headers.get("authorization") ?? "";
-  if (secret && header === `Bearer ${secret}`) return true;
-  const siteSecret = process.env.SITE_AUTH_SECRET;
-  if (siteSecret) {
-    const cookieHeader = req.headers.get("cookie") ?? "";
-    const match = cookieHeader.split(/;\s*/).find((c) => c.startsWith(`${SITE_COOKIE}=`));
-    if (match) {
-      const token = decodeURIComponent(match.slice(SITE_COOKIE.length + 1));
-      if (await verifySiteToken(token, siteSecret)) return true;
-    }
-  }
-  if (!secret && !siteSecret) return process.env.NODE_ENV !== "production";
-  return false;
+  return cronAuthorized(req);
 }
 
 export async function GET(req: Request) {

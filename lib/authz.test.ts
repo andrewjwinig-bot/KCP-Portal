@@ -207,6 +207,16 @@ describe("Tanya — invoices and receivables, never payroll by employee", () => 
     // Website Leads carry prospects' contact details: the leasing side only.
     for (const u of ["drew", "nancy", "harry", "alison"] as const) expect(authorizeRequest(u, "/api/website-leads")).toBe(true);
     for (const u of ["tanya", "tami", "greg", "randy"] as const) expect(authorizeRequest(u, "/api/website-leads")).toBe(false);
+    // Security audit 11/2026: routes that used to be open to every login.
+    expect(authorizeRequest("harry", "/api/ownership/contacts")).toBe(true);
+    for (const u of ["greg", "nancy", "tami", "tanya", "randy"] as const) expect(authorizeRequest(u, "/api/ownership/contacts")).toBe(false);
+    expect(authorizeRequest("harry", "/api/allocation")).toBe(true);
+    for (const u of ["greg", "nancy", "randy", "alison"] as const) expect(authorizeRequest(u, "/api/allocation")).toBe(false);
+    expect(authorizeRequest("randy", "/api/payroll/avid-send", "POST")).toBe(false);
+    expect(authorizeRequest("greg", "/api/statements")).toBe(true); // his own charges (route-scoped)
+    expect(authorizeRequest("greg", "/api/statements", "POST")).toBe(false);
+    expect(authorizeRequest("greg", "/api/statements/invoices")).toBe(false);
+    expect(authorizeRequest("nancy", "/api/statements")).toBe(false);
     // Backups hold every document in the store — Drew and admin only.
     expect(authorizeRequest("drew", "/api/backups")).toBe(true);
     for (const u of ["alison", "harry", "nancy", "tanya", "tami", "greg", "randy"] as const) expect(authorizeRequest(u, "/api/backups")).toBe(false);

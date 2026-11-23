@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { inlineSafe } from "@/lib/blobAccess";
 import { cookies } from "next/headers";
 import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
 import { ALL_USERS, isPathAllowed, type UserId } from "@/lib/users";
@@ -32,9 +33,13 @@ export async function GET(req: NextRequest) {
     // Buffer typing in newer @types/node (unblocks the dev-deps bump).
     return new NextResponse(new Uint8Array(bytes), {
       headers: {
-        "Content-Type": rec.contentType || "application/octet-stream",
-        "Content-Disposition": `${download ? "attachment" : "inline"}; filename="${rec.name.replace(/"/g, "")}"`,
+        // Only a PDF or an image shows inline; anything else is a sandboxed
+        // download, so a stored .html can never run on this origin.
+        "Content-Type": inlineSafe(rec.contentType || "") ? rec.contentType : "application/octet-stream",
+        "Content-Disposition": `${download || !inlineSafe(rec.contentType || "") ? "attachment" : "inline"}; filename="${rec.name.replace(/["\r\n]/g, "")}"`,
         "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+        ...(inlineSafe(rec.contentType || "") ? {} : { "Content-Security-Policy": "sandbox" }),
       },
     });
   } catch (err: any) {
