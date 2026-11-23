@@ -106,7 +106,13 @@ export default function TenantNoticesPage() {
           They build themselves when the Credit Balance Report is imported on or after the 15th — whoever imports it. Greg is emailed when they are ready.
         </StatusBanner>
       )}
-      {b && sentAll && (
+      {b && sentAll && c && c.failed > 0 && c.toSend > 0 && (
+        <StatusBanner tone="danger" title={`${c.toSend} notice${c.toSend === 1 ? "" : "s"} did not send`}
+          actions={<button className="btn primary" disabled={!!busy} onClick={() => setConfirm(true)}><Send {...ICON} /> Retry {c.toSend}</button>}>
+          {c.sent ? `${c.sent} went out. ` : ""}Nothing reached these tenants — press Retry to send them now. A notice that already went is never sent twice.
+        </StatusBanner>
+      )}
+      {b && sentAll && !(c && c.failed > 0 && c.toSend > 0) && (
         <StatusBanner tone="success" title={`${monthName(b.month)} notices have been sent`}>
           Sent {when(b.approvedAt!)}{b.autoSent ? " automatically — not sent by hand in time" : b.approvedBy ? ` by ${b.approvedBy}` : ""} · {c?.sent ?? 0} tenant{c?.sent === 1 ? "" : "s"}{c?.failed ? ` · ${c.failed} did not send` : ""}{c?.withheld ? ` · ${c.withheld} held back` : ""}
         </StatusBanner>
