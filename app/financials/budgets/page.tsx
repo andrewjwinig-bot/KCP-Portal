@@ -320,7 +320,7 @@ export default function BudgetsPage() {
           Subsequent budgets are created in-app via + Create Live Budget. */}
       <input
         ref={fileRef}
-        type="file"
+        type="file" data-import="Budget Workbook"
         accept=".xlsx,.xls"
         onChange={handleFileChange}
         style={{ display: "none" }}

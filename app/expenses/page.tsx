@@ -1176,7 +1176,7 @@ export default function ExpensesPage() {
         actions={isMaint ? undefined : <>
           <input
             ref={fileInputRef}
-            type="file"
+            type="file" data-import="Credit Card Statement"
             accept=".xlsx,.xls"
             style={{ display: "none" }}
             onChange={(e) => { const f = e.target.files?.[0]; if (f) importFile(f); }}

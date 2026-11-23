@@ -823,7 +823,7 @@ export default function OperatingStatementsPage() {
             </HeaderSelect>
         </>}
         actions={<>
-            <input ref={fileRef} type="file" accept=".xls,.xlsx,.xlsm" multiple style={{ display: "none" }} onChange={onUpload} />
+            <input ref={fileRef} type="file" data-import="General Ledger" accept=".xls,.xlsx,.xlsm" multiple style={{ display: "none" }} onChange={onUpload} />
             <button className="btn import" onClick={() => pickInto(fileRef.current, "general-ledger")}>
               <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />
               {glDrop.dragging ? "Drop to import" : "Import GL"}

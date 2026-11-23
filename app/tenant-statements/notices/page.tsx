@@ -118,7 +118,7 @@ export default function TenantNoticesPage() {
       {b && stale && c && c.toSend > 0 && (
         <StatusBanner tone="warning" icon="clock" title="Import a fresh Credit Balance Report to send"
           actions={canImport ? <>
-            <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
+            <input ref={fileRef} type="file" data-import="Credit Balance Report" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
             <button className="btn import" onClick={() => pickInto(fileRef.current, "credit-balance")}><Upload {...ICON} /> Import Credit Balance Report</button>
             <SharePullButton input={fileRef} spec={CREDIT_BALANCE_PULL} />
           </> : undefined}>

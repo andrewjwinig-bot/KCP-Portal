@@ -78,7 +78,7 @@ export default function MissingEmailsPage() {
       <PageHeader title="Tenant Emails to Add"
         info={<>Every current tenant with no email on file, so notices, statements and receipts have nowhere to go. Type the billing email on a tenant&apos;s row, or Download the sheet, fill the blue Email column (several addresses? separate them with ;), save it and Import it here — or import Skyline's occupant Email List (.xls) as it comes out of Skyline. Addresses are added to the unit page&apos;s Contacts as statement recipients; nothing already on file is changed.</>}
         actions={<>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importFile(f); }} />
+          <input ref={fileRef} type="file" data-import="Tenant Emails" accept=".xlsx,.xls" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) importFile(f); }} />
           <button className="btn import" disabled={importing} onClick={() => pickInto(fileRef.current, "tenant-emails")}><Upload {...ICON} /> {importing ? "Importing…" : "Import Filled Sheet"}</button>
           <DownloadMenu label="Export" items={[{ label: "Fill-in sheet (Excel)", description: `${LABEL[shownGroup]} · tenants with no email`, href: `/api/suites/missing-emails?group=${shownGroup}&format=xlsx` }]} />
         </>} />

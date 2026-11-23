@@ -260,7 +260,7 @@ export default function BankBalancesView() {
               <button className="btn import" disabled={busy} onClick={() => pickInto(fileRef.current, "bank-balances")} style={{ whiteSpace: "nowrap" }}>
                 <Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} />{busy ? "Importing" : drop.dragging ? "Drop to import" : "Import Bank Balances"}
               </button>
-              <input ref={fileRef} type="file" multiple style={{ display: "none" }}
+              <input ref={fileRef} type="file" data-import="Bank Balances" multiple style={{ display: "none" }}
                 onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; importFiles(f); }} />
             </>
           )}

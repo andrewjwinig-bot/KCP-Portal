@@ -317,11 +317,11 @@ export default function ReceiptReconciliationPage() {
           </HeaderSelect>
         ) : undefined}
         actions={<>
-          <input ref={laserFileRef} type="file" accept=".pdf,.xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importLaser(f); }} />
+          <input ref={laserFileRef} type="file" data-import="Laser Statement" accept=".pdf,.xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importLaser(f); }} />
           <button className="btn import" onClick={() => pickInto(laserFileRef.current, "laser-statement")}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Laser Statement</button>
           <SharePullButton input={laserFileRef} spec={LASER_STATEMENT_PULL} />
           <InfoPopover><ImportInstructions variant="statements" /></InfoPopover>
-          <input ref={creditFileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importCredits(f); }} />
+          <input ref={creditFileRef} type="file" data-import="Credit Balance Report" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importCredits(f); }} />
           <button className="btn import" onClick={() => pickInto(creditFileRef.current, "credit-balance")}><Upload size={16} strokeWidth={1.75} aria-hidden style={{ flexShrink: 0 }} /> Import Credit Balance Report</button>
           <SharePullButton input={creditFileRef} spec={CREDIT_BALANCE_PULL} />
           <InfoPopover><ImportInstructions variant="credit-balance" /></InfoPopover>

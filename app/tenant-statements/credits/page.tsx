@@ -122,7 +122,7 @@ export default function OpenCreditsPage() {
       <PageHeader title="Open Credits"
         info={<>Every tenant carrying a credit, what each credit is and how long it has been open — and an email asking how they want it applied.</>}
         actions={canWork ? <>
-          <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
+          <input ref={fileRef} type="file" data-import="Credit Balance Report" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
           <button className="btn import" onClick={() => pickInto(fileRef.current, "credit-balance")}><Upload {...ICON} /> Import Credit Balance Report</button>
           <SharePullButton input={fileRef} spec={CREDIT_BALANCE_PULL} />
           <InfoPopover><ImportInstructions variant="credit-balance" /></InfoPopover>
