@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { parseStatementFile } from "@/lib/statements/parseStatementFile";
 import { wholeExportProperties } from "@/lib/statements/store";
 import { recordImport } from "@/lib/tracker/importEvents";
+import { markTaskComplete } from "@/lib/tracker/completionStore";
 import { allRuns, mergeIntoPeriod, PERIOD_RE, setPublished, shouldAutoPublish } from "@/lib/statements/store";
 import { summarize } from "@/lib/statements/summary";
 import { logAudit, auditIp } from "@/lib/audit";
@@ -102,6 +103,13 @@ export async function POST(req: NextRequest) {
   // Mark the Data Imports reminder satisfied. Best-effort — a bookkeeping
   // failure must never fail an import that has already been stored.
   try { await recordImport("imp-stmts", { at: new Date().toISOString(), by: uploadedBy }); } catch { /* best-effort */ }
+  // …and tick that MONTH's "Laser Statements" task on the tracker / Work Queue
+  // (owner: imported November and it still read overdue). The statement's own
+  // period decides the month, so importing October and December ticks theirs.
+  try {
+    const [py, pm] = period.split("-").map(Number);
+    await markTaskComplete(py, pm - 1, "m-stmts", { at: new Date().toISOString(), by: uploadedBy ?? undefined, source: "laser-statement" });
+  } catch { /* best-effort */ }
 
   const openBalance = parsed.statements.reduce((a, s) => a + s.chargeTotal, 0);
   await logAudit({
