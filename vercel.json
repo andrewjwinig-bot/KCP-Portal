@@ -40,6 +40,10 @@
     {
       "path": "/api/cron/uo",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/cron/backup",
+      "schedule": "7 5-10 * * *"
     }
   ]
 }

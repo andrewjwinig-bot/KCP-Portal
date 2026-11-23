@@ -949,6 +949,33 @@ goes out through Postmark, so a sent copy NEVER lands in the From mailbox's
 Sent Items (ar@ included) — the record is the portal's correspondence log and
 Postmark's activity.
 
+# Backups — the portal's DATA, copied every night (/backups)
+
+Owner, 11/2026: "some sort of way to back this up regularly … no chance that I
+lose this entire program". The CODE is on GitHub; the DATA (every document and
+file) lives in ONE Vercel Blob store and had no second copy. `lib/backup/`:
+- **Nightly snapshot** (`runBackup`, cron `/api/cron/backup`, hourly 05:07–10:07
+  UTC = 1–6am Eastern, CRON_SECRET only): every JSON document, exact bytes, in
+  zipped parts (`backups/snapshots/<date>/part-n.zip`) + a `manifest.json` written
+  LAST (no manifest = not finished); every FILE copied once per version
+  (`backups/files/<uploadedAt>/<path>`, kept forever, so a deleted K-1 or check
+  image comes back). A run is RESUMABLE — it stops at its time budget and the
+  next call carries on (`backups/state/run-<date>.json`). Kept: 30 nights + the
+  first of each month for a year (`snapshotsToKeep`). Nothing under `backups/` is
+  ever backed up or restored.
+- **If it stops, Drew hears**: the last window emails him once per night when
+  the snapshot did not finish (`alert.ts`, `BACKUP_ALERT_TO` overrides), and the
+  page goes red after 36 hours (`backupHealth`).
+- **The page** (`/backups`, Drew + admin — `BACKUPS_PAGE`, sidebar under Two-Factor
+  Auth): health, Back Up Now (loops until done), each snapshot by folder,
+  **Download** (every document as ONE zip, built in the browser from the parts —
+  the copy to keep on OneDrive, off Vercel), and **Restore** a document or a
+  whole folder behind a confirm. A restore saves what is there NOW to
+  `backups/pre-restore/<stamp>/` first and is in the audit log.
+- `/api/blob` refuses `backups/` paths to anyone without the Backups page.
+- NEXT: push each night's snapshot to SharePoint automatically once the
+  Microsoft Graph app registration exists.
+
 # Shared links — the host they are built on
 
 **Every emailed link is built by `linkOrigin(req)` (`lib/linkOrigin.ts`), never
