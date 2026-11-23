@@ -66,6 +66,19 @@ export function approvalReminderEmail(x: { month: string; counts: BatchCounts; a
   });
 }
 
+/** The notices are waiting and the data behind them is over 24 hours old. */
+export function staleDataEmail(x: { month: string; counts: BatchCounts; message: string }): { subject: string; html: string; text: string } {
+  const n = x.counts.toSend;
+  return portalEmail({
+    subject: `${monthName(x.month)} tenant notices are waiting on a fresh Credit Balance Report`,
+    eyebrow: "Tenant Notices",
+    title: `${plural(n, "notice")} held — the data is out of date`,
+    lead: `${x.message} Once it is imported, review and send from the Tenant Notices page.`,
+    rows: [{ label: "Waiting to send", value: plural(n, "tenant") }],
+    link: { label: "Open Tenant Notices", path: NOTICES_PATH },
+  });
+}
+
 // ─── Tami: post this credit ──────────────────────────────────────────────────
 
 const planRows = (plan: CreditPlan, nextYM: string): string[][] => [

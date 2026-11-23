@@ -66,3 +66,20 @@ describe("if Greg forgets", () => {
     expect(addBusinessDays("2026-11-25", 1)).toBe("2026-11-30"); // over Thanksgiving
   });
 });
+
+describe("the 24-hour data gate", () => {
+  it("is fresh within 24 hours of the report's run, stale after, and stale when unknown", async () => {
+    const { dataFreshness, staleMessage } = await import("./reminderBatch");
+    const now = new Date("2026-11-23T18:00:00Z");
+    expect(dataFreshness("2026-11-23T09:00:00-05:00", now).fresh).toBe(true);
+    expect(dataFreshness("2026-11-22T12:00:00-05:00", now).fresh).toBe(false);
+    expect(dataFreshness(null, now).fresh).toBe(false);
+    expect(staleMessage(dataFreshness("2026-11-20T13:00:00Z", now))).toContain("3 days old");
+  });
+  it("a rebuild keeps every notice already sent, even one no longer in the data", async () => {
+    const { buildItems } = await import("./reminderBatch");
+    const sent = { unitRef: "1100-30", status: "sent", tier: "courtesy" } as never;
+    const out = buildItems([], [sent]);
+    expect(out).toEqual([sent]);
+  });
+});

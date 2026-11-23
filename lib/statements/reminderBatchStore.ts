@@ -16,7 +16,7 @@
 import "server-only";
 import { getJSON, listJSON, storeJSON } from "@/lib/storage";
 import { allRuns } from "./store";
-import { currentAging } from "./agingStore";
+import { allAgingSnapshots, currentAging } from "./agingStore";
 import { statementOf } from "./currentAccount";
 import { accountOf } from "./receiptMatch";
 import { propertyLabel, statementPdf, suiteRecipients } from "./tenantMail";
@@ -28,10 +28,10 @@ import {
   renderCreditAppliedEmail, renderMonthlyReminder, type MonthlyReminderInput,
 } from "./monthlyReminder";
 import {
-  batchCounts, buildItems, creditRequestId, itemCreditPlan, summaryOrder, willSend,
+  batchCounts, buildItems, creditRequestId, dataFreshness, itemCreditPlan, staleMessage, summaryOrder, willSend,
   type AccountIn, type BatchItem, type CreditRequest, type ReminderBatch,
 } from "./reminderBatch";
-import { approvalReminderEmail, approvalRequestEmail, creditSummaryEmail, postCreditEmail } from "./reminderInternalEmails";
+import { approvalReminderEmail, approvalRequestEmail, creditSummaryEmail, postCreditEmail, staleDataEmail } from "./reminderInternalEmails";
 import { getOrEmptySuiteContacts, saveSuiteContacts } from "@/lib/suites/contactsStorage";
 import { emptyContact } from "@/lib/suites/contacts";
 import { addBusinessDays, applyDeadline, AUTO_SEND_AFTER_BUSINESS_DAYS, creditSummaryDay, etToday, nextMonthOf, NOTICE_DAY, REMIND_AFTER_BUSINESS_DAYS } from "./reminderSchedule";
@@ -46,6 +46,8 @@ export const NOTICE_FROM = (process.env.TENANT_NOTICE_FROM ?? "ar@kormancommerci
 /** Greg approves the month's notices (owner: "let Greg approve instead of Tami"). */
 export const NOTICE_APPROVER_TO = (process.env.TENANT_NOTICE_APPROVER_TO ?? "gmasciantonio@kormancommercial.com").trim();
 /** Who gets the credit summary before statements. */
+/** Copied when the notices wait on a fresh Credit Balance Report. */
+const STALE_COPY_TO = (process.env.TENANT_NOTICE_STALE_CC ?? "dwinig@kormancommercial.com").trim();
 export const CREDIT_SUMMARY_TO = (process.env.CREDIT_SUMMARY_TO ?? `dwinig@kormancommercial.com, ${AR_CONTACT_EMAIL}`).trim();
 
 
@@ -78,6 +80,18 @@ async function sendNotice(msg: Omit<MailMessage, "from">): Promise<{ result: Mai
 /** Every tenant's account as it stands: the newest laser statement's roster
  *  (plus anyone only on the Credit Balance Report), each read through
  *  `statementOf` — the same reader Receipt Reconciliation and Open Credits use. */
+/** When the newest Credit Balance Report was run in Skyline (else imported). */
+async function newestReportRun(): Promise<string | null> {
+  const snaps = await allAgingSnapshots().catch(() => []);
+  let best: string | null = null, bestT = -Infinity;
+  for (const s of snaps) {
+    const at = s?.runAt ?? s?.importedAt ?? null;
+    const t = at ? Date.parse(at) : NaN;
+    if (Number.isFinite(t) && t > bestT) { bestT = t; best = at; }
+  }
+  return best;
+}
+
 async function loadAccounts(): Promise<{ accounts: AccountIn[]; dataAsOf: string | null }> {
   const [runs, aging, roll] = await Promise.all([allRuns(), currentAging(), resolveCurrentRentroll().catch(() => null)]);
   const run = runs[0];
@@ -106,19 +120,26 @@ async function loadAccounts(): Promise<{ accounts: AccountIn[]; dataAsOf: string
 }
 
 /**
- * Build (or rebuild) the month's batch. A batch already SENT is never rebuilt.
- * The first build emails Greg; a rebuild after that does not email again.
+ * Build (or rebuild) the month's batch. A notice already SENT is never
+ * rebuilt; once the month has been sent, a fresh import refreshes only the
+ * notices still to go (failed or not yet sent), so a retry goes on today's
+ * figures. The first build emails Greg; a rebuild after that does not.
  */
 export async function buildBatch(opts: { by: string | null; origin: string; notify?: boolean; today?: string }): Promise<ReminderBatch> {
   const today = opts.today ?? etToday();
   const month = today.slice(0, 7);
   const prev = await getBatch(month);
-  if (prev?.approvedAt) return prev;
-  const { accounts, dataAsOf } = await loadAccounts();
+  const [{ accounts, dataAsOf }, dataRunAt] = await Promise.all([loadAccounts(), newestReportRun()]);
+  if (prev?.approvedAt) {
+    const refreshed: ReminderBatch = { ...prev, builtAt: new Date().toISOString(), builtBy: opts.by, dataAsOf, dataRunAt, items: buildItems(accounts, prev.items) };
+    await saveBatch(refreshed);
+    return refreshed;
+  }
   const batch: ReminderBatch = {
-    month, nextYM: nextMonthOf(month), builtAt: new Date().toISOString(), builtBy: opts.by, dataAsOf,
+    month, nextYM: nextMonthOf(month), builtAt: new Date().toISOString(), builtBy: opts.by, dataAsOf, dataRunAt,
     origin: opts.origin, items: buildItems(accounts, prev?.items ?? []),
     approverNotifiedAt: prev?.approverNotifiedAt ?? null, approvedAt: null, approvedBy: null, summarySentAt: prev?.summarySentAt ?? null,
+    staleNotifiedAt: null,
     // The reminder / automatic-send clock starts when Greg is EMAILED, not at
     // a preview build (the page's Build Notices Now) — set below.
     remindOn: prev?.remindOn ?? null,
@@ -144,7 +165,7 @@ export async function buildOnImport(by: string | null, origin: string): Promise<
     const today = etToday();
     if (Number(today.slice(8, 10)) < NOTICE_DAY) return { built: false };
     const b = await buildBatch({ by, origin, today });
-    return { built: !b.approvedAt, month: b.month, toSend: batchCounts(b.items).toSend };
+    return { built: true, month: b.month, toSend: batchCounts(b.items).toSend };
   } catch (e) {
     console.error("[tenant-notices] build on import failed", e);
     return { built: false };
@@ -218,10 +239,13 @@ export async function previewNotice(b: ReminderBatch, item: BatchItem) {
 
 /** Send every ticked notice. Progress is saved after each email, so a timeout
  *  or a second press never sends a tenant twice. */
-export async function sendBatch(month: string, by: string | null, deadlineMs = 270_000): Promise<{ batch: ReminderBatch | null; sent: number; failed: number; remaining: number }> {
+export async function sendBatch(month: string, by: string | null, deadlineMs = 270_000): Promise<{ batch: ReminderBatch | null; sent: number; failed: number; remaining: number; stale?: string }> {
   const started = Date.now();
   const b = await getBatch(month);
   if (!b) return { batch: null, sent: 0, failed: 0, remaining: 0 };
+  // The 24-hour gate — checked here so no path (page, retry, cron) can skip it.
+  const fresh = dataFreshness(b.dataRunAt);
+  if (!fresh.fresh) return { batch: b, sent: 0, failed: 0, remaining: b.items.filter(willSend).length, stale: staleMessage(fresh) };
   if (!b.approvedAt) { b.approvedAt = new Date().toISOString(); b.approvedBy = by; await saveBatch(b); }
   let sent = 0, failed = 0;
   for (const item of b.items) {
@@ -267,6 +291,18 @@ export async function autoSendTick(opts: { today?: string } = {}): Promise<{ act
   const today = opts.today ?? etToday();
   const b = await getBatch(today.slice(0, 7));
   if (!b || b.approvedAt && !b.items.some((i) => willSend(i) && i.status !== "failed")) return { action: "none" };
+  // Stale data: nothing goes on its own. Tell Greg (and Drew) once, so the
+  // automatic send does not just quietly never happen.
+  if (!dataFreshness(b.dataRunAt).fresh) {
+    const due = b.approvedAt || (b.autoSendOn && today >= b.autoSendOn);
+    if (due && !b.staleNotifiedAt) {
+      const mail = staleDataEmail({ month: b.month, counts: batchCounts(b.items), message: staleMessage(dataFreshness(b.dataRunAt)) });
+      const r = await sendMailDetailed({ to: NOTICE_APPROVER_TO, cc: STALE_COPY_TO, subject: mail.subject, textBody: mail.text, htmlBody: mail.html });
+      if (r.ok) { b.staleNotifiedAt = new Date().toISOString(); await saveBatch(b); }
+      return { action: "none", detail: "data more than 24 hours old — told the approver" };
+    }
+    if (due) return { action: "none", detail: "data more than 24 hours old" };
+  }
   if (b.approvedAt) {
     // A send that ran out of time — finish it.
     const r = await sendBatch(b.month, b.approvedBy ?? "Automatic");

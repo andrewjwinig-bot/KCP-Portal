@@ -13,7 +13,7 @@
 //   POST { action: "summary" }                   → send the credit summary now
 
 import { NextRequest, NextResponse } from "next/server";
-import { batchCounts, willSend } from "@/lib/statements/reminderBatch";
+import { batchCounts, dataFreshness, staleMessage, willSend } from "@/lib/statements/reminderBatch";
 import {
   buildBatch, creditRequestsFor, getBatch, listBatches, markPosted, previewNotice, sendBatch, sendCreditSummary, setRecipients, setSend,
 } from "@/lib/statements/reminderBatchStore";
@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
   const [requests, all] = await Promise.all([creditRequestsFor(month), listBatches()]);
   return NextResponse.json({
     ok: true, month, batch, counts: batch ? batchCounts(batch.items) : null, requests,
+    freshness: batch ? (() => { const f = dataFreshness(batch.dataRunAt); return { ...f, message: f.fresh ? null : staleMessage(f) }; })() : null,
     months: all.map((b) => ({ month: b.month, approvedAt: b.approvedAt ?? null, sent: b.items.filter((i) => i.status === "sent").length })),
     summaryDay: creditSummaryDay(month), applyDeadline: applyDeadline(month), today: etToday(),
   });
@@ -82,6 +83,7 @@ export async function POST(req: NextRequest) {
       if (!before) return NextResponse.json({ error: "No notices for that month." }, { status: 404 });
       if (!before.items.some(willSend)) return NextResponse.json({ error: "Nothing is ticked to send." }, { status: 400 });
       const r = await sendBatch(month, by);
+      if (r.stale) return NextResponse.json({ error: r.stale, stale: true }, { status: 409 });
       await logAudit({ event: "tenant-notices.send", user: by, ip: auditIp(req), detail: `${month} · ${r.sent} sent · ${r.failed} failed · ${r.remaining} left` });
       return NextResponse.json({ ok: true, ...r, counts: r.batch ? batchCounts(r.batch.items) : null });
     }
