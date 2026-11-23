@@ -8,9 +8,15 @@
 // tenants asked us to apply — Tami marks each posted before statements go out
 // on the 25th.
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Eye, Pencil, Plus, Send, X } from "lucide-react";
+import { Eye, Pencil, Plus, Send, Upload, X } from "lucide-react";
+import { useUser } from "@/app/components/UserProvider";
+import { canWorkCredits } from "@/lib/users";
+import { pickInto } from "@/app/components/pickFiles";
+import { useCreditBalanceImport } from "../useCreditBalanceImport";
+import { SharePullButton } from "@/app/components/SharePullButton";
+import { CREDIT_BALANCE_PULL } from "@/lib/shareDrive/pullSpecs";
 import { PageHeader } from "@/app/components/PageHeader";
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { StatPill } from "@/app/components/Pill";
@@ -23,6 +29,8 @@ import type { ReminderTier } from "@/lib/statements/monthlyReminder";
 type Data = {
   month: string; batch: ReminderBatch | null; counts: BatchCounts | null; requests: CreditRequest[];
   summaryDay: string; applyDeadline: string; today: string;
+  /** The 24-hour gate: nothing sends on older data. */
+  freshness: { fresh: boolean; ageHours: number | null; runAt: string | null; message: string | null } | null;
 };
 
 const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true, style: { verticalAlign: "-3px", flexShrink: 0 } } as const;
@@ -46,6 +54,9 @@ export default function TenantNoticesPage() {
   const [editing, setEditing] = useState<BatchItem | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [result, setResult] = useState<{ sent: number; failed: number; remaining: number } | null>(null);
+  const { user } = useUser();
+  const canImport = !!user && canWorkCredits(user.id);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -56,6 +67,8 @@ export default function TenantNoticesPage() {
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   }, []);
   useEffect(() => { load(); }, [load]);
+  // A fresh Credit Balance Report rebuilds every notice not yet sent.
+  const importFiles = useCreditBalanceImport(load);
 
   const post = async (body: object, label: string) => {
     setBusy(label);
@@ -85,6 +98,7 @@ export default function TenantNoticesPage() {
   const b = data?.batch ?? null;
   const c = data?.counts ?? null;
   const sentAll = !!b?.approvedAt;
+  const stale = !!data?.freshness && !data.freshness.fresh;
   const byTier = useMemo(() => TIERS.map((t) => ({ ...t, items: (b?.items ?? []).filter((i) => i.tier === t.tier) })).filter((g) => g.items.length), [b]);
 
   if (!data && !error) return <main><LoadingState status="Loading the notices" /></main>;
@@ -95,11 +109,22 @@ export default function TenantNoticesPage() {
         info={<>Each month, once the Credit Balance Report is imported on or after the 15th, every tenant with open charges or a credit gets an account notice — a courtesy reminder, a past-due notice, or a credit to apply. Every tenant is set to send; untick anyone to hold back, then Send. Tenants with a credit can click to have it applied before statements go out on the 25th.</>}
         actions={<>
           {!b && <button className="btn" disabled={!!busy} onClick={async () => { const j = await post({ action: "build" }, "build"); if (j) load(); }}>{busy === "build" ? "Building…" : "Build Notices Now"}</button>}
-          {b && !sentAll && c && <button className="btn primary" disabled={!!busy || !c.toSend} onClick={() => setConfirm(true)}><Send {...ICON} /> Send {c.toSend} Notice{c.toSend === 1 ? "" : "s"}</button>}
+          {b && !sentAll && c && <button className="btn primary" disabled={!!busy || !c.toSend || stale} onClick={() => setConfirm(true)}><Send {...ICON} /> Send {c.toSend} Notice{c.toSend === 1 ? "" : "s"}</button>}
         </>}
         meta={b ? <span className="muted">{monthName(b.month)} · built {when(b.builtAt)}{b.builtBy ? ` by ${b.builtBy}` : ""}{b.dataAsOf ? ` · data through ${dayName(b.dataAsOf)}` : ""}</span> : undefined} />
 
       {error && <StatusBanner tone="danger" title="Something went wrong">{error}</StatusBanner>}
+
+      {b && stale && c && c.toSend > 0 && (
+        <StatusBanner tone="warning" icon="clock" title="Import a fresh Credit Balance Report to send"
+          actions={canImport ? <>
+            <input ref={fileRef} type="file" accept=".xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importFiles(f); }} />
+            <button className="btn import" onClick={() => pickInto(fileRef.current, "credit-balance")}><Upload {...ICON} /> Import Credit Balance Report</button>
+            <SharePullButton input={fileRef} spec={CREDIT_BALANCE_PULL} />
+          </> : undefined}>
+          {data?.freshness?.message}{canImport ? "" : " Ask Drew or Tami to import it."}
+        </StatusBanner>
+      )}
 
       {data && !b && (
         <StatusBanner tone="warning" icon="clock" title={`${monthName(data.month)} notices are not built yet`}>
@@ -108,7 +133,7 @@ export default function TenantNoticesPage() {
       )}
       {b && sentAll && c && c.failed > 0 && c.toSend > 0 && (
         <StatusBanner tone="danger" title={`${c.toSend} notice${c.toSend === 1 ? "" : "s"} did not send`}
-          actions={<button className="btn primary" disabled={!!busy} onClick={() => setConfirm(true)}><Send {...ICON} /> Retry {c.toSend}</button>}>
+          actions={<button className="btn primary" disabled={!!busy || stale} onClick={() => setConfirm(true)}><Send {...ICON} /> Retry {c.toSend}</button>}>
           {c.sent ? `${c.sent} went out. ` : ""}Nothing reached these tenants — press Retry to send them now. A notice that already went is never sent twice.
         </StatusBanner>
       )}
@@ -119,7 +144,7 @@ export default function TenantNoticesPage() {
       )}
       {b && !sentAll && c && (
         <StatusBanner tone="warning" title={`${c.toSend} notice${c.toSend === 1 ? "" : "s"} ready to send`}
-          actions={<button className="btn primary" disabled={!!busy || !c.toSend} onClick={() => setConfirm(true)}><Send {...ICON} /> Send {c.toSend}</button>}>
+          actions={<button className="btn primary" disabled={!!busy || !c.toSend || stale} onClick={() => setConfirm(true)}><Send {...ICON} /> Send {c.toSend}</button>}>
           Every tenant is ticked. Untick anyone you want to hold back this month.{b.autoSendOn ? ` If not sent before ${dayName(b.autoSendOn)} morning, every ticked notice goes on its own.` : ""}
         </StatusBanner>
       )}

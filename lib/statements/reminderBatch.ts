@@ -46,6 +46,11 @@ export type ReminderBatch = {
   builtBy: string | null;
   /** The Credit Balance Report / laser statement the accounts were read from. */
   dataAsOf: string | null;
+  /** When the newest Credit Balance Report behind it was RUN in Skyline (else
+   *  imported) — the clock the 24-hour send gate reads (`dataFreshness`). */
+  dataRunAt?: string | null;
+  /** The approver was told the data went stale before the automatic send. */
+  staleNotifiedAt?: string | null;
   /** The portal origin the apply links are built on. */
   origin: string;
   items: BatchItem[];
@@ -77,6 +82,28 @@ export const isFormerOccupant = (unitRef: string) => /-FO$/i.test(unitRef);
  * own order. `previous` carries Greg's choices through a rebuild (a second
  * import before he approves) — and anything already SENT is kept as it went.
  */
+/** NOTHING GOES TO A TENANT ON DATA MORE THAN 24 HOURS OLD (owner, 11/2026:
+ *  "dont let anyone send or resend the tenant notices email if the data is
+ *  more than 24 hours old … makes sure current data is being blasted to
+ *  tenants"). The clock is the newest Credit Balance Report behind the batch;
+ *  a fresh import rebuilds every notice not yet sent. */
+export const NOTICE_MAX_DATA_AGE_HOURS = 24;
+
+export type DataFreshness = { fresh: boolean; ageHours: number | null; runAt: string | null };
+
+export function dataFreshness(runAt: string | null | undefined, now: Date = new Date()): DataFreshness {
+  const t = runAt ? Date.parse(runAt) : NaN;
+  if (!Number.isFinite(t)) return { fresh: false, ageHours: null, runAt: runAt ?? null };
+  const ageHours = Math.max(0, (now.getTime() - t) / 3_600_000);
+  return { fresh: ageHours <= NOTICE_MAX_DATA_AGE_HOURS, ageHours, runAt: runAt ?? null };
+}
+
+/** What the page and the refusal say. */
+export function staleMessage(f: DataFreshness): string {
+  const age = f.ageHours == null ? "of unknown age" : f.ageHours < 48 ? `${Math.round(f.ageHours)} hours old` : `${Math.round(f.ageHours / 24)} days old`;
+  return `The account data is ${age} — notices only go on data from the last ${NOTICE_MAX_DATA_AGE_HOURS} hours. Import a fresh Credit Balance Report and the notices rebuild.`;
+}
+
 export function buildItems(accounts: AccountIn[], previous: BatchItem[] = []): BatchItem[] {
   const prev = new Map(previous.map((p) => [p.unitRef.toUpperCase(), p]));
   const out: BatchItem[] = [];
@@ -93,6 +120,10 @@ export function buildItems(accounts: AccountIn[], previous: BatchItem[] = []): B
       blocked, status: "pending", error: null,
     });
   }
+  // A notice already SENT stays on the record even if the tenant has since
+  // paid up and drops out of the fresh data.
+  const kept = new Set(out.map((i) => i.unitRef.toUpperCase()));
+  for (const p of previous) if (p.status === "sent" && !kept.has(p.unitRef.toUpperCase())) out.push(p);
   return out;
 }
 

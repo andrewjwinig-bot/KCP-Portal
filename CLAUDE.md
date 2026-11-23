@@ -2448,6 +2448,20 @@ batch), `reminderSchedule.ts` (the calendar), `reminderInternalEmails.ts`
   first build, said in his email and on the page); unticked tenants stay held;
   the batch reads "sent automatically". It also finishes a send that ran out
   of time.
+- **NOTHING SENDS ON DATA MORE THAN 24 HOURS OLD** (owner, 11/2026: "dont
+  let anyone send or resend the tenant notices email if the data is more than
+  24 hours old"; `dataFreshness` / `NOTICE_MAX_DATA_AGE_HOURS` in
+  `reminderBatch.ts`). The clock is the newest Credit Balance Report behind
+  the batch (`dataRunAt` — Skyline's run time, else the import). `sendBatch`
+  refuses a stale batch (409 on the page; the cron, Send and Retry all go
+  through it), the page's Send / Retry are disabled under a clock banner with
+  Import Credit Balance Report (for whoever can import — Greg is told to ask
+  Drew or Tami), and when the automatic send comes due on stale data Greg is
+  emailed once, Drew copied (`staleDataEmail`, `staleNotifiedAt`). **A fresh
+  import REBUILDS every notice not yet sent, even after the month was sent**
+  (`buildBatch`), so a retry goes on today's figures; a notice already sent is
+  kept as sent, even when the tenant has since dropped out of the data. A batch
+  built before the gate has no `dataRunAt` and reads stale until re-imported.
 - **THE BUSINESS DAY BEFORE THE 25TH** (`creditSummaryDay`; weekends,
   Thanksgiving, Dec 24–25): `/api/cron/credit-summary` (13:30 UTC daily) emails
   Drew + Tami (`CREDIT_SUMMARY_TO`) every credit asked for, unposted first.
