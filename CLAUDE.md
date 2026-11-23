@@ -162,7 +162,12 @@ stored, one private doc per user (`lib/passwordStore.ts`, `user-passwords/<id>`)
 `checkPassword` is the ONE check, for sign-in and change alike, in order: the
 password they set in the portal (then ONLY that one works) → their
 `SITE_USER_PASSWORDS` entry in Vercel → the shared tier password
-(`SITE_PASSWORD`, `HISTORY_PASSWORD` for admin / Drew). A store that can't be
+(`SITE_PASSWORD`, `HISTORY_PASSWORD` for admin / Drew). **The shared office
+password only gets someone IN** (owner, 11/23/26: "personal passwords is
+good"): signing in with `SITE_PASSWORD` gives a `pw` session confined to
+`/security` until they choose their own (`sharedPassword` in the login
+route) — except the shared SERVICE login (`maint`), which several people use,
+and the admin tier. A store that can't be
 read fails CLOSED (503), never falls back to the shared password. An admin
 issues a **one-time password** from the same page (`/api/site/password/reset`,
 admin-cookie only via `ADMIN_PATH_PREFIXES`); signing in with it gives a
@@ -1002,9 +1007,8 @@ file) lives in ONE Vercel Blob store and had no second copy. `lib/backup/`:
   workbook), `/api/payroll`, `/api/parse-payroll`, `/api/generate-*` → the
   Payroll Invoicer (`/`); writes to `/api/rentroll` need Rent Roll, to
   `/api/statements` the coder. Pinned by `authz.test.ts` / `blobAccess.test.ts`.
-- **STILL OPEN (owner's call / later)**: the shared tier password signs in as
-  any non-admin who has not set their own (require personal passwords + 2FA
-  for K-1 / payroll / banking users); `authorizeRequest` is default-ALLOW for
+- **Personal passwords are required** (the shared password forces a choice at
+  sign-in, above). **STILL OPEN (owner's call / later)**: `authorizeRequest` is default-ALLOW for
   unlisted APIs; PIN / login rate limits are per server instance; commission
   review and credit-apply links never expire; `xlsx@0.18.5` has known CVEs;
   `data/allocation.xlsx`, `data/budgets/*.xlsx` and the onboarding handbook
