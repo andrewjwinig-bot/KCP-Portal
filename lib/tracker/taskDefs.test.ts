@@ -44,3 +44,11 @@ describe("weekend due dates move to the next work day", () => {
     expect(workday(2026, 10, 14)).toBe(16);
   });
 });
+
+describe("Post PM and AP names the month it posts", () => {
+  it("November's task posts October; January's posts December", async () => {
+    const { tasksForMonth } = await import("./taskDefs");
+    expect(tasksForMonth(2026, 10).find((t) => t.id === "m-post")?.label).toBe("Post Oct PM and AP");
+    expect(tasksForMonth(2027, 0).find((t) => t.id === "m-post")?.label).toBe("Post Dec PM and AP");
+  });
+});
