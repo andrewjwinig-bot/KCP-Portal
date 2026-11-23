@@ -323,12 +323,26 @@ function creditBox(x: MonthlyReminderInput, plan: CreditPlan): string {
   );
 }
 
+/** The in-transit line, READ BEFORE THE BALANCE (owner, 11/2026: "lets put
+ *  this at the top instead of the bottom of the email") — a tenant who has
+ *  already paid should see it before they read a figure and reply upset. It is
+ *  a quiet strip, not the blue box it used to be: under the navy hero a second
+ *  big panel reads as a second headline, and the blue box is the apply-credit
+ *  call to action. */
+export const TRANSIT_NOTE = "If a payment was made or is already on its way to us, please disregard this notice.";
+
+function transitStrip(): string {
+  return row(
+    `<table role="presentation" width="528" cellpadding="0" cellspacing="0" border="0" style="width:528px;border-collapse:collapse;"><tr>`
+    + `<td style="background:${C.canvas};border:1px solid ${C.border};padding:14px 18px;font-family:${BODY};font-size:14px;line-height:1.5;color:${C.soft};">${esc(TRANSIT_NOTE)}</td>`
+    + `</tr></table>`,
+    "22px 36px 0",
+  );
+}
+
 function callout(x: MonthlyReminderInput): string {
   const plan = creditPlan(x.acct, x.monthlyCharges);
-  if (x.tier === "credit") return plan ? creditBox(x, plan) : "";
-  // One blue box per email: under a credit box the in-transit note is a plain line.
-  if (plan) return creditBox(x, plan) + row(para("Payment already on its way? Please disregard this notice — and thank you."), "22px 36px 0");
-  return blueBox(boxTitle("Payment already on its way?") + boxText("Please disregard this notice — and thank you."));
+  return plan ? creditBox(x, plan) : "";
 }
 
 /** The notice's frame — logo row, navy hero, colour strip, footer — shared
@@ -366,9 +380,9 @@ export function renderMonthlyReminder(x: MonthlyReminderInput, opening: string, 
   const html = noticeFrame({
     propertyCode: x.propertyCode, tag: TAG[x.tier], eyebrow: `${x.propertyName} · Suite ${x.suite}`, h1, h2,
     sub: `${x.tenantName} · as of ${longDate(x.asOfISO)}`,
-    body: [row(para(opening), "28px 36px 0"), keyPanel(x, sched), itemsTable(x), sched && !x.applyUrl ? scheduleTable(sched) : "", callout(x), row(para(closing), "24px 36px 6px")].join("\n"),
+    body: [x.tier === "credit" ? "" : transitStrip(), row(para(opening), "24px 36px 0"), keyPanel(x, sched), itemsTable(x), sched && !x.applyUrl ? scheduleTable(sched) : "", callout(x), row(para(closing), "24px 36px 6px")].join("\n"),
   });
-  return { html, text: `TENANT NOTICE — ${TAG[x.tier].toUpperCase()}\n${x.propertyName} · Suite ${x.suite}\n\n${h1} ${h2}\n\n${opening}\n\n${tablesText(x, sched)}\n\n${creditPlan(x.acct, x.monthlyCharges) && x.applyUrl ? `${applyButtonLabel(x)}: ${x.applyUrl}\nOr reply to this email to apply it to specific charges.\n\n` : ""}${x.tier === "credit" ? "" : "Payment already on its way? Please disregard this notice."}\n\n${closing}\n\nKorman Commercial Properties · Accounts Receivable · ${AR_CONTACT_EMAIL}\nThis is an automated monthly account notice.` };
+  return { html, text: `TENANT NOTICE — ${TAG[x.tier].toUpperCase()}\n${x.propertyName} · Suite ${x.suite}\n\n${h1} ${h2}\n\n${x.tier === "credit" ? "" : `${TRANSIT_NOTE}\n\n`}${opening}\n\n${tablesText(x, sched)}\n\n${creditPlan(x.acct, x.monthlyCharges) && x.applyUrl ? `${applyButtonLabel(x)}: ${x.applyUrl}\nOr reply to this email to apply it to specific charges.\n\n` : ""}${closing}\n\nKorman Commercial Properties · Accounts Receivable · ${AR_CONTACT_EMAIL}\nThis is an automated monthly account notice.` };
 }
 
 // ─── Apply-my-credit: the tenant's confirmation ──────────────────────────────
