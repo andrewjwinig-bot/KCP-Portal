@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { sendMail, isMailConfigured } from "@/lib/mail";
-import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
+import { cronAuthorized } from "@/lib/cronAuth";
 import { taskOccurrencesBetween } from "@/lib/tracker/taskDefs";
 import { getCompletions } from "@/lib/tracker/completionStore";
 import { getImportEvents, type ImportEvent } from "@/lib/tracker/importEvents";
@@ -33,22 +33,7 @@ const DIGEST_TO = "dwinig@kormancommercial.com";
 const DIGEST_FROM = "dwinig@kormancommercial.com"; // verified Postmark sender
 
 async function authorized(req: Request): Promise<boolean> {
-  const secret = process.env.CRON_SECRET;
-  const header = req.headers.get("authorization") ?? "";
-  if (secret && header === `Bearer ${secret}`) return true;
-
-  const siteSecret = process.env.SITE_AUTH_SECRET;
-  if (siteSecret) {
-    const cookieHeader = req.headers.get("cookie") ?? "";
-    const match = cookieHeader.split(/;\s*/).find((c) => c.startsWith(`${SITE_COOKIE}=`));
-    if (match) {
-      const token = decodeURIComponent(match.slice(SITE_COOKIE.length + 1));
-      const userId = await verifySiteToken(token, siteSecret);
-      if (userId) return true;
-    }
-  }
-  if (!secret && !siteSecret) return process.env.NODE_ENV !== "production";
-  return false;
+  return cronAuthorized(req);
 }
 
 /** Monday 00:00 → Sunday 23:59:59 of the week containing `now`. */

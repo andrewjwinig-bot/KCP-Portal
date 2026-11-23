@@ -46,6 +46,8 @@ const ADMIN_PATH_PREFIXES = [
   // Managing who is REQUIRED to use 2FA is admin-only. Enrolling your own 2FA
   // (/security, the rest of /api/2fa) is self-service for every signed-in user.
   "/api/2fa/required",
+  // Clearing SOMEONE ELSE's 2FA (lost phone) is admin-only.
+  "/api/2fa/reset",
   // Issuing someone a one-time password is admin-only; changing your OWN
   // (/api/site/password) is self-service.
   "/api/site/password/reset",
@@ -69,6 +71,25 @@ export async function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = website.path;
     return NextResponse.rewrite(url);
+  }
+
+  // ── Cross-site writes ───────────────────────────────────────────────
+  // A change (POST / PUT / PATCH / DELETE) to the portal's API must come from
+  // the portal's own pages. The session cookie is SameSite=Lax, which the
+  // website (same site: kormancommercial.com) and any page that tricks a
+  // browser could otherwise ride on (security audit 11/2026). A browser sends
+  // Origin on every cross-origin write; server-to-server calls (Vercel cron,
+  // Blob upload callbacks, Postmark) send none and are not affected.
+  if (pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(req.method.toUpperCase())) {
+    const origin = req.headers.get("origin");
+    if (origin) {
+      const hosts = [req.headers.get("host"), req.headers.get("x-forwarded-host"), req.nextUrl.host].filter(Boolean);
+      let from = "";
+      try { from = new URL(origin).host; } catch { /* "null" or malformed */ }
+      if (!from || !hosts.includes(from)) {
+        return NextResponse.json({ error: "Cross-site request refused." }, { status: 403 });
+      }
+    }
   }
 
   // ── Site-wide auth ──────────────────────────────────────────────────

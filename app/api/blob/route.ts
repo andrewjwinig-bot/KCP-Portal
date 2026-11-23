@@ -1,14 +1,13 @@
 import { type NextRequest } from "next/server";
 import { get } from "@vercel/blob";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
-import { BACKUPS_PAGE, isPathAllowed } from "@/lib/users";
-import { isBackupPath } from "@/lib/backup/plan";
+import { isPathAllowed } from "@/lib/users";
+import { blobPathname, blobReaders, inlineSafe } from "@/lib/blobAccess";
 
-// Authenticated proxy for PRIVATE Vercel Blob objects. The store is private,
-// so stored blob URLs can't be loaded directly by the browser — every display
-// site routes through here via blobSrc(). Site auth (middleware) already gates
-// /api/*, so only signed-in users can read; the BLOB_READ_WRITE_TOKEN is
-// scoped to our store, so an arbitrary URL can't pull anything outside it.
+// Authenticated proxy for PRIVATE Vercel Blob objects — the UPLOADED files a
+// page shows (photos, floor plans, check images, receipts). Only a full blob
+// URL in an allowed upload folder, to a user who may open that folder's page
+// (`lib/blobAccess.ts`). JSON documents and K-1s are never served here.
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,21 +18,31 @@ export async function GET(req: NextRequest) {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return new Response("Blob storage is not configured.", { status: 503 });
   }
-  // Backup copies hold every document in the store (K-1s, payroll), so they
-  // are read only by whoever may open Backups — never through this proxy by
-  // anyone signed in.
-  let pathname = url;
-  try { pathname = decodeURIComponent(new URL(url).pathname.replace(/^\//, "")); } catch { /* a bare pathname */ }
-  if (isBackupPath(pathname.replace(/^\//, ""))) {
+  const pathname = blobPathname(url);
+  const readers = pathname ? blobReaders(pathname) : undefined;
+  if (!pathname || readers === undefined) return new Response("Not found", { status: 404 });
+  if (readers) {
     const u = await budgetUser();
-    if (!u || !isPathAllowed(u, BACKUPS_PAGE)) return new Response("Not found", { status: 404 });
+    if (!u || !readers.some((p) => isPathAllowed(u, p))) return new Response("Not found", { status: 404 });
   }
   try {
     const result = await get(url, { access: "private" });
     if (!result) return new Response("Not found", { status: 404 });
+    const type = result.blob.contentType || "application/octet-stream";
     const headers = new Headers();
-    headers.set("content-type", result.blob.contentType || "application/octet-stream");
     headers.set("cache-control", "private, max-age=300");
+    headers.set("x-content-type-options", "nosniff");
+    if (inlineSafe(type)) {
+      headers.set("content-type", type);
+    } else {
+      // Anything but a PDF or a raster image is a DOWNLOAD, sandboxed — an
+      // uploaded .html must never run on this origin with the viewer's session.
+      // (Not on PDFs: Chrome will not draw a PDF under a sandbox CSP.)
+      headers.set("content-security-policy", "sandbox");
+      headers.set("content-type", "application/octet-stream");
+      const name = (pathname.split("/").pop() || "file").replace(/["\r\n]/g, "");
+      headers.set("content-disposition", `attachment; filename="${name}"`);
+    }
     return new Response(result.stream, { headers });
   } catch {
     return new Response("Not found", { status: 404 });
