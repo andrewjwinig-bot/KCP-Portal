@@ -12,7 +12,7 @@
 import { StatusBanner } from "@/app/components/StatusBanner";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { CircleCheck, Eye, Mail, Plus, Trash2, TriangleAlert, X } from "lucide-react";
+import { CircleCheck, Copy, Download, Eye, Mail, Plus, Trash2, TriangleAlert, X } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
 import LoadingState from "../components/LoadingState";
 import { renderTenantEmail, scheduleLabel, type TenantTemplate } from "@/lib/communications/templates";
@@ -168,6 +168,9 @@ function DraftModal({ t, onClose, onSent }: { t: TenantTemplate; onClose: () => 
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [marked, setMarked] = useState(false);
+  // What the last click did, said in words — a download lands silently, and
+  // "nothing happened" is what Greg saw (11/2026).
+  const [done, setDone] = useState<"downloaded" | "copied" | null>(null);
 
   // The draft is built here from the preview's own HTML and handed to the
   // browser as an .eml — Outlook opens it as a new, unsent email.
@@ -178,7 +181,24 @@ function DraftModal({ t, onClose, onSent }: { t: TenantTemplate; onClose: () => 
     a.href = url; a.download = draftFileName(subject.trim() || t.subject);
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 5000);
-    setDrafted(true);
+    setDrafted(true); setDone("downloaded"); setNote(null);
+  };
+
+  // The way that works with ANY Outlook (the new Outlook for Windows and
+  // Outlook on the web do not open an .eml as a draft): the email on the
+  // clipboard as HTML, pasted into a new message.
+  const copyEmail = async () => {
+    const { html, text } = renderTenantEmail(t, undefined, work);
+    try {
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ "text/html": new Blob([html], { type: "text/html" }), "text/plain": new Blob([text], { type: "text/plain" }) })]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
+      setDrafted(true); setDone("copied"); setNote(null);
+    } catch {
+      setNote("Could not copy — use Download Draft for Outlook instead.");
+    }
   };
 
   const markSent = async () => {
@@ -228,11 +248,28 @@ function DraftModal({ t, onClose, onSent }: { t: TenantTemplate; onClose: () => 
         <div style={{ marginTop: 12 }}><EmailFrame t={t} room={370} work={work} /></div>
 
         <DraftSteps drafted={drafted} needsDetails={!!t.work || t.kind === "weather"} />
-        {note && <div style={{ marginTop: 10, color: "var(--c-b42318)" }}>{note}</div>}
+        {done === "downloaded" && (
+          <div style={{ marginTop: 10 }}>
+            <StatusBanner tone="success" compact title={`Downloaded ${draftFileName(subject.trim() || t.subject)}`}>
+              Open it from your browser&rsquo;s downloads (top right) — it opens in Outlook as a new email. If it opens as a received message or not at all, use Copy Email and paste it into a new Outlook message.
+            </StatusBanner>
+          </div>
+        )}
+        {done === "copied" && (
+          <div style={{ marginTop: 10 }}>
+            <StatusBanner tone="success" compact title="Email copied">
+              In Outlook click New Email, paste into the body (Ctrl+V), and paste or type the subject: {subject.trim() || t.subject}
+            </StatusBanner>
+          </div>
+        )}
+        {note && <div style={{ marginTop: 10 }}><StatusBanner tone="danger" compact title="Something went wrong">{note}</StatusBanner></div>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
           <button className="btn" onClick={onClose} disabled={busy}>Close</button>
+          <button className="btn" disabled={!subject.trim()} onClick={copyEmail}>
+            <Copy size={16} strokeWidth={1.75} /> Copy Email
+          </button>
           <button className={drafted ? "btn" : "btn primary"} disabled={!subject.trim()} onClick={openDraft}>
-            <Mail size={16} strokeWidth={1.75} /> {drafted ? "Download the draft again" : "Open draft in Outlook"}
+            <Download size={16} strokeWidth={1.75} /> {drafted ? "Download Again" : "Download Draft for Outlook"}
           </button>
           {drafted && <button className="btn primary" disabled={busy || !subject.trim()} onClick={markSent}>{busy ? "Saving…" : "I sent it — mark sent"}</button>}
         </div>
@@ -247,7 +284,7 @@ function DraftModal({ t, onClose, onSent }: { t: TenantTemplate; onClose: () => 
 function DraftSteps({ drafted, needsDetails }: { drafted: boolean; needsDetails: boolean }) {
   const steps = [
     { title: needsDetails ? "Check the subject and fill in the details above" : "Check the subject", done: drafted },
-    { title: "Click Open draft in Outlook, then open the file that downloads", done: drafted },
+    { title: "Click Download Draft for Outlook and open the file — or Copy Email and paste it into a new Outlook message", done: drafted },
     { title: "In Outlook, add your distribution lists in To or Bcc, then click Send", done: false },
     { title: "Come back here and click I sent it — mark sent", done: false },
   ];
