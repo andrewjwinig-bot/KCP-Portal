@@ -103,6 +103,9 @@ export interface TaskInstructions {
 export interface TaskDef {
   id: string;
   label: string;
+  /** The label for one month's occurrence, where it names a month — Post PM
+   *  and AP in November posts OCTOBER ("Post Oct PM and AP"). */
+  labelFor?: (year: number, month: number) => string; // month 0-indexed
   category: Category;
   dueDay: number;
   endOfMonth?: boolean;
@@ -241,6 +244,9 @@ export const TASK_DEFS: TaskDef[] = [
   {
     id: "m-post",
     label: "Post PM and AP",
+    // The month being posted is the one just ended (owner: "in november
+    // should it say Post OCT PM and AP").
+    labelFor: (year, month) => `Post ${MONTHS[(month + 11) % 12].slice(0, 3)} PM and AP`,
     category: "routine",
     dueDay: 20,
     approxDay: true,
@@ -857,7 +863,7 @@ export function tasksForMonth(year: number, month: number): TaskDef[] { // month
         });
       }
     } else {
-      result.push(t);
+      result.push(t.labelFor ? { ...t, label: t.labelFor(year, month) } : t);
     }
   }
   return result;
