@@ -44,6 +44,19 @@ describe("sendMail", () => {
     expect(p.Cc).toBeUndefined();
   });
 
+  it("sends Reply-To as Postmark's ReplyTo field, never as a header (Postmark refuses the header)", async () => {
+    await sendMail({ ...base, headers: [{ Name: "Reply-To", Value: "ttomlinson@kormancommercial.com" }, { Name: "X-Other", Value: "1" }] });
+    const p = payload();
+    expect(p.ReplyTo).toBe("ttomlinson@kormancommercial.com");
+    expect(p.Headers.some((h: { Name: string }) => h.Name.toLowerCase() === "reply-to")).toBe(false);
+    expect(p.Headers).toEqual([{ Name: "X-Other", Value: "1" }]);
+  });
+
+  it("omits ReplyTo when none is given", async () => {
+    await sendMail(base);
+    expect(payload()).not.toHaveProperty("ReplyTo");
+  });
+
   it("carries cc and bcc independently", async () => {
     await sendMail({ ...base, cc: "marie@example.com", bcc: "drew@example.com" });
     expect(payload().Cc).toBe("marie@example.com");
