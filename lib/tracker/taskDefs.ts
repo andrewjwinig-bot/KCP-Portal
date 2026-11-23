@@ -157,6 +157,7 @@ export const TASK_DEFS: TaskDef[] = [
   // ── MONTHLY ROUTINE — appears every month ─────────────────────────────────
   {
     id: "m-lbr",
+    link: "/financials/reprojections",
     label: "Liberty Bank Report",
     category: "routine",
     dueDay: 15,
@@ -493,6 +494,7 @@ export const TASK_DEFS: TaskDef[] = [
   },
   {
     id: "m-mgmt-fees",
+    link: "/financials/management-fees",
     label: "Print Management Fees",
     category: "routine",
     dueDay: 0,
@@ -532,6 +534,7 @@ export const TASK_DEFS: TaskDef[] = [
   },
   {
     id: "m-avid",
+    link: "https://one.avidxchange.net/#/invoices",
     label: "Pay Avid Bills",
     category: "weekly",
     dueDay: 0,          // placeholder — overridden per-Wednesday at expansion time
@@ -633,6 +636,7 @@ export const TASK_DEFS: TaskDef[] = [
   // January
   {
     id: "jan-1099due",
+    link: "/financials/ten99",
     label: "1099 Due",
     category: "seasonal",
     dueDay: 31,
@@ -642,6 +646,7 @@ export const TASK_DEFS: TaskDef[] = [
   },
   {
     id: "jan-alloc",
+    link: "/allocated-invoicer",
     label: "Reconcile Allocated Expenses",
     category: "seasonal",
     dueDay: 31,
@@ -653,6 +658,7 @@ export const TASK_DEFS: TaskDef[] = [
   // February
   {
     id: "feb-wp",
+    link: "/financials/workpapers",
     label: "Start Workpapers",
     category: "seasonal",
     dueDay: 1,
@@ -663,6 +669,7 @@ export const TASK_DEFS: TaskDef[] = [
   // March
   {
     id: "mar-wak",
+    link: "/cam-recon",
     label: "Wakefern CAM Rec Due",
     category: "seasonal",
     dueDay: 30,
@@ -681,6 +688,7 @@ export const TASK_DEFS: TaskDef[] = [
   // April
   {
     id: "apr-cam",
+    link: "/cam-recon",
     label: "CAM Recs Due",
     category: "seasonal",
     dueDay: 30,
@@ -690,6 +698,7 @@ export const TASK_DEFS: TaskDef[] = [
   // July
   {
     id: "jul-sky",
+    link: "/financials/reprojections",
     label: "Reprojection Skyline Upload",
     category: "seasonal",
     dueDay: 1,
@@ -710,6 +719,7 @@ export const TASK_DEFS: TaskDef[] = [
   // September
   {
     id: "sep-bud",
+    link: "/financials/budgets/draft",
     label: "Next Year Budgets",
     category: "seasonal",
     dueDay: 1,
@@ -720,6 +730,7 @@ export const TASK_DEFS: TaskDef[] = [
   // October
   {
     id: "oct-wak",
+    link: "/financials/budgets/draft",
     label: "Wakefern Budget Due",
     category: "seasonal",
     dueDay: 1,
@@ -748,6 +759,7 @@ export const TASK_DEFS: TaskDef[] = [
   },
   {
     id: "nov-chase",
+    link: "https://secure.chase.com/web/auth/dashboard#/dashboard/fraudProtectionHub/overview/index",
     label: "Check Chase — Black Friday",
     category: "seasonal",
     dueDay: 28,
@@ -756,6 +768,7 @@ export const TASK_DEFS: TaskDef[] = [
   },
   {
     id: "nov-camest",
+    link: "/cam-recon/estimates",
     label: "Upload CAM Estimates",
     category: "seasonal",
     dueDay: 31,
@@ -765,6 +778,7 @@ export const TASK_DEFS: TaskDef[] = [
   },
   {
     id: "nov-budsky",
+    link: "/financials/budgets",
     label: "Upload Budgets to Skyline",
     category: "seasonal",
     dueDay: 31,
@@ -784,6 +798,7 @@ export const TASK_DEFS: TaskDef[] = [
   // December
   {
     id: "dec-1099",
+    link: "/financials/ten99",
     label: "1099 Start",
     category: "seasonal",
     dueDay: 31,
@@ -793,6 +808,7 @@ export const TASK_DEFS: TaskDef[] = [
   },
   {
     id: "dec-int",
+    link: "/bank-transfers",
     label: "Transfer Interest Income",
     category: "seasonal",
     dueDay: 31,
@@ -802,6 +818,7 @@ export const TASK_DEFS: TaskDef[] = [
   },
   {
     id: "dec-bank",
+    link: "/bank-transfers",
     label: "Reimburse Bank Fees",
     category: "seasonal",
     dueDay: 31,
