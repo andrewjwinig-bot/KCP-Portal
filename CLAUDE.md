@@ -935,6 +935,19 @@ The user wants downloaded workbooks to stay accurate and be easy to edit. **Any 
 
 Reference points already converted: single-period Operating Statement, Full-Year statement, Reprojection, Budget download (all tabs), Cash Sheet Portfolio Total, Payroll summary + GL offset (`=-SUM(...)` so column H nets to $0), Allocation template, allocated-invoicer. **Exceptions that legitimately have no total row:** the Skyline import (one row per GL, no footer) and the rent-roll trend workbook (its "Total" is a per-period column, and percentages can't be summed). If you build a NEW export, wire its totals as formulas from the start.
 
+# Reply-To goes in Postmark's ReplyTo FIELD, never a header
+
+Postmark REFUSES a `Reply-To` custom header (422 "Header 'Reply-To' not
+allowed."). Callers still pass it in `headers`; `buildPayload` in
+`lib/mail.ts` lifts it into the top-level `ReplyTo` field for every flow
+(pinned by `mail.test.ts`). Until 11/23/26 it did not, and every mail that set
+Reply-To was refused: the November tenant notices (all 94 failed on 11/17,
+the fallback sender refused the same way), Tami's receipt / balance / credit
+emails and the website contact, tour, leasing and space-inquiry forms. Mail
+goes out through Postmark, so a sent copy NEVER lands in the From mailbox's
+Sent Items (ar@ included) — the record is the portal's correspondence log and
+Postmark's activity.
+
 # Shared links — the host they are built on
 
 **Every emailed link is built by `linkOrigin(req)` (`lib/linkOrigin.ts`), never

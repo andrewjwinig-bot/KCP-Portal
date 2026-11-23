@@ -99,7 +99,14 @@ export function isMailConfigured(): boolean {
 /** The Postmark request body. One builder, so the detailed and boolean send
  *  paths cannot drift in what they actually transmit. */
 function buildPayload(msg: MailMessage, from: string) {
-  const headers = [...(msg.headers ?? [])];
+  // POSTMARK REFUSES Reply-To AS A CUSTOM HEADER (422, "Header 'Reply-To' not
+  // allowed.") — it must be the top-level ReplyTo field. Callers pass it as a
+  // header, so it is lifted out here, once, for every flow. Until 11/23/26 it
+  // was not: every tenant notice, receipt / balance / credit email and website
+  // form reply was refused, and the notice batch's fallback sender was refused
+  // the same way.
+  const replyTo = (msg.headers ?? []).filter((h) => h.Name.trim().toLowerCase() === "reply-to").map((h) => h.Value.trim()).filter(Boolean);
+  const headers = (msg.headers ?? []).filter((h) => h.Name.trim().toLowerCase() !== "reply-to");
   if (msg.isAutoReply) headers.push({ Name: "Auto-Submitted", Value: "auto-replied" });
   const Attachments = (msg.attachments ?? []).map((a) => ({
     Name: a.name,
@@ -111,6 +118,7 @@ function buildPayload(msg: MailMessage, from: string) {
     To: msg.to,
     ...(msg.cc ? { Cc: msg.cc } : {}),
     ...(msg.bcc ? { Bcc: msg.bcc } : {}),
+    ...(replyTo.length ? { ReplyTo: replyTo.join(", ") } : {}),
     Subject: msg.subject,
     TextBody: msg.textBody,
     ...(msg.htmlBody ? { HtmlBody: msg.htmlBody } : {}),
