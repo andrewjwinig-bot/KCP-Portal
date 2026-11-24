@@ -6,8 +6,10 @@
 // and Nancy mark who is delinquent; Drew keys the UO1 on the City's site from
 // the table, marks each property filed, and imports the payment JE.
 
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, Pencil, Upload } from "lucide-react";
+import { pickInto } from "@/app/components/pickFiles";
+import { useCreditBalanceImport } from "@/app/tenant-statements/useCreditBalanceImport";
 import { PageHeader } from "@/app/components/PageHeader";
 import { HeaderSelect, propertyLabel } from "@/app/components/HeaderSelect";
 import { MetaLine } from "@/app/components/LastImported";
@@ -29,7 +31,7 @@ type Data = {
   cityAlarm: { level: "warning" | "danger"; title: string; text: string } | null;
   stage: "not-open" | "review" | "ready" | "filed" | "overdue";
   dates: { reviewOpens: string; fileBy: string; due: string };
-  canReview: boolean; canFile: boolean;
+  canReview: boolean; canFile: boolean; canImportAging?: boolean;
 };
 
 const ICON = { size: 16, strokeWidth: 1.75, "aria-hidden": true } as const;
@@ -81,6 +83,10 @@ export default function UoTaxPage() {
     if (q && /^\d{4}-\d{2}$/.test(q)) setMonth(q);
   }, []);
   useEffect(() => { setData(null); load(); }, [load]);
+  // The Delinquency / Aging Report Tanya circulates (PDF or Excel) — the
+  // same import as Receivables / Open Credits; the candidates re-read it.
+  const agingRef = useRef<HTMLInputElement>(null);
+  const importAging = useCreditBalanceImport(load);
 
   const post = async (body: Record<string, unknown>, label: string) => {
     setBusy(label); setError("");
@@ -121,12 +127,17 @@ export default function UoTaxPage() {
           {months.map((m) => <option key={m} value={m}>{monthName(m)}</option>)}
         </HeaderSelect>
       }
-      actions={
+      actions={<>
+        {data?.canImportAging && <>
+          <input ref={agingRef} type="file" data-import="Delinquency Report" accept=".pdf,.xls,.xlsx" multiple hidden onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ""; importAging(f); }} />
+          <button className="btn import" onClick={() => pickInto(agingRef.current, "credit-balance")}><Upload size={16} strokeWidth={1.75} aria-hidden /> Import Delinquency Report</button>
+        </>}
         <DownloadMenu label="Export" items={[
           { label: "Payment JE (Skyline import)", description: "0110 / 2430 / 9190 per property", href: `/api/uo?month=${month}&export=je` },
           { label: "U&O by tenant (Excel)", description: "Each suite's monthly U&O vs billed", href: `/api/uo?month=${month}&export=charges` },
           ...(data?.canFile && month.endsWith("-01") ? [{ label: `Email ${month.slice(0, 4)} charges to Tanya`, description: "Each tenant's new UO charge, effective 1/1 (sent on its own in December)", onClick: () => post({ action: "january-reset", year: Number(month.slice(0, 4)) }, "reset") }] : []),
         ]} />
+      </>
       }
       meta={data && (
         <MetaLine>
@@ -152,7 +163,7 @@ export default function UoTaxPage() {
     if (data.stage === "overdue") return <StatusBanner tone="danger" title={`${monthName(month)} U&O is past due`}>Due {day(data.dates.due)}. {data.properties.length - filedCount} of {data.properties.length} returns not marked filed — interest and penalty run, and the 1% discount is lost.</StatusBanner>;
     if (data.stage === "ready") return <StatusBanner tone="warning" icon="clock" title={`Time to file ${monthName(month)} U&O`}>{rec.confirmedAt ? `Delinquents confirmed by ${rec.confirmedBy} ${when(rec.confirmedAt)}.` : "Delinquents not confirmed — the list below is used as it stands."} File by {day(data.dates.fileBy)}; due {day(data.dates.due)}. {filedCount ? `${filedCount} of ${data.properties.length} filed.` : ""}</StatusBanner>;
     if (data.stage === "review") return <StatusBanner tone="warning" title={`Confirm ${monthName(month)}'s delinquents`}>Tick anyone to report delinquent to the City, then confirm — Drew is sent the returns to file. Needed by {day(data.dates.fileBy)}.</StatusBanner>;
-    return <StatusBanner tone="info" title={`${monthName(month)} opens for review on ${day(data.dates.reviewOpens)}`}>Greg and Harry are emailed the tenants with U&amp;O still open on the laser statement that morning.</StatusBanner>;
+    return <StatusBanner tone="info" title={`${monthName(month)} opens for review on ${day(data.dates.reviewOpens)}`}>Greg and Harry are emailed the tenants with U&amp;O still open that morning — on the newest Delinquency / Aging Report, else the Laser Statement.</StatusBanner>;
   })();
 
   const candidateRefs = new Set(data.candidates.map((c) => c.unitRef.toUpperCase()));

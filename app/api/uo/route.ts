@@ -15,7 +15,7 @@ import { NextResponse } from "next/server";
 import { refreshCityAssessments } from "@/lib/uo/assessmentsLoad";
 import { sendJanuaryReset } from "@/lib/uo/januaryReset";
 import { budgetUser } from "@/lib/financials/budgets/currentUser";
-import { USERS, type UserId } from "@/lib/users";
+import { USERS, isPathAllowed, type UserId } from "@/lib/users";
 import { etToday } from "@/lib/statements/reminderSchedule";
 import { loadUoMonth } from "@/lib/uo/load";
 import { emptyMonth, getUoMonth, getUoSettings, saveUoMonth, saveUoSettings } from "@/lib/uo/store";
@@ -66,6 +66,9 @@ export async function GET(req: Request) {
     dates: { reviewOpens: reviewOpensOn(month), fileBy: fileByOn(month), due: dueOn(month) },
     canReview: !!user && REVIEWERS.includes(user),
     canFile: !!user && FILERS.includes(user),
+    // Importing the Delinquency / Aging Report writes to /api/tenant-statements,
+    // which answers to the Receivables grant.
+    canImportAging: !!user && isPathAllowed(user, "/tenant-statements"),
   });
 }
 

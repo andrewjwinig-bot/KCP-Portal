@@ -4,7 +4,8 @@ import "server-only";
 import { createCollectionStore } from "@/lib/collectionStore";
 import { resolveCurrentRentroll } from "@/lib/rentroll/current";
 import { allRuns } from "./store";
-import { parseAgingReport, resolveAgingProperties, type AgingTenant, type KnownUnit } from "./parseAgingReport";
+import { parseAgingFile } from "./agingFile";
+import { resolveAgingProperties, type AgingTenant, type KnownUnit } from "./parseAgingReport";
 import { composeAging, type AgingSnapshot, type CurrentAging } from "./aging";
 
 const store = createCollectionStore<AgingSnapshot>({ prefix: "tenant-aging", keyOf: (s) => s.asOf });
@@ -36,7 +37,7 @@ export type AgingImportResult = {
 };
 
 export async function importAging(buf: Buffer, sourceFile: string, by: string | null): Promise<AgingImportResult> {
-  const parsed = parseAgingReport(buf);
+  const parsed = await parseAgingFile(buf);
   if (!parsed.asOfISO) throw new Error("Couldn't read the report's \"as of\" date.");
   const { blocks, unresolved } = resolveAgingProperties(parsed.blocks, await knownUnits());
   const tenants = blocks.flatMap((b) => b.tenants).filter((t): t is AgingTenant & { unitRef: string; propertyCode: string } => !!t.unitRef && !!t.propertyCode);

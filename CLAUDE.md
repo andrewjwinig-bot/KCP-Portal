@@ -2502,6 +2502,19 @@ workbooks and the "ShopCtrs U&O direct debit" JE sheet. NOTHING IS KEYED:
   run for every tenant with a balance, not just open credits, it covers every
   tenant who owes. Ticked / confirmed by Greg, Harry or Nancy (Drew, Alison,
   admin too). A tick saves at once; Confirm says the list is final.
+  **Tanya's PDF imports as it comes** (owner, 11/2026: "this is the report
+  tanya sends to the office to ask who we want to mark delinquent"): Skyline's
+  "Delinquency / Aging Report (Detailed)" PRINTED, read by position
+  (`parseAgingPdf.ts`, pure, pinned by its test) into the same `ParsedAging`
+  the Excel parser gives. Better than the .xls: "Property : 1100" prints on
+  EVERY page, so no tenant is placed by vote. A detail group Crystal printed
+  twice (7010-201 on 11/19/26 — Skyline's own total counted it twice too) is
+  kept once only when one copy ties to the tenant's balance
+  (`withoutRepeats`). `parseAgingFile` (`agingFile.ts`) tells PDF from Excel
+  by content for every aging import: Receivables / Open Credits (Credit
+  Balance Report), the workpapers' Import Aging Reports, and **Import
+  Delinquency Report** on the U&O page (shown to whoever has Receivables —
+  `canImportAging`), after which the candidates re-read it.
 - **The cycle runs itself** (`lib/uo/cycle.ts`, cron `/api/cron/uo` 14:00 UTC):
   the 16th (next business day) Greg + Harry are emailed the candidates
   (`UO_REVIEW_TO`); the 20th a reminder, Drew copied; once confirmed (or the
