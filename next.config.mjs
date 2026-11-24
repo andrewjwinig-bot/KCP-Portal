@@ -49,15 +49,6 @@ const nextConfig = {
     // The insurance SOV routes read the broker's form shipped in data/.
     outputFileTracingIncludes: {
       "/api/insurance/**": ["./data/insurance/**"],
-      // Sensitive files move from data/ into protected storage on first read
-      // (lib/secureFiles.ts); until the repo copies are deleted they ship here.
-      "/api/onboarding/handbook": ["./data/onboarding/**"],
-      "/api/cron/backup": ["./data/allocation.xlsx", "./data/budgets/**", "./data/onboarding/**"],
-      "/api/allocation": ["./data/allocation.xlsx"],
-      "/api/parse-payroll": ["./data/allocation.xlsx"],
-      "/api/generate-all": ["./data/allocation.xlsx"],
-      "/api/payroll/avid-send": ["./data/allocation.xlsx"],
-      "/api/financials/**": ["./data/budgets/**"],
       // Designed center pages read their HTML template at request time.
       "/centers/**": ["./lib/centers/designed/**"],
       // The Office Works website reads its HTML the same way.

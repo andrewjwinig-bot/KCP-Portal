@@ -985,8 +985,10 @@ Owner, 11/23/26: "whatever is most secure". The payroll allocation workbook
 (pay by employee), the 2026 budget workbooks and the New Accountant Handbook
 (EINs, bank details) are read ONLY through `readSecureFile(SECURE_FILES.…)` —
 private Blob at `secure-files/<name>`, never served by `/api/blob` (not in
-`BLOB_FOLDERS`), copied by the nightly backup. While a copy still ships in
-`data/`, the first read — or the backup cron's `seedSecureFiles` — uploads it.
+`BLOB_FOLDERS`), copied by the nightly backup. All seven were seeded into Blob
+11/24/26 and the repo copies DELETED (and `.gitignore`d); the `data/` fallback
+in `readSecureFile` now finds nothing, so Blob is the only copy outside the
+backups.
 A new allocation workbook is uploaded on the Payroll Invoicer (**Replace
 Workbook**, `POST /api/allocation`, checked it parses before it is saved,
 audit-logged), never committed. NEVER add a sensitive file to `data/` or
@@ -1042,8 +1044,8 @@ audit-logged), never committed. NEVER add a sensitive file to `data/` or
   (`LEGACY_EXPIRES`). Credit-apply links already close after their deadline.
 - **SheetJS is 0.20.3 from cdn.sheetjs.com** (npm stops at 0.18.5, which has
   the prototype-pollution / ReDoS CVEs). Never "downgrade" it to the npm tag.
-- **STILL OPEN**: the sensitive files are moving to protected storage (above)
-  — once seeded, delete them from `data/` and purge them from git history.
+- **STILL OPEN**: the sensitive files are out of the repo (above) but remain
+  in git HISTORY until a history rewrite (a force-push of main) — owner's call.
 
 # Bug audit 11/2026 — the automated sends, made idempotent
 
