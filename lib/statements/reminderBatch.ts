@@ -60,6 +60,9 @@ export type ReminderBatch = {
    *  on their own if he has not sent them (set at the FIRST build). */
   remindOn?: string | null;
   autoSendOn?: string | null;
+  /** The exact moments (ISO) — `autoSendOn` / `remindOn` are their Eastern dates. */
+  autoSendAt?: string | null;
+  remindAt?: string | null;
   approverRemindedAt?: string | null;
   /** Sent by the automatic send, not a person. */
   autoSent?: boolean;
@@ -96,6 +99,16 @@ export function dataFreshness(runAt: string | null | undefined, now: Date = new 
   if (!Number.isFinite(t)) return { fresh: false, ageHours: null, runAt: runAt ?? null };
   const ageHours = Math.max(0, (now.getTime() - t) / 3_600_000);
   return { fresh: ageHours <= NOTICE_MAX_DATA_AGE_HOURS, ageHours, runAt: runAt ?? null };
+}
+
+/** The AUTOMATIC send's rule: the data Greg was emailed, if it was under
+ *  24 hours old when he got it — he has had the 48 hours to look. A person
+ *  sending by hand is held to `dataFreshness` itself. */
+export function autoSendFreshness(b: { dataRunAt?: string | null; approverNotifiedAt?: string | null }, now: Date = new Date()): DataFreshness {
+  const live = dataFreshness(b.dataRunAt, now);
+  if (live.fresh || !b.approverNotifiedAt) return live;
+  const atNotice = dataFreshness(b.dataRunAt, new Date(b.approverNotifiedAt));
+  return { ...live, fresh: atNotice.fresh };
 }
 
 /** What the page and the refusal say. */

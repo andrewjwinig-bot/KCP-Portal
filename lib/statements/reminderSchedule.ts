@@ -72,3 +72,27 @@ export function addBusinessDays(iso: string, n: number): string {
  *  they are built, and every ticked notice goes on its own after two. */
 export const REMIND_AFTER_BUSINESS_DAYS = 1;
 export const AUTO_SEND_AFTER_BUSINESS_DAYS = 2;
+
+/** THE AUTOMATIC SEND IS 48 HOURS AFTER GREG IS EMAILED (owner, 11/24/26:
+ *  "tighten the automatic send time to 48 hours … gives him a chance but not
+ *  too much time will pass"), the reminder at 24. Counted in business days at
+ *  the same time of day, so a Friday email sends Tuesday, not Sunday. */
+export const REMIND_AFTER_HOURS = 24;
+export const AUTO_SEND_AFTER_HOURS = 48;
+
+/** `hours` (whole days of 24) after the moment `at`, weekends and holidays
+ *  skipped (judged by the Eastern date), same time of day. */
+export function addBusinessHours(at: string, hours: number): string {
+  const d = new Date(at);
+  for (let k = 0; k < Math.round(hours / 24);) {
+    d.setUTCDate(d.getUTCDate() + 1);
+    if (isBusinessDay(etDateOf(d))) k++;
+  }
+  return d.toISOString();
+}
+
+/** The Eastern calendar date of a moment. */
+export function etDateOf(d: Date): string {
+  const p = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  return p;
+}

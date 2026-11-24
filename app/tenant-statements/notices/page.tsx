@@ -145,7 +145,7 @@ export default function TenantNoticesPage() {
       {b && !sentAll && c && (
         <StatusBanner tone="warning" title={`${c.toSend} notice${c.toSend === 1 ? "" : "s"} ready to send`}
           actions={<button className="btn primary" disabled={!!busy || !c.toSend || stale} onClick={() => setConfirm(true)}><Send {...ICON} /> Send {c.toSend}</button>}>
-          Every tenant is ticked. Untick anyone you want to hold back this month.{b.autoSendOn ? ` If not sent before ${dayName(b.autoSendOn)} morning, every ticked notice goes on its own.` : ""}
+          Every tenant is ticked. Untick anyone you want to hold back this month.{b.autoSendOn ? ` If not sent before ${b.autoSendAt ? new Date(b.autoSendAt).toLocaleString("en-US", { weekday: "long", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }).replace(/ (\d)/, " at $1") : `${dayName(b.autoSendOn)} morning`}, every ticked notice goes on its own.` : ""}
         </StatusBanner>
       )}
       {result && (

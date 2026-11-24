@@ -1070,10 +1070,9 @@ audit-logged), never committed. NEVER add a sensitive file to `data/` or
   (it keeps its own record); **payroll invoices are archived as sent**; the U&O
   cron saves only its own stamps onto a fresh read; every long send route has
   `maxDuration = 300`.
-- **KNOWN, owner's call**: the tenant notices' automatic send (2 business days
-  after the build) meets the 24-hour data rule, so it only sends if the Credit
-  Balance Report was re-imported that day — otherwise Greg gets the stale-data
-  email.
+- **Tenant notices' automatic send vs the 24-hour rule — DECIDED** (owner,
+  11/24/26): 48 hours after Greg's email, on the data he was sent
+  (`autoSendFreshness`); a person sending is still held to 24 hours.
 
 # Shared links — the host they are built on
 
@@ -2569,19 +2568,25 @@ batch), `reminderSchedule.ts` (the calendar), `reminderInternalEmails.ts`
   notice, Preview each, one Send (a confirm modal). Progress saves per email, so
   a second press never double-sends. Below it, the credits tenants asked for —
   Tami ticks each posted (her WRITE_SCOPE includes `/api/tenant-notices`).
-- **IF GREG FORGETS** (owner): `/api/cron/tenant-notices` (13:45 UTC daily,
-  `autoSendTick`) reminds him ONE business day after the build (`remindOn`) and
-  SENDS every ticked notice on its own after TWO (`autoSendOn`, set at the
-  first build, said in his email and on the page); unticked tenants stay held;
-  the batch reads "sent automatically". It also finishes a send that ran out
-  of time.
+- **IF GREG FORGETS** (owner): `/api/cron/tenant-notices` (hourly, 12:45–23:45
+  UTC, `autoSendTick`) reminds him 24 HOURS after he is emailed (`remindAt`)
+  and SENDS every ticked notice on its own 48 HOURS after (`autoSendAt`;
+  owner, 11/24/26: "tighten the automatic send time to 48 hours … gives him a
+  chance but not too much time will pass") — business days at the same time
+  of day (`addBusinessHours`, so a Friday email sends Tuesday), said with the
+  time in his email and on the page; unticked tenants stay held; the batch
+  reads "sent automatically". `autoSendOn` / `remindOn` are their Eastern
+  dates (a batch from before the clock carries dates only and is judged by
+  them). It also finishes a send that ran out of time.
 - **NOTHING SENDS ON DATA MORE THAN 24 HOURS OLD** (owner, 11/2026: "dont
   let anyone send or resend the tenant notices email if the data is more than
   24 hours old"; `dataFreshness` / `NOTICE_MAX_DATA_AGE_HOURS` in
   `reminderBatch.ts`). The clock is the newest Credit Balance Report behind
   the batch (`dataRunAt` — Skyline's run time, else the import). `sendBatch`
   refuses a stale batch (409 on the page; the cron, Send and Retry all go
-  through it), the page's Send / Retry are disabled under a clock banner with
+  through it) — EXCEPT the automatic send, which goes on the data Greg was
+  emailed if it was under 24 hours old when he got it (`autoSendFreshness`;
+  he has had the 48 hours to look, and a fresh import rebuilds it anyway), the page's Send / Retry are disabled under a clock banner with
   Import Credit Balance Report (for whoever can import — Greg is told to ask
   Drew or Tami), and when the automatic send comes due on stale data Greg is
   emailed once, Drew copied (`staleDataEmail`, `staleNotifiedAt`). **A fresh
