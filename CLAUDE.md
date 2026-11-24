@@ -4118,6 +4118,19 @@ years, the basis and "not an offer to lease". Only centres with CAM recons carry
     recovery lines are read, in the months the tenant is billed, so the lines,
     Revenue by tenant and the import all carry it. The engine's figure is kept
     (`computed`) and shown beside it; "Back to computed" clears it.
+  - **CLICKING A 2027 CELL SHOWS WHAT MAKES UP THE ESTIMATE, EXPENSE BY
+    EXPENSE, AGAINST LAST YEAR** (owner: "be able to clearly be like 'xxx
+    expense increased xxx and thats why your estimate is higher'";
+    `breakdownRows` / `EstimateBreakdown` in `EstimatesByTenantCard.tsx`, in the
+    set-by-hand modal). One row per CAM line (its budget × the cap scale × the
+    tenant's PRS), the admin fee, insurance and taxes, beside the recon year's
+    actual for the same line at the same share; the expense's own change % and
+    the tenant's change, sorted by change (or size), Annual · Monthly · $/SF
+    (`SegChoice`, ReprojTable.tsx), and a sentence to read to the tenant ("Up
+    $85 a month from the 2025 reconciliation — mostly Snow Removal up 40%
+    (+$52)…"). Both columns tie to the totals: a recovery-ratio trim and the
+    recon's cap / occupancy / rounding are their own rows. Office lines show
+    budget − base; their recon is one row (not kept by line).
   - **"BILLED TODAY" IS READ OFF THE MONTHLY STATEMENTS — ONE SOURCE**
     (owner: "we have to make it work using the monthly statements report";
     `statementBilling.ts` / `statementBillingMath.ts`, `currentBilling`). Every

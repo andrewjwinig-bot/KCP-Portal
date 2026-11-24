@@ -20,6 +20,7 @@ import { estimateRows, estimateTotals, skylineEstimateRows, allFromStatement, ty
 import { buildEstimatesXlsx } from "@/lib/financials/budgets/estimatesExport";
 import { recoveryCheck, type GroupCheck } from "@/lib/financials/budgets/recoveryCheck";
 import { chargeRowsToCSV } from "@/lib/cam/office/exports";
+import { SegChoice } from "@/app/financials/reprojections/ReprojTable";
 import type { TenantRevenueRow } from "@/lib/financials/budgets/draft";
 import type { ReimbursementEstimate } from "@/lib/financials/budgets/reimbursementEstimate";
 
@@ -435,6 +436,204 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
   );
 }
 
+type BUnit = "annual" | "monthly" | "psf";
+type BPart = "cam" | "ins" | "ret";
+type BRow = {
+  key: string; label: string; part: BPart;
+  /** The expense line: the recon year's actual and this budget. */
+  priorPool: number | null; pool: number | null;
+  /** The tenant's part of it, a year: on this budget, and on the recon year's actual. */
+  annual: number; prior: number | null;
+  struck?: boolean; note?: string;
+};
+
+/** Every expense behind the tenant's computed estimate, as its own row: each
+ *  CAM line's slice of the pool × the tenant's share, the admin fee, insurance
+ *  and taxes — beside the same line in the recon year, so the change in the
+ *  estimate can be explained expense by expense. Both columns add to the
+ *  totals (a recovery-ratio trim, or the recon's cap / occupancy, is its own
+ *  row). */
+function breakdownRows(e: EstimateRow): BRow[] {
+  const out: BRow[] = [];
+  const m = e.method;
+  for (const p of ["cam", "ins", "ret"] as const) {
+    const w = e.why.find((x) => x.part === p);
+    if (!w) continue;
+    const final = w.annual ? w.annual : w.year ?? (w.computed ?? w.next) * (w.months || 12);
+    const priorTotal = w.recon != null ? w.recon * 12 : null;
+    let sum = 0, priorSum = 0;
+    const b = m?.kind === "retail" ? m.basis?.[p] : undefined;
+    if (b?.lines?.length) {
+      const billed = b.lines.filter((l) => l.billed);
+      const tot = billed.reduce((a, l) => a + l.budget, 0);
+      const scale = tot > 0 ? b.expense / tot : 0;
+      const share = b.prs / 100;
+      for (const l of b.lines) {
+        const v = l.billed ? l.budget * scale * share : 0;
+        const pv = l.billed ? l.actual * share : 0;
+        sum += v; priorSum += pv;
+        out.push({ key: `${p}:${l.label}`, label: `${l.label}${l.from === "ratio" ? " *" : ""}`, part: p,
+          priorPool: l.actual, pool: l.budget, annual: v, prior: pv,
+          struck: !l.billed, note: !l.billed ? "Excluded by lease" : undefined });
+      }
+      if (b.adminPct && (Math.abs(b.admin) >= 0.5)) {
+        const priorBase = billed.filter((l) => !l.adminExcluded).reduce((a, l) => a + l.actual, 0);
+        const pv = (b.adminPct / 100) * share * priorBase;
+        sum += b.admin; priorSum += pv;
+        out.push({ key: `${p}:admin`, label: `Administrative fee ${b.adminPct}%`, part: p,
+          priorPool: null, pool: null, annual: b.admin, prior: pv,
+          note: billed.some((l) => l.adminExcluded) ? "Not charged on every line" : undefined });
+      }
+      if (b.capped) out.push({ key: `${p}:cap`, label: "Controllable CAM cap", part: p, priorPool: null, pool: b.expense - tot, annual: 0, prior: null, note: "Already taken off each line above" });
+    } else if (m?.kind === "office" && p === "cam" && m.lines?.length) {
+      for (const l of m.lines) {
+        const v = l.over > 0 ? (l.over * m.proRataPct) / 100 : 0;
+        sum += v;
+        out.push({ key: `${p}:${l.label}`, label: `${l.label}${l.fromLine ? "" : " *"}`, part: p,
+          priorPool: null, pool: l.budget, annual: v, prior: null, struck: v === 0,
+          note: v === 0 ? `At or under its ${m.baseYear ?? "base-year"} base of ${money0(l.base)}` : `Over its base of ${money0(l.base)} by ${money0(l.over)}` });
+      }
+      // Office recons are not kept line by line, so last year is one row.
+      if (priorTotal != null) {
+        out.push({ key: `${p}:prior`, label: "Last reconciliation (not split by line)", part: p, priorPool: null, pool: null, annual: 0, prior: priorTotal });
+        priorSum = priorTotal;
+      }
+    } else if (final || priorTotal) {
+      const label = p === "cam" ? "Common area maintenance" : p === "ins" ? "Property insurance" : "Real estate taxes";
+      out.push({ key: `${p}:all`, label, part: p, priorPool: b?.actual ?? null, pool: b ? b.expense : null, annual: final, prior: priorTotal,
+        note: b?.flat ? "Own parcel — a fixed amount" : w.annual ? "Collected at reconciliation, not monthly" : undefined });
+      sum = final; priorSum = priorTotal ?? 0;
+    }
+    if (Math.abs(final - sum) >= 1) out.push({ key: `${p}:check`, label: `${LABEL[p]} recovery-ratio check`, part: p, priorPool: null, pool: null, annual: final - sum, prior: 0 });
+    // What the recon billed beyond its lines × share: cap, part year, rounding.
+    if (priorTotal != null && Math.abs(priorTotal - priorSum) >= 1)
+      out.push({ key: `${p}:recon-adj`, label: `${LABEL[p]} cap, occupancy & rounding (last recon)`, part: p, priorPool: null, pool: null, annual: 0, prior: priorTotal - priorSum });
+  }
+  return out;
+}
+
+function EstimateBreakdown({ e, year, ry }: { e: EstimateRow; year: number; ry: number | null }) {
+  const [unit, setUnit] = useState<BUnit>("monthly");
+  const [order, setOrder] = useState<"change" | "share">(ry != null ? "change" : "share");
+  const rows = useMemo(() => breakdownRows(e), [e]);
+  const total = rows.reduce((a, r) => a + r.annual, 0);
+  if (!rows.length || (Math.abs(total) < 1 && !rows.some((r) => r.prior))) return null;
+  const months = (p: BPart) => e.why.find((x) => x.part === p)?.months || 12;
+  const conv = (annual: number, p: BPart) =>
+    unit === "annual" ? annual : unit === "monthly" ? annual / months(p) : e.sqft > 0 ? annual / e.sqft : 0;
+  const fmt = (v: number) => (unit === "psf" ? `$${v.toFixed(2)}` : money0(v));
+  const fmtS = (v: number) => (unit === "psf" ? (Math.abs(v) < 0.005 ? "–" : `${v > 0 ? "+" : "−"}$${Math.abs(v).toFixed(2)}`) : signed(v));
+  const per = unit === "annual" ? "a year" : unit === "monthly" ? "a month" : "per SF";
+  const hasPrior = ry != null && rows.some((r) => r.prior != null);
+  const change = (r: BRow) => (r.prior == null ? null : conv(r.annual - r.prior, r.part));
+  const quiet = (r: BRow) => r.struck || (Math.abs(r.annual) < 0.5 && Math.abs(r.prior ?? 0) < 0.5);
+  const live = rows.filter((r) => !quiet(r)).sort((a, b) =>
+    order === "change" ? Math.abs(change(b) ?? 0) - Math.abs(change(a) ?? 0) : b.annual - a.annual);
+  const idle = rows.filter(quiet);
+  const max = Math.max(...live.map((r) => r.annual), 1);
+  const sumBy = (k: "annual" | "prior") => (["cam", "ins", "ret"] as const)
+    .reduce((a, p) => a + conv(rows.filter((r) => r.part === p).reduce((s, r) => s + (r[k] ?? 0), 0), p), 0);
+  const totNow = sumBy("annual"), totPrior = sumBy("prior"), totChange = totNow - totPrior;
+  const overridden = e.why.some((w) => w.overridden);
+
+  // The sentence to read to the tenant: the change, and the three expenses that moved it most.
+  const drivers = live.filter((r) => (change(r) ?? 0) * Math.sign(totChange) > 0)
+    .sort((a, b) => Math.abs(change(b) ?? 0) - Math.abs(change(a) ?? 0)).slice(0, 3);
+  const poolPct = (r: BRow) => (r.priorPool && r.pool != null && r.priorPool > 0 ? ((r.pool - r.priorPool) / r.priorPool) * 100 : null);
+  const driverText = (r: BRow) => {
+    const pct = poolPct(r);
+    const name = r.label.replace(/ \*$/, "");
+    return `${name} ${pct != null ? `${pct >= 0 ? "up" : "down"} ${Math.abs(pct).toFixed(0)}% (${fmtS(change(r) ?? 0)})` : fmtS(change(r) ?? 0)}`;
+  };
+
+  const line = (r: BRow) => {
+    const muted = quiet(r);
+    const off: React.CSSProperties = muted ? { color: "var(--muted)" } : {};
+    const share = total ? (r.annual / total) * 100 : 0;
+    const c = change(r);
+    const pct = poolPct(r);
+    return (
+      <tr key={r.key}>
+        <td style={{ ...td, textAlign: "left", whiteSpace: "normal", minWidth: 180, ...off }}>
+          <span style={r.struck ? { textDecoration: "line-through" } : undefined}>{r.label}</span>
+          <span className="muted" style={{ fontSize: "var(--fs-11)", fontWeight: 700, marginLeft: 6 }}>{LABEL[r.part]}</span>
+          {r.note && <div className="muted" style={{ fontSize: "var(--fs-12)" }}>{r.note}</div>}
+        </td>
+        {hasPrior && <td style={{ ...td, ...off }}>{r.priorPool != null ? money0(r.priorPool) : "–"}</td>}
+        <td style={{ ...td, ...off }}>{r.pool != null ? money0(r.pool) : "–"}</td>
+        {hasPrior && <td style={{ ...td, color: pct == null ? "var(--muted)" : tone(pct) }}>{pct == null ? "–" : pctS(pct)}</td>}
+        <td style={{ ...td, borderLeft: DIVIDE, fontWeight: muted ? 400 : 700, ...off }}>{Math.abs(r.annual) < 0.5 ? "–" : fmt(conv(r.annual, r.part))}</td>
+        {hasPrior && <td style={{ ...td, fontWeight: 700, color: c == null ? "var(--muted)" : tone(unit === "psf" ? c * 100 : c) }}>{c == null ? "–" : fmtS(c)}</td>}
+        <td style={{ ...td, minWidth: 104, ...off }}>
+          {Math.abs(r.annual) >= 0.5 && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span style={{ width: 44, height: 6, borderRadius: 3, background: "var(--hairline)", overflow: "hidden", display: "inline-block" }}>
+                <span style={{ display: "block", height: "100%", width: `${Math.max(0, Math.min(100, (r.annual / max) * 100))}%`, background: "var(--brand)" }} />
+              </span>
+              {share.toFixed(0)}%
+            </span>
+          )}
+        </td>
+      </tr>
+    );
+  };
+  const foot: React.CSSProperties = { ...td, fontWeight: 800, borderTop: "2px solid var(--border)", borderBottom: "none" };
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+        <span style={secLabel}>What makes up the {year} estimate</span>
+        <span style={{ display: "inline-flex", gap: 12, flexWrap: "wrap" }}>
+          {hasPrior && <SegChoice<"change" | "share"> label="Sort" options={[{ value: "change", label: "Change" }, { value: "share", label: "Size" }]} value={order} onChange={setOrder} />}
+          <SegChoice<BUnit> options={[{ value: "annual", label: "Annual" }, { value: "monthly", label: "Monthly" }, { value: "psf", label: "$/SF" }]} value={unit} onChange={setUnit} />
+        </span>
+      </div>
+      {hasPrior && Math.abs(totChange) >= (unit === "psf" ? 0.005 : 0.5) && (
+        <div style={{ fontSize: "var(--fs-14)" }}>
+          <b style={{ color: tone(unit === "psf" ? totChange * 100 : totChange) }}>{totChange > 0 ? "Up" : "Down"} {fmt(Math.abs(totChange))} {per}</b> from the {ry} reconciliation
+          {drivers.length ? <> — mostly {drivers.map(driverText).join(", ")}.</> : "."}
+        </div>
+      )}
+      <div style={{ maxHeight: 380, overflow: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead style={{ position: "sticky", top: 0, background: "var(--card)", zIndex: 1 }}>
+            <tr>
+              <th style={{ ...th, textAlign: "left" }} />
+              <th colSpan={hasPrior ? 3 : 1} style={{ ...th, textAlign: "center", borderBottom: "none" }}>The expense</th>
+              <th colSpan={hasPrior ? 3 : 2} style={{ ...th, textAlign: "center", borderBottom: "none", borderLeft: DIVIDE }}>This tenant, {per}</th>
+            </tr>
+            <tr>
+              <th style={{ ...th, textAlign: "left" }}>Expense</th>
+              {hasPrior && <th style={th}>{ry} actual</th>}
+              <th style={th}>{year} budget</th>
+              {hasPrior && <th style={th}>Change</th>}
+              <th style={{ ...th, borderLeft: DIVIDE }}>{year}</th>
+              {hasPrior && <th style={th}>vs {ry}</th>}
+              <th style={th}>Of estimate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {live.map(line)}
+            {idle.map(line)}
+            <tr>
+              <td colSpan={hasPrior ? 4 : 2} style={{ ...foot, textAlign: "left" }}>{hasPrior ? `${ry} reconciliation ${fmt(totPrior)} → ${year} estimate` : `${year} estimate (computed)`}</td>
+              <td style={{ ...foot, borderLeft: DIVIDE }}>{fmt(totNow)}</td>
+              {hasPrior && <td style={{ ...foot, color: tone(unit === "psf" ? totChange * 100 : totChange) }}>{fmtS(totChange)}</td>}
+              <td style={foot}>100%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div className="muted" style={{ fontSize: "var(--fs-12)" }}>
+        A CAM line is the line × the tenant&rsquo;s share ({e.method?.kind === "retail" && e.method.basis?.cam ? `${e.method.basis.cam.prs.toFixed(2)}%` : "PRS"}), the {ry ?? "recon"} column at the same share.
+        {unit === "monthly" ? " A month is the year ÷ the months billed, before the $5 rounding." : ""}
+        {unit === "psf" ? ` $/SF on ${e.sqft.toLocaleString("en-US")} SF.` : ""}
+        {rows.some((r) => r.label.endsWith(" *")) ? " * No budget line found — grown at the pool's rate." : ""}
+        {overridden ? " This is the computed estimate; the figure set by hand is in the table above." : ""}
+      </div>
+    </div>
+  );
+}
+
 /** Set a tenant's monthly estimate by hand — with the reason the tenant will be given. */
 function OverrideModal({ e, year, ry, propertyCode, queued, onClose, onSaved }: {
   e: EstimateRow; year: number; ry: number | null; propertyCode: string;
@@ -472,9 +671,9 @@ function OverrideModal({ e, year, ry, propertyCode, queued, onClose, onSaved }: 
     } catch (x) { setErr(x instanceof Error ? x.message : "Couldn't save."); setBusy(false); }
   };
   const body = (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "80px 16px", overflowY: "auto" }}>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto" }}>
       <div onClick={(ev) => ev.stopPropagation()} role="dialog" aria-label="Set estimate"
-        style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 560, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
+        style={{ background: "var(--card)", borderRadius: 12, width: "100%", maxWidth: 900, boxShadow: "0 20px 60px rgba(0,0,0,0.35)" }}>
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
           <div style={secLabel}>{year} monthly estimate · set by hand</div>
           <div style={{ fontSize: 17, fontWeight: 800, marginTop: 2 }}>{e.tenant} · <code style={SUITE}>{e.unitRef}</code></div>
@@ -503,6 +702,7 @@ function OverrideModal({ e, year, ry, propertyCode, queued, onClose, onSaved }: 
               })}
             </tbody>
           </table>
+          <EstimateBreakdown e={e} year={year} ry={ry} />
           <label style={{ display: "grid", gap: 4 }}>
             <span style={secLabel}>Why — what the tenant will be told (required)</span>
             <textarea value={note} onChange={(ev) => setNote(ev.target.value)} rows={3}

@@ -72,6 +72,25 @@ export function SegToggle({ label, leftLabel, rightLabel, leftActive, onLeft, on
   );
 }
 
+/** SegToggle with any number of choices (Annual · Monthly · $/SF). */
+export function SegChoice<T extends string>({ label, options, value, onChange }: {
+  label?: string; options: readonly { value: T; label: string }[]; value: T; onChange: (v: T) => void;
+}) {
+  return (
+    <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+      {label && <span className="muted small" style={{ fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}>{label}</span>}
+      <div role="group" aria-label={label} style={{ display: "inline-flex", borderRadius: 6, overflow: "hidden" }}>
+        {options.map((o, i) => (
+          <button key={o.value} type="button" aria-pressed={o.value === value} onClick={() => onChange(o.value)}
+            style={{ ...segBase, ...(i ? { borderLeft: "none" } : {}),
+              borderRadius: i === 0 ? "6px 0 0 6px" : i === options.length - 1 ? "0 6px 6px 0" : 0,
+              ...(o.value === value ? segActive : {}) }}>{o.label}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function GroupHeader({ label }: { label: string }) {
   return (
     <div style={{ marginTop: 4, paddingBottom: 6, borderBottom: `2px solid ${BRAND}`, fontSize: 18, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", color: BRAND }}>{label}</div>
