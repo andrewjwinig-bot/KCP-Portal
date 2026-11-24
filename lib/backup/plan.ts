@@ -33,6 +33,11 @@ export function isBackupPath(pathname: string): boolean {
   return pathname.startsWith(BACKUP_ROOT);
 }
 
+/** Throwaway counters (sign-in / PIN rate limits) — never worth a copy. */
+export function isSkippedPath(pathname: string): boolean {
+  return pathname.startsWith("rate-limits/");
+}
+
 /** A JSON document goes into the zipped parts; anything else is a FILE, copied
  *  as itself (once per version). */
 export function isJsonPath(pathname: string): boolean {

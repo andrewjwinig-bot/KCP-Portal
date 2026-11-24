@@ -12,7 +12,14 @@ const enc = new TextEncoder();
 /** Domain separator. Changing it invalidates every issued review link. */
 const DOMAIN = "kcp.commissions.review.v1:";
 
-export type CommissionReviewPayload = { v: 1; q: string };
+export type CommissionReviewPayload = { v: 1; q: string; /** Expires (epoch ms). */ e?: number };
+
+/** A review link lives 60 days (security audit 11/2026: these never expired).
+ *  The link only opens a memo and an approve path nothing requires any more,
+ *  so two months is generous. Links signed before expiry existed carry no `e`
+ *  and stop opening on LEGACY_EXPIRES. */
+export const REVIEW_LINK_DAYS = 60;
+export const LEGACY_EXPIRES = Date.parse("2027-01-31T23:59:59Z");
 
 export function commissionReviewSecret(): string | null {
   return process.env.SITE_AUTH_SECRET || null;
@@ -41,13 +48,14 @@ function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
   return diff === 0;
 }
 
-export async function signCommissionReviewToken(secret: string, quarterLabel: string): Promise<string> {
-  const body = b64urlEncode(enc.encode(JSON.stringify({ v: 1, q: quarterLabel } satisfies CommissionReviewPayload)));
+export async function signCommissionReviewToken(secret: string, quarterLabel: string, now: number = Date.now()): Promise<string> {
+  const e = now + REVIEW_LINK_DAYS * 86_400_000;
+  const body = b64urlEncode(enc.encode(JSON.stringify({ v: 1, q: quarterLabel, e } satisfies CommissionReviewPayload)));
   return `${body}.${b64urlEncode(await hmac(secret, DOMAIN + body))}`;
 }
 
 /** The quarter a token opens, or null for a bad signature. */
-export async function verifyCommissionReviewToken(token: string | undefined, secret: string | null): Promise<string | null> {
+export async function verifyCommissionReviewToken(token: string | undefined, secret: string | null, now: number = Date.now()): Promise<string | null> {
   if (!token || !secret) return null;
   const dot = token.indexOf(".");
   if (dot <= 0) return null;
@@ -58,6 +66,8 @@ export async function verifyCommissionReviewToken(token: string | undefined, sec
   if (!timingSafeEqual(expected, given)) return null;
   try {
     const p = JSON.parse(new TextDecoder().decode(b64urlDecode(body))) as CommissionReviewPayload;
-    return p.v === 1 && typeof p.q === "string" && p.q ? p.q : null;
+    if (!(p.v === 1 && typeof p.q === "string" && p.q)) return null;
+    const expires = typeof p.e === "number" ? p.e : LEGACY_EXPIRES;
+    return now <= expires ? p.q : null;
   } catch { return null; }
 }
