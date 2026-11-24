@@ -4142,6 +4142,18 @@ years, the basis and "not an offer to lease". Only centres with CAM recons carry
     actual by 60–160% of the tenant's snow share, the whole snow line is named
     as the driver, and the modal says so. Other tenants read the old catch-up /
     pool wording.
+  - **"RECOVERIES TO REVIEW" NAMES THE TENANTS** (owner: "call out specific
+    tenants paying above their share … or is it from the annual recon";
+    `diagnoseRecovery` / `mainCause` in `recoveryDiagnosis.ts`, pinned by its
+    test). A group over its ceiling lists each tenant $250+ a year above its
+    SQUARE-FOOT share of the pool (pool × SF ÷ the recon's GLA, + its admin fee,
+    for the months billed), largest first, with the first cause that fits: set
+    by hand · held at today's billing · assumed (lease-up / newer lease) · a
+    share the lease STIPULATES above its SF · a pool bigger than the budget's ·
+    simply above its share. It says which cause carries most of the excess,
+    whether the tenants' CAM shares add up past 100%, and whether the recon
+    year ran as high (then it is the leases, not the budget). "Show these n
+    tenants" filters the table to them.
   - **"BILLED TODAY" IS READ OFF THE MONTHLY STATEMENTS — ONE SOURCE**
     (owner: "we have to make it work using the monthly statements report";
     `statementBilling.ts` / `statementBillingMath.ts`, `currentBilling`). Every

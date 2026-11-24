@@ -21,6 +21,7 @@ import type { EstimatePart } from "@/lib/financials/budgets/estimateOverrides";
 import { estimateRows, estimateTotals, skylineEstimateRows, allFromStatement, type EstimateRow, type WhyPart } from "@/lib/financials/budgets/estimatesByTenant";
 import { buildEstimatesXlsx } from "@/lib/financials/budgets/estimatesExport";
 import { recoveryCheck, type GroupCheck } from "@/lib/financials/budgets/recoveryCheck";
+import { diagnoseRecovery, mainCause, type RecoveryDiagnosis } from "@/lib/financials/budgets/recoveryDiagnosis";
 import { chargeRowsToCSV } from "@/lib/cam/office/exports";
 import { SegChoice } from "@/app/financials/reprojections/ReprojTable";
 import type { TenantRevenueRow } from "@/lib/financials/budgets/draft";
@@ -42,7 +43,7 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 const monthName = (ym?: string | null) => (ym ? `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}` : "");
 
 type Sort = "suite" | "change" | "pct";
-type Only = "all" | "flagged" | "fallback" | "differs";
+type Only = "all" | "flagged" | "fallback" | "differs" | `over:${string}`;
 type Unit = "month" | "psf";
 
 export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyCode, canOverride, queued, onSaved }: {
@@ -61,14 +62,16 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
   const tot = useMemo(() => estimateTotals(all), [all]);
   const ry = est?.reconYear ?? null;
   const check = useMemo(() => recoveryCheck(est), [est]);
+  const diagnoses = useMemo(() => Object.fromEntries(check.filter((c) => c.over).map((c) => [c.group, diagnoseRecovery(all, est, c.group)])) as Partial<Record<GroupCheck["group"], RecoveryDiagnosis | null>>, [check, all, est]);
   const shown = useMemo(() => {
-    const list = all.filter((r) => only === "flagged" ? !!r.jump
+    const overSet = only.startsWith("over:") ? new Set(diagnoses[only.slice(5) as GroupCheck["group"]]?.tenants.map((t) => t.unitRef) ?? []) : null;
+    const list = all.filter((r) => overSet ? overSet.has(r.unitRef) : only === "flagged" ? !!r.jump
       : only === "fallback" ? !!r.now && !allFromStatement(r)
       : only === "differs" ? !!r.differs?.length : true);
     if (sort === "change") list.sort((a, b) => b.change - a.change);
     if (sort === "pct") list.sort((a, b) => (b.changePct ?? -Infinity) - (a.changePct ?? -Infinity));
     return list;
-  }, [all, sort, only]);
+  }, [all, sort, only, diagnoses]);
   if (!all.length) return null;
 
   const v = (monthly: number | null | undefined, sf: number) =>
@@ -133,9 +136,53 @@ export function EstimatesByTenantCard({ rows, est, year, propertyName, propertyC
 
       {check.some((c) => c.over) && (
         <StatusBanner compact tone="warning" style={{ margin: "0 14px 10px" }} title="Recoveries to review">
-          {check.filter((c) => c.over).map((c) => (
-            <div key={c.group}><b>{c.label}:</b> {money0(c.recovered)} a year against a {money0(c.pool)} budget pool ({pct0(c.ratio)}) — above what admin fees explain. Check the tenants&apos; shares and any estimate set by hand before importing.</div>
-          ))}
+          {check.filter((c) => c.over).map((c) => {
+            const d = diagnoses[c.group];
+            const cause = d ? mainCause(d) : null;
+            const reconHigh = c.reconRatio != null && c.ratio != null && c.reconRatio >= c.ratio - 0.05;
+            return (
+              <div key={c.group} style={{ display: "grid", gap: 4, marginBottom: 6 }}>
+                <div>
+                  <b>{c.label}:</b> {money0(c.recovered)} a year against a {money0(c.pool)} budget pool ({pct0(c.ratio)}), {money0(c.recovered - c.ceiling)} past what admin fees explain.
+                  {c.reconRatio != null && (reconHigh
+                    ? <> The {ry} reconciliation recovered {pct0(c.reconRatio)} too, so this comes from the leases themselves, not the budget.</>
+                    : <> The {ry} reconciliation recovered {pct0(c.reconRatio)}, so something in the budget pushed it higher.</>)}
+                  {d?.shareSumPct != null && d.shareSumPct > 100.5 && <> The tenants&apos; CAM shares add up to {d.shareSumPct.toFixed(1)}% of the pool.</>}
+                  {cause && <> {cause[0].toUpperCase() + cause.slice(1)}.</>}
+                </div>
+                {d && d.tenants.length > 0 && (
+                  <>
+                    <table style={{ borderCollapse: "collapse", fontSize: "var(--fs-13)" }}>
+                      <tbody>
+                        {d.tenants.slice(0, 6).map((t) => (
+                          <tr key={t.unitRef}>
+                            <td style={{ padding: "2px 10px 2px 0", fontWeight: 600, whiteSpace: "nowrap" }}>{t.tenant || "(unnamed)"} <code style={SUITE}>{t.unitRef}</code></td>
+                            <td style={{ padding: "2px 10px", textAlign: "right", fontWeight: 700, whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums" }}>
+                              <HoverCard title={`${t.tenant} · ${c.label}`} width={320} rows={[
+                                { label: `${year} budget, a year`, value: money0(t.recovered) },
+                                { label: `Its SF share of the pool${t.fair ? " (+ admin)" : ""}`, value: money0(t.fair) },
+                                { label: "Above its SF share", value: money0(t.excess), color: UP },
+                                { label: "Suite SF", value: `${t.sqft.toLocaleString("en-US")} of ${d.gla.toLocaleString("en-US")}` },
+                              ]}>
+                                <span style={{ color: UP }}>+{money0(t.excess)}</span>
+                              </HoverCard>
+                            </td>
+                            <td style={{ padding: "2px 0", color: "var(--muted)" }}>{t.detail}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div className="muted" style={{ fontSize: "var(--fs-12)" }}>
+                      {d.tenants.length > 6 ? `${d.tenants.length - 6} more above their share · ` : ""}Each figure is the year above the tenant&apos;s square-foot share of the pool (plus its admin fee).{" "}
+                      <button type="button" className="btn sm" style={{ marginLeft: 6 }} onClick={() => setOnly((o) => (o === `over:${c.group}` ? "all" : `over:${c.group}`))}>
+                        {only === `over:${c.group}` ? "Show all tenants" : `Show these ${d.tenants.length} tenants`}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </StatusBanner>
       )}
 
