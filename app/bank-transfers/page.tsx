@@ -1,0 +1,727 @@
+"use client";
+import { StatusBanner } from "@/app/components/StatusBanner";
+import { ChevronRight, FileText, FolderOpen, Plus, RefreshCw, X } from "lucide-react";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { upload as blobUpload } from "@vercel/blob/client";
+import { Calendar } from "@/app/components/Calendar";
+import { PageHeader } from "@/app/components/PageHeader";
+import { MetaLine } from "@/app/components/LastImported";
+import { useUser } from "@/app/components/UserProvider";
+import { Pill, StatPill, TONE_RED } from "@/app/components/Pill";
+import { blobSrc } from "@/lib/blobProxy";
+import { UNIQUE_BANK_ACCOUNTS, type BankGroup } from "@/lib/bank-rec/accounts";
+import type { BankTransfer } from "@/lib/bankTransfers/storage";
+
+// Only admin / drew / harry can input or modify transfers. Alison and
+// Marie get read-only access (no New Transfer, no Edit, table rows
+// don't open the editor).
+const CAN_EDIT_USERS = new Set(["admin", "drew", "harry"]);
+
+const BANK_OPTIONS: BankGroup[] = ["M&T", "JPM-Chase", "Liberty Bank"];
+
+/** Display label for one bank account: prefer the internal key, fall back to
+ *  the formal account name; always suffix with the last4 so it's unambiguous. */
+function accountLabel(acc: { key: string; accountName: string; last4: string }): string {
+  const base = acc.key || acc.accountName;
+  return `${base} (${acc.last4})`;
+}
+
+/** Normalize the bank name on records that pre-date the bank dropdown
+ *  (the seed used "Chase" before we constrained to UNIQUE_BANK_ACCOUNTS). */
+function normalizeBank(name: string): string {
+  const n = name.trim();
+  if (n.toLowerCase() === "chase") return "JPM-Chase";
+  return n;
+}
+
+function fmtMoney(n: number): string {
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 });
+}
+/** A figure in a table cell: no $ (the column says it's money), cents kept —
+ *  a transfer is an exact amount. */
+function fmtCell(n: number): string {
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+/** A tile figure: abbreviated ($686K, $1.2M). */
+function fmtTile(n: number): string {
+  const a = Math.abs(n);
+  if (a >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
+  if (a >= 1e3) return `$${Math.round(n / 1e3).toLocaleString("en-US")}K`;
+  return `$${Math.round(n).toLocaleString("en-US")}`;
+}
+
+/** Split a stored From/To label into a property line + last4 line. Looks
+ *  the account up by last4 in UNIQUE_BANK_ACCOUNTS so the top line is the
+ *  formal account name (e.g. "2010 LIK Mgmt OP") rather than the internal
+ *  key. Legacy values without parens fall back to a single line. */
+function splitAccountLabel(label: string): { primary: string; secondary: string } {
+  const m = label.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (!m) return { primary: label, secondary: "" };
+  const last4 = m[2].trim();
+  const acc = UNIQUE_BANK_ACCOUNTS.find((a) => a.last4 === last4);
+  if (acc) return { primary: acc.accountName, secondary: `(${acc.last4})` };
+  return { primary: m[1].trim(), secondary: `(${last4})` };
+}
+
+function prettyDate(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return iso;
+  return `${m[2]}/${m[3]}/${m[1].slice(2)}`;
+}
+
+function todayISO(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+export default function BankTransfersPage() {
+  const { user } = useUser();
+  const canEdit = CAN_EDIT_USERS.has(user.id);
+  const [transfers, setTransfers] = useState<BankTransfer[] | null>(null);
+  const [shareFolderUrl, setShareFolderUrl] = useState<string>("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<BankTransfer | "new" | null>(null);
+  const [savedPrompt, setSavedPrompt] = useState<boolean>(false);
+  const [search, setSearch] = useState("");
+  const [showFlows, setShowFlows] = useState(false);
+  const [blobConfigured, setBlobConfigured] = useState(false);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/bank-transfers", { cache: "no-store" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Failed to load");
+      setTransfers(body.transfers ?? []);
+      setShareFolderUrl(body.shareFolderUrl ?? "");
+      setBlobConfigured(!!body.blobConfigured);
+      setError(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  function applyLocalUpdate(saved: BankTransfer): void {
+    // Optimistic state update so the new/edited row shows up immediately,
+    // even if the backing store has a brief read-after-write delay.
+    setTransfers((curr) => {
+      const list = curr ?? [];
+      const idx = list.findIndex((x) => x.id === saved.id);
+      const next = idx >= 0
+        ? list.map((x, i) => (i === idx ? saved : x))
+        : [saved, ...list];
+      return [...next].sort((a, b) => {
+        if (a.date !== b.date) return b.date.localeCompare(a.date);
+        return b.createdAt.localeCompare(a.createdAt);
+      });
+    });
+  }
+  useEffect(() => { reload(); }, [reload]);
+
+  const filtered = useMemo(() => {
+    if (!transfers) return [];
+    const q = search.trim().toLowerCase();
+    if (!q) return transfers;
+    return transfers.filter((t) =>
+      t.fromLabel.toLowerCase().includes(q) ||
+      t.toLabel.toLowerCase().includes(q) ||
+      t.bankName.toLowerCase().includes(q) ||
+      t.description.toLowerCase().includes(q)
+    );
+  }, [transfers, search]);
+
+  const totalAmount = useMemo(
+    () => filtered.reduce((sum, t) => sum + (t.amount || 0), 0),
+    [filtered]
+  );
+  const missingPdf = useMemo(
+    () => filtered.filter((t) => !t.pdfUrl && !t.pdfSaved).length,
+    [filtered]
+  );
+
+  // Total cash moved between each account pair (directed From → To) over the
+  // filtered set, so you can see how much has flowed from one entity to another.
+  const flows = useMemo(() => {
+    const map = new Map<string, { from: string; to: string; count: number; total: number; last: string }>();
+    for (const t of filtered) {
+      if (!t.fromLabel || !t.toLabel) continue;
+      const key = `${t.fromLabel}${t.toLabel}`;
+      const e = map.get(key) ?? { from: t.fromLabel, to: t.toLabel, count: 0, total: 0, last: t.date };
+      e.count += 1;
+      e.total += t.amount || 0;
+      if (t.date > e.last) e.last = t.date;
+      map.set(key, e);
+    }
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [filtered]);
+
+  async function saveTransfer(
+    draft: Partial<BankTransfer> & { id?: string; createdAt?: string },
+    isNew: boolean,
+  ) {
+    try {
+      const res = await fetch("/api/bank-transfers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Failed to save");
+      if (body.transfer) applyLocalUpdate(body.transfer);
+      setEditing(null);
+      // Only nag to file a PDF in the shared folder when none was uploaded here.
+      if (isNew && !body.transfer?.pdfUrl) setSavedPrompt(true);
+      reload();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to save");
+    }
+  }
+
+  async function deleteTransfer(id: string) {
+    if (!confirm("Delete this transfer?")) return;
+    try {
+      const res = await fetch(`/api/bank-transfers?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error ?? "Failed to delete");
+      setTransfers((curr) => (curr ?? []).filter((x) => x.id !== id));
+      setEditing(null);
+      reload();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to delete");
+    }
+  }
+
+  return (
+    <main style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1fr)" }}>
+      <PageHeader title="Bank Transfers"
+        info="Every transfer between our bank accounts, with its confirmation PDF. Search filters the tiles, the account pairs and the list."
+        actions={<>
+          <button type="button" onClick={reload} disabled={loading} className="btn" aria-label="Reload bank transfers">
+            <RefreshCw size={16} strokeWidth={1.75} aria-hidden style={{ animation: loading ? "spin 0.8s linear infinite" : undefined }} />
+            {loading ? "Refreshing…" : "Refresh"}
+          </button>
+          {shareFolderUrl && (
+            <a href={shareFolderUrl} target="_blank" rel="noopener noreferrer" className="btn" style={{ textDecoration: "none" }}>
+              <FolderOpen size={16} strokeWidth={1.75} aria-hidden /> Open SharePoint Folder
+            </a>
+          )}
+          {canEdit && (
+            <button type="button" onClick={() => setEditing("new")} className="btn primary">
+              <Plus size={16} strokeWidth={1.75} aria-hidden />
+              New Transfer
+            </button>
+          )}
+        </>}
+        meta={<MetaLine>
+          <span>{loading ? "Loading…" : `${filtered.length} of ${(transfers ?? []).length} transfers`}</span>
+          {!shareFolderUrl && <span>· No SharePoint folder linked yet</span>}
+        </MetaLine>} />
+
+      {error && (
+        <StatusBanner tone="danger" title="Couldn&apos;t load bank transfers">{error}</StatusBanner>
+      )}
+
+      <div className="pills">
+        <StatPill label="Transfers" value={filtered.length} />
+        <StatPill label="Total Volume" value={fmtTile(totalAmount)} sub={fmtMoney(totalAmount)} />
+        <StatPill label="Account Pairs" value={flows.length} />
+        <StatPill label="Missing PDF" value={missingPdf} accent={missingPdf > 0 ? "var(--c-b91c1c, #b91c1c)" : undefined} />
+      </div>
+
+      <div className="card" style={{ padding: 0 }}>
+        <button
+          onClick={() => setShowFlows((s) => !s)}
+          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "12px 16px", background: "none", border: "none", cursor: "pointer", textAlign: "left", color: "var(--text)" }}
+        >
+          <span style={{ fontWeight: 700 }}>Cash Flow Between Accounts <span className="muted small" style={{ fontWeight: 500 }}>· total moved from one account to another{search ? " (filtered)" : ""}</span></span>
+          <span className="muted" style={{ transform: showFlows ? "rotate(90deg)" : undefined, transition: "transform 0.15s" }}><ChevronRight size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></span>
+        </button>
+        {showFlows && (
+          <div className="tableWrap" style={{ borderTop: "1px solid var(--border)" }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>From</th>
+                  <th>To</th>
+                  <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>Transfers</th>
+                  <th style={{ textAlign: "right", whiteSpace: "nowrap" }}>Total Moved</th>
+                  <th style={{ whiteSpace: "nowrap" }}>Last</th>
+                </tr>
+              </thead>
+              <tbody>
+                {flows.length === 0 && <tr><td colSpan={5} className="muted small" style={{ padding: 16 }}>No transfers.</td></tr>}
+                {flows.map((f) => (
+                  <tr key={`${f.from}→${f.to}`}>
+                    <td><AccountCell label={f.from} /></td>
+                    <td><AccountCell label={f.to} /></td>
+                    <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{f.count}</td>
+                    <td style={{ textAlign: "right", fontWeight: 700, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>{fmtCell(f.total)}</td>
+                    <td className="muted small" style={{ whiteSpace: "nowrap" }}>{prettyDate(f.last)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="card" style={{ padding: 0 }}>
+        <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
+          <input
+            type="search"
+            placeholder="Search bank, account, description…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search transfers"
+            style={{ width: 340, maxWidth: "100%" }}
+          />
+        </div>
+        <div className="tableWrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>From</th>
+                <th>To</th>
+                <th style={{ textAlign: "right" }}>Amount</th>
+                <th>Description</th>
+                <th style={{ width: 150 }}>PDF</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr><td colSpan={6} className="muted small" style={{ padding: 16 }}>Loading…</td></tr>
+              )}
+              {!loading && filtered.length === 0 && (
+                <tr><td colSpan={6} className="muted small" style={{ padding: 16 }}>No transfers.</td></tr>
+              )}
+              {filtered.map((t) => (
+                <tr
+                  key={t.id}
+                  style={{ cursor: canEdit ? "pointer" : "default" }}
+                  onClick={canEdit ? () => setEditing(t) : undefined}
+                >
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <div style={{ fontWeight: 600 }}>{prettyDate(t.date)}</div>
+                    <div className="muted small">{normalizeBank(t.bankName)}</div>
+                  </td>
+                  <td><AccountCell label={t.fromLabel} /></td>
+                  <td><AccountCell label={t.toLabel} /></td>
+                  <td style={{ textAlign: "right", fontWeight: 600, fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                    {fmtCell(t.amount)}
+                  </td>
+                  <td className="muted small" style={{ maxWidth: 360, whiteSpace: "normal", wordBreak: "break-word" }}>
+                    {t.description || "—"}
+                  </td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    {/* One chip per row: the PDF, the shared folder, or Missing.
+                        Clicking the row opens the transfer to add or change it. */}
+                    {t.pdfUrl ? (
+                      <a href={blobSrc(t.pdfUrl)} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                        className="doc-chip" aria-label={`Open ${t.pdfName || "confirmation PDF"}`}>
+                        <FileText size={16} strokeWidth={1.75} aria-hidden />PDF
+                      </a>
+                    ) : t.pdfSaved && shareFolderUrl ? (
+                      <a href={shareFolderUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="doc-chip">
+                        <FolderOpen size={16} strokeWidth={1.75} aria-hidden />In Folder
+                      </a>
+                    ) : (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+                        <Pill tone={TONE_RED}>Missing</Pill>
+                        {canEdit && <button type="button" className="text-link" style={{ background: "none", border: 0, padding: 0, cursor: "pointer" }}
+                          onClick={(e) => { e.stopPropagation(); setEditing(t); }}>Add</button>}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {editing !== null && (
+        <EditModal
+          item={editing === "new" ? null : editing}
+          blobConfigured={blobConfigured}
+          onClose={() => setEditing(null)}
+          onSave={saveTransfer}
+          onDelete={deleteTransfer}
+        />
+      )}
+
+      {savedPrompt && (
+        <SavedPrompt url={shareFolderUrl} onClose={() => setSavedPrompt(false)} />
+      )}
+    </main>
+  );
+}
+
+function SavedPrompt({ url, onClose }: { url: string; onClose: () => void }) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 110,
+        background: "rgba(15,23,42,0.45)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", color: "var(--text)",
+          borderRadius: 12, border: "1px solid var(--border)",
+          maxWidth: 460, width: "100%",
+          padding: 22,
+          boxShadow: "0 12px 40px rgba(15,23,42,0.25)",
+        }}
+      >
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Save Record on SharePoint</h2>
+        <div className="muted small" style={{ marginTop: 8 }}>
+          Transfer saved. Drop the supporting PDF in the shared folder so the record is complete.
+        </div>
+
+        <div style={{ marginTop: 16 }}>
+          {url ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn primary"
+              style={{ textDecoration: "none" }}
+            >
+              <FolderOpen size={16} strokeWidth={1.75} aria-hidden /> Open SharePoint Folder
+            </a>
+          ) : (
+            <div className="muted small">
+              No SharePoint folder linked yet — add one with the Shared Drive Folder card above.
+            </div>
+          )}
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+          <button onClick={onClose} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 16px" }}>
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function AccountCell({ label }: { label: string }) {
+  const { primary, secondary } = splitAccountLabel(label);
+  return (
+    <div>
+      <div>{primary}</div>
+      {secondary && <div className="muted small">{secondary}</div>}
+    </div>
+  );
+}
+
+function FolderIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 3h8a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+    </svg>
+  );
+}
+
+function EditModal({
+  item,
+  blobConfigured,
+  onClose,
+  onSave,
+  onDelete,
+}: {
+  item: BankTransfer | null;
+  blobConfigured: boolean;
+  onClose: () => void;
+  onSave: (draft: Partial<BankTransfer> & { id?: string; createdAt?: string }, isNew: boolean) => void | Promise<void>;
+  onDelete: (id: string) => void | Promise<void>;
+}) {
+  const [date, setDate] = useState(item?.date ?? todayISO());
+  const [bankName, setBankName] = useState<string>(normalizeBank(item?.bankName ?? "JPM-Chase"));
+  const [fromLabel, setFromLabel] = useState(item?.fromLabel ?? "");
+  const [toLabel, setToLabel] = useState(item?.toLabel ?? "");
+
+  // Accounts available for the From / To dropdowns: filtered by the
+  // selected bank so transfers stay within one institution (matches how
+  // the historical log was kept). If the existing record's value points
+  // at another bank or a legacy label, it's still preserved at the top
+  // of the list so it doesn't silently disappear.
+  const accountsForBank = useMemo(
+    () => UNIQUE_BANK_ACCOUNTS.filter((a) => a.bank === bankName),
+    [bankName],
+  );
+  const accountLabelsForBank = useMemo(
+    () => new Set(accountsForBank.map(accountLabel)),
+    [accountsForBank],
+  );
+  const [amount, setAmount] = useState<string>(item ? String(item.amount) : "");
+  const [description, setDescription] = useState(item?.description ?? "");
+  const [saving, setSaving] = useState(false);
+
+  // Confirmation PDF: an already-saved URL/name, plus a pending file to upload.
+  const [pdfUrl, setPdfUrl] = useState<string | undefined>(item?.pdfUrl);
+  const [pdfName, setPdfName] = useState<string | undefined>(item?.pdfName);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [uploadPct, setUploadPct] = useState<number | null>(null);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
+
+  function pickFile(f: File | null) {
+    setUploadErr(null);
+    if (!f) { setPendingFile(null); return; }
+    if (f.type !== "application/pdf") { setUploadErr("Please choose a PDF."); return; }
+    setPendingFile(f);
+  }
+
+  async function handleSave() {
+    if (!fromLabel.trim() || !toLabel.trim()) {
+      alert("From and To are required.");
+      return;
+    }
+    setSaving(true);
+    setUploadErr(null);
+    let finalUrl = pdfUrl;
+    let finalName = pdfName;
+    try {
+      if (pendingFile) {
+        if (!blobConfigured) throw new Error("File storage isn't configured on this environment.");
+        setUploadPct(0);
+        const seg = (v: string) => String(v).replace(/[^\w.\-]+/g, "_").slice(0, 80) || "_";
+        const path = `bank-transfers/${date}/${seg(pendingFile.name || "confirmation.pdf")}`;
+        const blob = await blobUpload(path, pendingFile, {
+          access: "private",
+          handleUploadUrl: "/api/bank-transfers/blob-upload",
+          contentType: "application/pdf",
+          multipart: pendingFile.size > 8 * 1024 * 1024,
+          onUploadProgress: (e) => setUploadPct(e.percentage / 100),
+        });
+        finalUrl = blob.url;
+        finalName = pendingFile.name;
+      }
+    } catch (e) {
+      setUploadErr(e instanceof Error ? e.message : "Upload failed");
+      setSaving(false);
+      setUploadPct(null);
+      return;
+    }
+    await onSave({
+      id: item?.id,
+      date,
+      bankName: bankName.trim(),
+      fromLabel: fromLabel.trim(),
+      toLabel: toLabel.trim(),
+      amount: Number(amount) || 0,
+      pdfSaved: Boolean(finalUrl) || Boolean(item?.pdfSaved),
+      pdfUrl: finalUrl,
+      pdfName: finalName,
+      description,
+      createdAt: item?.createdAt,
+    }, !item);
+    setSaving(false);
+    setUploadPct(null);
+  }
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 100,
+        background: "rgba(15,23,42,0.45)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        padding: 16,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "var(--card)", color: "var(--text)",
+          borderRadius: 12, border: "1px solid var(--border)",
+          maxWidth: 560, width: "100%",
+          maxHeight: "90vh", overflowY: "auto",
+          padding: 20,
+          boxShadow: "0 12px 40px rgba(15,23,42,0.25)",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>
+            {item ? "Edit transfer" : "New transfer"}
+          </h2>
+          <button onClick={onClose} className="btn" style={{ fontSize: "var(--fs-13)", padding: "4px 10px" }}><X size={16} strokeWidth={1.75} aria-hidden style={{ verticalAlign: "-3px", flexShrink: 0 }} /></button>
+        </div>
+
+        <div style={{ display: "grid", gap: 14 }}>
+          <Field label="Date">
+            <Calendar value={date} onChange={setDate} variant="card" />
+          </Field>
+
+          <Field label="Bank">
+            <select
+              value={bankName}
+              onChange={(e) => setBankName(e.target.value)}
+             
+            >
+              {BANK_OPTIONS.map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </Field>
+
+          <div style={{ display: "grid", gap: 14, gridTemplateColumns: "1fr 1fr" }}>
+            <Field label="From">
+              <AccountSelect
+                value={fromLabel}
+                onChange={setFromLabel}
+                accounts={accountsForBank}
+                inBankLabels={accountLabelsForBank}
+              />
+            </Field>
+            <Field label="To">
+              <AccountSelect
+                value={toLabel}
+                onChange={setToLabel}
+                accounts={accountsForBank}
+                inBankLabels={accountLabelsForBank}
+              />
+            </Field>
+          </div>
+
+          <Field label="Amount">
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00"
+             
+            />
+          </Field>
+
+          <Field label="Confirmation PDF">
+            <div style={{ display: "grid", gap: 8 }}>
+              {pdfUrl && !pendingFile ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <a href={blobSrc(pdfUrl)} target="_blank" rel="noopener noreferrer" style={{ fontSize: "var(--fs-13)", fontWeight: 700, color: "var(--c-0b4a7d)", textDecoration: "none" }}>
+                    View current ↗
+                  </a>
+                  <span className="muted small" style={{ maxWidth: 220, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pdfName}</span>
+                  <button type="button" className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 10px", color: "var(--c-b91c1c)" }}
+                    onClick={() => { setPdfUrl(undefined); setPdfName(undefined); }}>Remove</button>
+                </div>
+              ) : pendingFile ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: "var(--fs-13)", fontWeight: 600 }}>{pendingFile.name}</span>
+                  <span className="muted small">{(pendingFile.size / 1024).toFixed(0)} KB · uploads on Save</span>
+                  <button type="button" className="btn" style={{ fontSize: "var(--fs-12)", padding: "4px 10px" }} onClick={() => setPendingFile(null)}>Clear</button>
+                </div>
+              ) : (
+                <label className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8, width: "fit-content" }}>
+                  <span>Choose PDF…</span>
+                  <input type="file" accept="application/pdf" style={{ display: "none" }}
+                    onChange={(e) => pickFile(e.target.files?.[0] ?? null)} />
+                </label>
+              )}
+              {uploadPct !== null && (
+                <div style={{ height: 4, borderRadius: 999, background: "var(--tint-neutral-bg, rgba(15,23,42,0.08))", overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.round(uploadPct * 100)}%`, background: "var(--c-0b4a7d)" }} />
+                </div>
+              )}
+              {uploadErr && <div className="small" style={{ color: "var(--c-b91c1c)" }}>{uploadErr}</div>}
+              <div className="muted small">Attached to the confirmation email and viewable from the log. Files are stored privately.</div>
+            </div>
+          </Field>
+
+          <Field label="Description (optional)">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              style={{ resize: "vertical" }}
+            />
+          </Field>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 18, gap: 8, flexWrap: "wrap" }}>
+          <div>
+            {item && (
+              <button
+                onClick={() => onDelete(item.id)}
+                disabled={saving}
+                className="btn"
+                style={{ fontSize: "var(--fs-13)", padding: "8px 14px", color: "var(--c-b91c1c)", borderColor: "var(--tint-red-line, rgba(220,38,38,0.35))" }}
+              >
+                Delete
+              </button>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onClose} disabled={saving} className="btn" style={{ fontSize: "var(--fs-13)", padding: "8px 14px" }}>
+              Cancel
+            </button>
+            <button onClick={handleSave} disabled={saving} className="btn primary" style={{ fontSize: "var(--fs-13)", padding: "8px 18px" }}>
+              {saving ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AccountSelect({
+  value,
+  onChange,
+  accounts,
+  inBankLabels,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  accounts: { key: string; accountName: string; last4: string; propertyCode?: string }[];
+  inBankLabels: Set<string>;
+}) {
+  // If the current value isn't one of the in-bank canonical options, show
+  // it as a "Legacy" option at the top so an existing row's value is preserved
+  // until staff remaps it.
+  const valueIsCanonical = !value || inBankLabels.has(value);
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">— Select account —</option>
+      {!valueIsCanonical && (
+        <optgroup label="Current (legacy)">
+          <option value={value}>{value}</option>
+        </optgroup>
+      )}
+      <optgroup label="Accounts">
+        {accounts.map((a) => {
+          // Stored value stays the canonical account label; the property code is
+          // prepended to the visible text so the To/From lists are easy to scan.
+          const label = `${a.key || a.accountName} (${a.last4})`;
+          return <option key={a.last4} value={label}>{a.propertyCode ? `${a.propertyCode} · ${label}` : label}</option>;
+        })}
+      </optgroup>
+    </select>
+  );
+}
+
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{ fontSize: "var(--fs-11)", fontWeight: 700, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { readSecureFile, SECURE_FILES } from "@/lib/secureFiles";
 import { readFile } from "fs/promises";
 import path from "path";
 
 import { parseAllocationWorkbook } from "../../../lib/allocation/parseAllocationWorkbook";
 import { parsePayrollRegisterExcel } from "../../../lib/payroll/parsePayrollRegisterExcel";
 import { buildInvoices } from "../../../lib/invoicing/buildInvoices";
+import { reconcilePayroll } from "../../../lib/payroll/tieOut";
 import type { AllocationEmployee } from "../../../lib/types";
 
 /** Strip "Default - #N" suffix, normalize whitespace, convert to Title Case. */
@@ -47,12 +49,14 @@ export async function POST(req: Request) {
     console.log(`[parse2] ${payroll.employees.map(e=>`${e.name}:tEr=${e.taxesErAmt}`).join(' | ')}`);
 
     // Load allocation workbook from the fixed location on disk
-    const allocPath = path.join(process.cwd(), "data", "allocation.xlsx");
-    const allocBuf = await readFile(allocPath);
+    const allocBuf = await readSecureFile(SECURE_FILES.allocation);
     const allocation = parseAllocationWorkbook(allocBuf);
 
     // Build invoices: matching is done internally by buildInvoices
     const invoices = buildInvoices(payroll, allocation);
+
+    // Tie-out: does the allocation add back up to the register?
+    const tieOut = reconcilePayroll(payroll, allocation, invoices);
 
     // Also build a merged employee list for the UI (shows match status + amounts per employee)
     const payrollEmployees = payroll.employees;
@@ -117,6 +121,7 @@ export async function POST(req: Request) {
       employees: mergedEmployees,
       invoices,
       properties,
+      tieOut,
     });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? String(err) }, { status: 500 });

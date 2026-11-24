@@ -1,0 +1,135 @@
+// Tenants with no email on file (owner, 11/2026: "we have no email on file for
+// a lot of tenants … an export … one for harry of shopping center and
+// residential tenants and one for nancy (office tenants) … a doc for them to
+// populate that i can send back to import"). The unit page's Contacts are the
+// ONE list every tenant email reads (`suiteRecipients`); the office
+// spreadsheet seeded only the business parks, so everything else is empty.
+
+import "server-only";
+import { resolveCurrentRentroll } from "@/lib/rentroll/current";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { currentAging } from "@/lib/statements/agingStore";
+import { camRecipientEmails, emptyContact } from "./contacts";
+import type { SkylineTag } from "./skylineEmailList";
+import { waiverFor } from "./emailWaivers";
+import { isSharedSpace, OFFICE_WORKS_CODE } from "@/lib/officeWorks/offices";
+import { getEmailWaivers } from "./emailWaiverStore";
+import { getOrEmptySuiteContacts, getSuiteContactsMap, saveSuiteContacts } from "./contactsStorage";
+
+/** Whose tenants: Harry — shopping centres and residential; Nancy — office. */
+export type ContactGroup = "sc" | "office";
+
+export function contactGroupOf(propertyCode: string): ContactGroup | null {
+  const def = PROPERTY_DEFS.find((p) => p.id === propertyCode);
+  if (!def) return null;
+  if (def.type === "Office" || def.id === "4900") return "office";
+  if (def.type === "Retail" || def.type === "Residential") return "sc";
+  return null;
+}
+
+export type MissingEmailRow = {
+  unitRef: string; propertyCode: string; propertyName: string; suite: string; tenantName: string;
+  group: ContactGroup; sqft: number | null;
+  /** What Skyline's Credit Balance Report prints for the tenant, a hint. */
+  skylineContact: string | null; skylinePhone: string | null;
+};
+
+export type WaivedRow = Omit<MissingEmailRow, "skylineContact" | "skylinePhone"> & { reason: string };
+
+/** Tenants with no email — less those set aside as needing none, which are
+ *  returned apart (`waived`) so the page can list them and undo. */
+export async function tenantsWithoutEmail(group?: ContactGroup): Promise<MissingEmailRow[]> {
+  return (await missingAndWaived(group)).rows;
+}
+
+export async function missingAndWaived(group?: ContactGroup): Promise<{ rows: MissingEmailRow[]; waived: WaivedRow[] }> {
+  const [roll, aging, waivers] = await Promise.all([
+    resolveCurrentRentroll(), currentAging().catch(() => ({ tenants: [], coverage: {} })),
+    getEmailWaivers().catch(() => ({ waivers: [], cleared: [] })),
+  ]);
+  const units: Omit<MissingEmailRow, "skylineContact" | "skylinePhone">[] = [];
+  for (const p of roll?.properties ?? []) {
+    const g = contactGroupOf(p.propertyCode);
+    if (!g || (group && g !== group)) continue;
+    const def = PROPERTY_DEFS.find((d) => d.id === p.propertyCode);
+    for (const u of p.units ?? []) {
+      const name = (u.occupantName ?? "").trim();
+      if (u.isVacant || u.amenity || !name || /^vacant$/i.test(name)) continue;
+      // The Office Works' shared rooms (reception, admin office, conference
+      // rooms, break room, mail / copy room) are on its roll but are not
+      // tenants (owner) — the same rule its website uses.
+      if (p.propertyCode === OFFICE_WORKS_CODE && isSharedSpace(u.unitRef.slice(p.propertyCode.length + 1), name)) continue;
+      units.push({
+        unitRef: u.unitRef, propertyCode: p.propertyCode, propertyName: def?.name ?? p.propertyCode,
+        suite: u.unitRef.slice(p.propertyCode.length + 1) || u.unitRef, tenantName: name, group: g, sqft: u.sqft || null,
+      });
+    }
+  }
+  const seen = new Set<string>();
+  for (let i = units.length - 1; i >= 0; i--) { const k = units[i].unitRef.toUpperCase(); if (seen.has(k)) units.splice(i, 1); else seen.add(k); }
+  const contacts = await getSuiteContactsMap(units.map((u) => u.unitRef));
+  const skyline = new Map<string, { contact: string | null; phone: string | null }>(aging.tenants.map((t) => [t.unitRef.toUpperCase(), { contact: t.contact, phone: t.phone }] as [string, { contact: string | null; phone: string | null }]));
+  const rows: MissingEmailRow[] = [];
+  const waived: WaivedRow[] = [];
+  for (const u of units) {
+    if (camRecipientEmails(contacts[u.unitRef] ?? [])) continue;
+    const reason = waiverFor(waivers, u.unitRef, u.tenantName);
+    if (reason) { waived.push({ ...u, reason }); continue; }
+    const s = skyline.get(u.unitRef.toUpperCase());
+    rows.push({ ...u, skylineContact: s?.contact ?? null, skylinePhone: s?.phone ?? null });
+  }
+  return { rows, waived };
+}
+
+const EMAIL = /^[^\s@,;<>]+@[^\s@,;<>]+\.[a-z]{2,}$/i;
+
+/** "a@x.com; b@y.com" → its addresses; a bad one is reported, not guessed. */
+export function splitEmails(raw: string): { emails: string[]; bad: string[] } {
+  const parts = String(raw ?? "").split(/[;,\s]+/).map((s) => s.trim().replace(/^mailto:/i, "")).filter(Boolean);
+  return { emails: parts.filter((p) => EMAIL.test(p)), bad: parts.filter((p) => !EMAIL.test(p)) };
+}
+
+/** Add the addresses to the suite's contacts as statement recipients. Never
+ *  removes or overwrites anyone already there; an address already on file is
+ *  only marked a recipient. Returns how many were new. */
+export async function addSuiteEmails(
+  unitRef: string, emails: string[], name?: string | null,
+  opts: { recipient?: boolean; tags?: Map<string, SkylineTag[]>; onTagged?: () => void } = {},
+): Promise<number> {
+  const recipient = opts.recipient !== false;
+  const tagsOf = (e: string) => opts.tags?.get(e.toLowerCase()) ?? [];
+  const merge = (a: SkylineTag[] | undefined, b: SkylineTag[]) =>
+    (["general", "correspondence", "billing"] as const).filter((t) => a?.includes(t) || b.includes(t));
+  let changed = false;
+  const rec = await getOrEmptySuiteContacts(unitRef);
+  const contacts = [...rec.contacts];
+  let added = 0;
+  for (const e of emails) {
+    const hit = contacts.findIndex((c) => c.email.trim().toLowerCase() === e.toLowerCase());
+    const tags = tagsOf(e);
+    if (hit >= 0) {
+      // An address already on file keeps everything it has; it only gains
+      // Skyline's tags (and the recipient tick when this suite had none).
+      const cur = contacts[hit];
+      const skyline = tags.length ? merge(cur.skyline, tags) : cur.skyline;
+      const next = { ...cur, ...(recipient ? { camRecipient: true } : {}), ...(skyline?.length ? { skyline } : {}) };
+      if (JSON.stringify(next) !== JSON.stringify(cur)) { contacts[hit] = next; changed = true; }
+      continue;
+    }
+    contacts.push({
+      ...emptyContact(), email: e, name: (name ?? "").trim().slice(0, 120), camRecipient: recipient, source: "staff",
+      ...(tags.length ? { skyline: tags } : {}),
+    });
+    added++;
+  }
+  if (added || changed) await saveSuiteContacts(unitRef, contacts);
+  if (changed) opts.onTagged?.();
+  return added;
+}
+
+/** Does the suite already send to someone? (Skyline's list then only ADDS
+ *  its addresses as contacts — the recipients someone chose stay as chosen.) */
+export async function hasRecipient(unitRef: string): Promise<boolean> {
+  const rec = await getOrEmptySuiteContacts(unitRef);
+  return !!camRecipientEmails(rec.contacts);
+}

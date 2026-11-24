@@ -1,0 +1,130 @@
+import { NextResponse } from "next/server";
+import { reproject } from "@/lib/financials/reprojections/compute";
+import { monthlyStatements, getMapping } from "@/lib/financials/operating-statements/mappingStore";
+import { resolvePropertyBudget } from "@/lib/financials/operating-statements/budgetCrosswalk";
+import { assembledGlConsolidated, listGls, mergeAccountNames, getNotesBundle } from "@/lib/financials/operating-statements/statementStore";
+import { glKeysFor } from "@/lib/financials/cash-analysis/funds";
+import { PROPERTY_DEFS } from "@/lib/properties/data";
+import { getReprojOverrides } from "@/lib/financials/reprojections/overrideStore";
+import { reprojectedBank } from "@/lib/financials/reprojections/bankRoll";
+import { bankCashFor } from "@/lib/financials/bank-balances/lineCashStore";
+import { fundLineOf } from "@/lib/financials/bank-balances/lineCash";
+import { plannedDistributions, distributionsOnGl } from "@/lib/financials/budgets/cashForecast";
+import { ALL_USERS, isPathAllowed, type UserId } from "@/lib/users";
+import { cookies } from "next/headers";
+import { SITE_COOKIE, verifySiteToken } from "@/lib/site-auth";
+
+async function viewerId(): Promise<UserId | null> {
+  const secret = process.env.SITE_AUTH_SECRET;
+  if (!secret) return null;
+  const id = await verifySiteToken((await cookies()).get(SITE_COOKIE)?.value, secret);
+  return id && (ALL_USERS as readonly string[]).includes(id) ? (id as UserId) : null;
+}
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function propertyName(key: string, fallback: string): string {
+  return PROPERTY_DEFS.find((p) => p.id === key)?.name ?? fallback;
+}
+
+// GET — without params: the picker payload (mapped properties + years with a
+// GL). With ?key&year: the blended full-year reprojection (actuals for the
+// months we have, budget for the rest).
+export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const key = url.searchParams.get("key");
+  const year = Number(url.searchParams.get("year"));
+
+  const [mappings, gls] = await Promise.all([monthlyStatements(), listGls()]);
+  const yearsByKey = new Map<string, Set<number>>();
+  for (const g of gls) {
+    if (!yearsByKey.has(g.key)) yearsByKey.set(g.key, new Set());
+    yearsByKey.get(g.key)!.add(g.year);
+  }
+  // A fund has no GL of its own — surface the union of its member buildings'
+  // years so the fund is selectable with the years its members cover.
+  const yearsFor = (k: string): number[] => {
+    const set = new Set<number>(yearsByKey.get(k) ?? []);
+    for (const member of glKeysFor(k)) for (const y of yearsByKey.get(member) ?? []) set.add(y);
+    return [...set].sort((a, b) => b - a);
+  };
+  const available = mappings.map((m) => ({
+    key: m.key,
+    propertyCode: m.propertyCode,
+    entityName: m.entityName,
+    name: propertyName(m.key, m.entityName),
+    years: yearsFor(m.key),
+  }));
+
+  if (!key || !year) return NextResponse.json({ available });
+
+  const mapping = await getMapping(key);
+  if (!mapping) return NextResponse.json({ available, error: "No mapping for that property" }, { status: 404 });
+
+  // Fund keys consolidate their member buildings (GL + budget), the same as the
+  // operating statement — a fund has no GL/budget of its own.
+  const stored = await assembledGlConsolidated(key, year);
+  // Budget is the backbone of the reprojection; fall back to the nearest year.
+  const budget = await resolvePropertyBudget([...glKeysFor(key), mapping.propertyCode], year);
+  const budgetLines = (budget?.lines ?? []).map((l) => ({ glAccount: l.glAccount, months: l.months }));
+
+  const reprojection = reproject({
+    mapping,
+    propertyName: propertyName(key, mapping.entityName),
+    year,
+    glMonthly: stored?.monthly ?? {},
+    budgetLines,
+    actualThroughMonth: stored?.maxPeriodInFile ?? 0,
+    overrides: await getReprojOverrides(key, year).catch(() => ({})),
+  });
+  // Label the unbudgeted accounts with their GL account name, falling back to
+  // names captured on any other property's GL (account codes are shared).
+  const acctNames = mergeAccountNames(gls);
+  reprojection.unbudgetedAccounts = reprojection.unbudgetedAccounts.map((u) => ({
+    ...u,
+    name: stored?.names?.[u.account] ?? acctNames[u.account] ?? null,
+  }));
+
+  // Surface the latest actual month's operating-statement notes on the matching
+  // reprojection line (notes are per-month; show the most recent month's).
+  const { notes, sources } = await getNotesBundle(key, year, stored?.maxPeriodInFile || 1);
+  const noteSources: Record<string, "user" | "ai"> = {};
+  for (const lk of Object.keys(notes)) noteSources[lk] = sources[lk] ?? "ai";
+
+  // The year-end bank balance: today's imported balance for this line, rolled
+  // to Dec 31 on the reprojection's cash flow. Only for those who may see Bank
+  // Balances, and only for a line that banks on its own — a building inside a
+  // fund banks through the fund's account, so it names the fund instead.
+  let bank: ReturnType<typeof reprojectedBank> = null;
+  let banksThrough: string | null = null;
+  const viewer = await viewerId().catch(() => null);
+  if (viewer && isPathAllowed(viewer, "/financials/cash-analysis")) {
+    const line = (await bankCashFor(key).catch(() => null)) ?? (await bankCashFor(mapping.propertyCode).catch(() => null));
+    if (line) {
+      bank = reprojectedBank({
+        line, year,
+        cashFlow: reprojection.rollups.cashFlowAfterDebtService.blended,
+        plan: plannedDistributions(mapping.propertyCode),
+        paidOnGl: distributionsOnGl(stored as never),
+      });
+    } else {
+      banksThrough = fundLineOf(mapping.propertyCode);
+    }
+  }
+
+  return NextResponse.json({
+    available,
+    reprojection,
+    bank,
+    banksThrough,
+    budgetYear: budget?.budgetYear ?? null,
+    budgetFallback: budget?.fallback ?? false,
+    hasGl: !!stored,
+    hasBudget: !!budget,
+    uploadedAt: stored?.uploadedAt ?? null,
+    notes,
+    noteSources,
+  });
+}

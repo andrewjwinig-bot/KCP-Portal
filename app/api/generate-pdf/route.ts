@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { renderInvoicePdf } from "../../../lib/pdf/renderInvoicePdf";
+import { payrollInvoiceNumber } from "../../../lib/payroll/invoiceNumber";
 
 export const runtime = "nodejs";
 
@@ -9,17 +10,13 @@ const BodySchema = z.object({
   payroll: z.any(),
 });
 
-function makeInvoiceNumber() {
-  return Math.floor(10000000 + Math.random() * 90000000).toString();
-}
-
 export async function POST(req: Request) {
   try {
     const body = BodySchema.parse(await req.json());
     const pdfBytes = await renderInvoicePdf({
       invoice: body.invoice,
       payroll: body.payroll,
-      invoiceNumber: makeInvoiceNumber(),
+      invoiceNumber: body.invoice?.invoiceNumber || payrollInvoiceNumber(body.invoice, body.payroll?.payDate),
     });
     const safeName = (body.invoice?.propertyLabel || body.invoice?.propertyKey || "invoice").replace(/[^a-z0-9\-_. ]/gi, "_");
     return new NextResponse(Buffer.from(pdfBytes), {
