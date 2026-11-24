@@ -486,7 +486,7 @@ export function isPathAllowed(userId: UserId, pathname: string): boolean {
 // first (first match wins). APIs NOT listed here are cross-cutting (rent roll,
 // properties, dashboard, search, maintenance, reservations, tracker, …) and
 // stay available to any signed-in user — gating them would break shared flows.
-const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]][] = [
+export const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]][] = [
   // Tenant Communications — sends to every Interplex tenant; Greg (and admin / Drew).
   ["/api/communications", "/communications"],
   // Philadelphia U&O — the returns, the delinquent review, the JE.
@@ -574,10 +574,44 @@ const SENSITIVE_API_PREFIXES: [apiPrefix: string, pagePrefix: string | string[]]
   ["/api/close", "/close"],
   // The orientation and the handbook (EINs, bank details) answer to its page.
   ["/api/onboarding", "/onboarding"],
+  // Default-deny sweep 11/24/26: routes that checked nothing themselves.
+  ["/api/maintenance/backfill", "/maintenance"],
+  ["/api/status-report", "/rentroll"],
+  ["/api/rentroll/property/export", "/rentroll"],
+  ["/api/snow-costs", ["/rentroll", "/units"]],
+  ["/api/snow-base-exclusions", ["/rentroll", "/units"]],
+  ["/api/base-year-resets", ["/rentroll", "/units"]],
+  ["/api/suites/summary", ["/rentroll", "/units"]],
+  ["/api/tenants/past", ["/deposits", "/tenants/past"]],
+  ["/api/expenses/carryover", "/expenses"],
 ];
+
+/** DEFAULT-DENY (security audit 11/2026): an /api route that matches no rule
+ *  above is REFUSED unless it is listed here as open to every signed-in user.
+ *  Each entry was reviewed: it is public (the middleware never authenticates
+ *  it), admin-gated in middleware, checks the caller itself, or carries only
+ *  what every staff page needs. A NEW route must be added to
+ *  SENSITIVE_API_PREFIXES or here — `apiCoverage.test.ts` fails the build
+ *  otherwise. */
+export const OPEN_API = [
+  // Self-service / sign-in (middleware gates the admin-only ones first)
+  "/api/2fa", "/api/site", "/api/history", "/api/audit", "/api/periods", "/api/test-email", "/api/mail-health",
+  // Public pages the middleware never authenticates
+  "/api/budget-review", "/api/commissions-review", "/api/credit-apply", "/api/cron", "/api/investor", "/api/portal",
+  "/api/statement", "/api/website", "/api/center-image", "/api/leasing-inquiry", "/api/maintenance/inbound",
+  "/api/maintenance/submit", "/api/reservations/submit", "/api/reservations/tenants", "/api/tenants/lookup",
+  "/api/tenants/companies",
+  // Check the caller inside the route
+  "/api/blob", "/api/investor-k1", "/api/todos", "/api/avid-send", "/api/property-tax-docs", "/api/search",
+  "/api/expenses/receipt", "/api/expenses/working", "/api/centers", "/api/properties",
+  // Shared by every staff dashboard / page
+  "/api/avid-sends", "/api/leasing-activity", "/api/leasing", "/api/marie-tasks", "/api/tracker", "/api/share-links",
+  "/api/tenant-meta", "/api/rentroll", "/api/suites", "/api/maintenance", "/api/reservations",
+];
+
 // Cross-cutting endpoints under a sensitive prefix that must stay open (used by
 // global search / dashboard for everyone). Aggregate, low-detail.
-const API_AUTHZ_EXEMPT = ["/api/financials/budgets/kpis"];
+export const API_AUTHZ_EXEMPT = ["/api/financials/budgets/kpis"];
 
 const underPrefix = (pathname: string, p: string) => pathname === p || pathname.startsWith(p + "/");
 
@@ -630,7 +664,7 @@ export function authorizeRequest(userId: UserId, pathname: string, method = "GET
     const viewOnly = VIEW_ONLY_API.find(([api]) => underPrefix(pathname, api));
     if (viewOnly && !["GET", "HEAD", "OPTIONS"].includes(method.toUpperCase()) && !isPathAllowed(userId, viewOnly[1])) return false;
     const match = SENSITIVE_API_PREFIXES.find(([api]) => underPrefix(pathname, api));
-    if (!match) return true;
+    if (!match) return OPEN_API.some((p) => underPrefix(pathname, p));
     const pages = Array.isArray(match[1]) ? match[1] : [match[1]];
     return pages.some((pg) => isPathAllowed(userId, pg));
   }

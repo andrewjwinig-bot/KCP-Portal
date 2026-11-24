@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual, randomBytes } from "crypto";
 import { SITE_COOKIE, signSiteToken } from "@/lib/site-auth";
 import { HISTORY_COOKIE, signHistoryToken } from "@/lib/history-auth";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkSharedRateLimit, getClientIp } from "@/lib/rate-limit";
 import { checkPassword } from "@/lib/passwordStore";
 import { logAudit, auditIp } from "@/lib/audit";
 import { totpRequired, getSecret, mustEnroll } from "@/lib/totp-store";
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Throttle brute-force guessing of the shared password (per IP).
-  if (!checkRateLimit(`site-login:${getClientIp(req)}`, LOGIN_ATTEMPTS_PER_HOUR)) {
+  if (!(await checkSharedRateLimit(`site-login:${getClientIp(req)}`, LOGIN_ATTEMPTS_PER_HOUR))) {
     return NextResponse.json({ error: "Too many attempts. Try again later." }, { status: 429 });
   }
 

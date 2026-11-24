@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyTenantToken, linkSecret } from "@/lib/cam/tenantLink/token";
 import { getTenantLink } from "@/lib/cam/tenantLink/store";
 import { pinMatches, pinSatisfied, makePinCookie, pinCookieName } from "@/lib/cam/tenantLink/access";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkSharedRateLimit, getClientIp } from "@/lib/rate-limit";
 
 // Access-PIN gate for a tenant portal link. GET reports whether a PIN is needed
 // (and already satisfied); POST checks the PIN and, on success, sets a signed
@@ -31,7 +31,7 @@ export async function POST(req: NextRequest, { params }: { params: { token: stri
 
   // Throttle attempts per link + IP so a leaked link can't be brute-forced.
   const ip = getClientIp(req);
-  if (!checkRateLimit(`pin:${link.id}:${ip}`, 10)) {
+  if (!(await checkSharedRateLimit(`pin:${link.id}:${ip}`, 10))) {
     return NextResponse.json({ error: "Too many attempts. Please wait a few minutes and try again." }, { status: 429 });
   }
 

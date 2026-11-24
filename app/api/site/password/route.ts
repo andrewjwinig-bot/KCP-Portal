@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { SITE_COOKIE, signSiteToken, verifySiteTokenFull } from "@/lib/site-auth";
 import { checkPassword, getStoredPassword, isASharedPassword, setPassword } from "@/lib/passwordStore";
 import { passwordProblem } from "@/lib/passwordPolicy";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkSharedRateLimit, getClientIp } from "@/lib/rate-limit";
 import { logAudit, auditIp } from "@/lib/audit";
 import { USERS, type UserId } from "@/lib/users";
 import { hasEnvPassword } from "@/lib/user-passwords";
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   const s = await session(req);
   if (!s) return NextResponse.json({ error: "Not signed in" }, { status: 401 });
   const user = s.userId;
-  if (!checkRateLimit(`pw-change:${user}:${getClientIp(req)}`, 10)) {
+  if (!(await checkSharedRateLimit(`pw-change:${user}:${getClientIp(req)}`, 10))) {
     return NextResponse.json({ error: "Too many tries. Wait an hour and try again." }, { status: 429 });
   }
   const body = await req.json().catch(() => ({}));

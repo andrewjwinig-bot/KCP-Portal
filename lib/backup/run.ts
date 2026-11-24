@@ -2,7 +2,7 @@ import "server-only";
 import { put, list, del, get, copy } from "@vercel/blob";
 import JSZip from "jszip";
 import {
-  BACKUP_ROOT, PART_RAW_BYTES, easternDate, fileBackupPath, isBackupPath, isJsonPath,
+  BACKUP_ROOT, PART_RAW_BYTES, easternDate, fileBackupPath, isBackupPath, isJsonPath, isSkippedPath,
   snapshotsToKeep, type ManifestEntry, type SnapshotManifest,
 } from "./plan";
 
@@ -102,7 +102,7 @@ export async function runBackup(opts: { deadline: number; now?: Date; force?: bo
     state = { date, startedAt: now.toISOString(), index: 0, parts: 0, bytes: 0, filesCopied: 0, entries: [], errors: [] };
   }
 
-  const all = (await listAll()).filter((b) => !isBackupPath(b.pathname)).sort((a, b) => a.pathname.localeCompare(b.pathname));
+  const all = (await listAll()).filter((b) => !isBackupPath(b.pathname) && !isSkippedPath(b.pathname)).sort((a, b) => a.pathname.localeCompare(b.pathname));
   const fileIndex = (await readJson<FileIndex>(FILE_INDEX)) ?? {};
 
   let zip = new JSZip();
@@ -262,4 +262,11 @@ export async function restoreFromSnapshot(m: SnapshotManifest, pathnames: string
   }
   await putJson(`${savedTo}_restore.json`, { at: new Date().toISOString(), by, from: m.date, restored, failed });
   return { restored, failed, savedTo };
+}
+
+/** Delete rate-limit counters older than a day (they are hourly windows). */
+export async function pruneRateLimits(now = Date.now()): Promise<number> {
+  const old = (await listAll("rate-limits/")).filter((b) => now - new Date(b.uploadedAt).getTime() > 86_400_000);
+  for (let i = 0; i < old.length; i += 100) await del(old.slice(i, i + 100).map((b) => b.url));
+  return old.length;
 }

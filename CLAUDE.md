@@ -1021,11 +1021,29 @@ audit-logged), never committed. NEVER add a sensitive file to `data/` or
   Payroll Invoicer (`/`); writes to `/api/rentroll` need Rent Roll, to
   `/api/statements` the coder. Pinned by `authz.test.ts` / `blobAccess.test.ts`.
 - **Personal passwords are required** (the shared password forces a choice at
-  sign-in, above). **STILL OPEN (owner's call / later)**: `authorizeRequest` is default-ALLOW for
-  unlisted APIs; PIN / login rate limits are per server instance; commission
-  review and credit-apply links never expire; `xlsx@0.18.5` has known CVEs;
-  the sensitive files are moving to protected storage (above) — once
-  seeded, delete them from `data/` and purge them from git history.
+  sign-in, above).
+- **THE API IS DEFAULT-DENY** (11/24/26): an `/api` route matching no
+  `SENSITIVE_API_PREFIXES` entry is REFUSED unless it is on `OPEN_API`
+  (`lib/users.ts` — each entry reviewed: public, admin-gated in middleware,
+  checks the caller itself, or shared by every staff page). A NEW route goes
+  in one list or the other; `apiCoverage.test.ts` fails the build otherwise.
+  The sweep gated the routes that checked nothing: status report and rent-roll
+  export → Rent Roll, snow / base-year resets / suite summary → Rent Roll or
+  Units, past tenants → Deposits, CC carryover → the coder, maintenance
+  backfill → Maintenance.
+- **Sign-in, password change and both PIN checks are rate-limited ACROSS
+  SERVERS** (`checkSharedRateLimit` in `lib/rate-limit.ts`: an hourly counter
+  in Blob, `rate-limits/<hashed key>/<hour>.json`, no raw IP stored; falls
+  back to the in-memory limit if the store is unreachable). Not backed up
+  (`isSkippedPath`); the backup cron prunes counters over a day old. Public
+  forms keep the per-instance limit.
+- **Commission review links expire after 60 days** (`REVIEW_LINK_DAYS`,
+  `e` in the token); links signed before that stop opening 1/31/27
+  (`LEGACY_EXPIRES`). Credit-apply links already close after their deadline.
+- **SheetJS is 0.20.3 from cdn.sheetjs.com** (npm stops at 0.18.5, which has
+  the prototype-pollution / ReDoS CVEs). Never "downgrade" it to the npm tag.
+- **STILL OPEN**: the sensitive files are moving to protected storage (above)
+  — once seeded, delete them from `data/` and purge them from git history.
 
 # Bug audit 11/2026 — the automated sends, made idempotent
 
