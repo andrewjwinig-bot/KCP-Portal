@@ -83,3 +83,26 @@ describe("the 24-hour data gate", () => {
     expect(out).toEqual([sent]);
   });
 });
+
+describe("the 48-hour automatic send", () => {
+  it("is 48 business hours after Greg is emailed, same time of day", async () => {
+    const { addBusinessHours } = await import("./reminderSchedule");
+    // Monday 3pm ET → Wednesday 3pm ET
+    expect(addBusinessHours("2026-12-14T20:00:00Z", 48)).toBe("2026-12-16T20:00:00.000Z");
+    // Friday 3pm ET → Tuesday 3pm ET (the weekend does not count)
+    expect(addBusinessHours("2026-12-18T20:00:00Z", 48)).toBe("2026-12-22T20:00:00.000Z");
+    // the reminder at 24 hours
+    expect(addBusinessHours("2026-12-14T20:00:00Z", 24)).toBe("2026-12-15T20:00:00.000Z");
+  });
+
+  it("goes on the data Greg was emailed, if it was fresh when he got it", async () => {
+    const { autoSendFreshness, dataFreshness } = await import("./reminderBatch");
+    const ranAt = "2026-12-15T13:00:00Z";
+    const notified = "2026-12-15T20:00:00Z"; // 7 hours later
+    const sendTime = new Date("2026-12-17T20:00:00Z"); // 55 hours after the run
+    expect(dataFreshness(ranAt, sendTime).fresh).toBe(false); // a person pressing Send: refused
+    expect(autoSendFreshness({ dataRunAt: ranAt, approverNotifiedAt: notified }, sendTime).fresh).toBe(true);
+    // emailed on data already a day and a half old: the automatic send is refused too
+    expect(autoSendFreshness({ dataRunAt: "2026-12-14T08:00:00Z", approverNotifiedAt: notified }, sendTime).fresh).toBe(false);
+  });
+});

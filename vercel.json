@@ -35,7 +35,7 @@
     },
     {
       "path": "/api/cron/tenant-notices",
-      "schedule": "45 13 * * *"
+      "schedule": "45 12-23 * * *"
     },
     {
       "path": "/api/cron/uo",

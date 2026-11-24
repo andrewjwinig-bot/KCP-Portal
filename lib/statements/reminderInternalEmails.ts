@@ -21,9 +21,13 @@ const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
 // ─── Greg ────────────────────────────────────────────────────────────────────
 
+/** "Wednesday, Nov 26 at 3:15 PM" from the exact moment, else "<day> morning". */
+const whenSends = (on: string | null | undefined, at: string | null | undefined) =>
+  at ? new Date(at).toLocaleString("en-US", { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" }).replace(/, (\d+:\d+)/, " at $1")
+     : on ? `${dayLong(on)} morning` : "";
 const dayLong = (iso: string) => new Date(`${iso.slice(0, 10)}T12:00:00Z`).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
 
-export function approvalRequestEmail(x: { month: string; nextYM: string; counts: BatchCounts; dataAsOf: string | null; autoSendOn?: string | null }): { subject: string; html: string; text: string } {
+export function approvalRequestEmail(x: { month: string; nextYM: string; counts: BatchCounts; dataAsOf: string | null; autoSendOn?: string | null; autoSendAt?: string | null }): { subject: string; html: string; text: string } {
   const c = x.counts;
   // The three counts ARE the headline (owner: "put the 9 23 and 10 where the
   // 40 is … clean it up a little bit and tighten").
@@ -41,20 +45,20 @@ export function approvalRequestEmail(x: { month: string; nextYM: string; counts:
     rows: [
       { label: "Data through", value: x.dataAsOf ? shortDate(x.dataAsOf) : "" },
       { label: "No email on file", value: c.blocked ? `${plural(c.blocked, "tenant")} · not sent` : "", tone: "warn" },
-      { label: "Sends itself", value: x.autoSendOn ? `${dayLong(x.autoSendOn)} morning, if not sent before` : "" },
+      { label: "Sends itself", value: x.autoSendOn ? `${whenSends(x.autoSendOn, x.autoSendAt)}, if not sent before` : "" },
     ],
     link: { label: `Review and send ${c.toSend} notices`, path: NOTICES_PATH },
   });
 }
 
 /** One business day on, if Greg has not sent them. */
-export function approvalReminderEmail(x: { month: string; counts: BatchCounts; autoSendOn: string }): { subject: string; html: string; text: string } {
+export function approvalReminderEmail(x: { month: string; counts: BatchCounts; autoSendOn: string; autoSendAt?: string | null }): { subject: string; html: string; text: string } {
   const c = x.counts;
   return portalEmail({
-    subject: `Reminder: ${c.toSend} tenant notices send ${dayLong(x.autoSendOn)} morning`,
+    subject: `Reminder: ${c.toSend} tenant notices send ${whenSends(x.autoSendOn, x.autoSendAt)}`,
     eyebrow: "Tenant Notices",
     title: `${c.toSend} notices still to send`,
-    lead: `If they are not sent before ${dayLong(x.autoSendOn)} morning, every ticked notice goes on its own. Untick anyone to hold back.`,
+    lead: `If they are not sent before ${whenSends(x.autoSendOn, x.autoSendAt)}, every ticked notice goes on its own. Untick anyone to hold back.`,
     statsFirst: true,
     stats: [
       { label: "Past due", value: String(c.byTier["past-due"]), tone: c.byTier["past-due"] ? "warn" : undefined },

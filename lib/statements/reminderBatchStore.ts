@@ -29,13 +29,13 @@ import {
   renderCreditAppliedEmail, renderMonthlyReminder, type MonthlyReminderInput,
 } from "./monthlyReminder";
 import {
-  batchCounts, buildItems, creditRequestId, dataFreshness, itemCreditPlan, staleMessage, summaryOrder, willSend,
+  autoSendFreshness, batchCounts, buildItems, creditRequestId, dataFreshness, itemCreditPlan, staleMessage, summaryOrder, willSend,
   type AccountIn, type BatchItem, type CreditRequest, type ReminderBatch,
 } from "./reminderBatch";
 import { approvalReminderEmail, approvalRequestEmail, creditSummaryEmail, postCreditEmail, staleDataEmail } from "./reminderInternalEmails";
 import { getOrEmptySuiteContacts, saveSuiteContacts } from "@/lib/suites/contactsStorage";
 import { emptyContact } from "@/lib/suites/contacts";
-import { addBusinessDays, applyDeadline, AUTO_SEND_AFTER_BUSINESS_DAYS, creditSummaryDay, etToday, nextMonthOf, NOTICE_DAY, REMIND_AFTER_BUSINESS_DAYS } from "./reminderSchedule";
+import { addBusinessHours, applyDeadline, AUTO_SEND_AFTER_HOURS, creditSummaryDay, etDateOf, etToday, nextMonthOf, NOTICE_DAY, REMIND_AFTER_HOURS } from "./reminderSchedule";
 import { signCreditApplyToken, creditApplySecret } from "./creditApplyLink";
 
 const BATCHES = "tenant-reminder-batches";
@@ -174,15 +174,20 @@ async function buildBatchLocked(opts: { by: string | null; origin: string; notif
     // a preview build (the page's Build Notices Now) — set below.
     remindOn: prev?.remindOn ?? null,
     autoSendOn: prev?.autoSendOn ?? null,
+    remindAt: prev?.remindAt ?? null,
+    autoSendAt: prev?.autoSendAt ?? null,
     approverRemindedAt: prev?.approverRemindedAt ?? null,
   };
   if (opts.notify !== false && !batch.approverNotifiedAt) {
-    batch.remindOn = addBusinessDays(today, REMIND_AFTER_BUSINESS_DAYS);
-    batch.autoSendOn = addBusinessDays(today, AUTO_SEND_AFTER_BUSINESS_DAYS);
-    const mail = approvalRequestEmail({ month, nextYM: batch.nextYM, counts: batchCounts(batch.items), dataAsOf, autoSendOn: batch.autoSendOn ?? null });
+    const nowIso = new Date().toISOString();
+    batch.remindAt = addBusinessHours(nowIso, REMIND_AFTER_HOURS);
+    batch.autoSendAt = addBusinessHours(nowIso, AUTO_SEND_AFTER_HOURS);
+    batch.remindOn = etDateOf(new Date(batch.remindAt));
+    batch.autoSendOn = etDateOf(new Date(batch.autoSendAt));
+    const mail = approvalRequestEmail({ month, nextYM: batch.nextYM, counts: batchCounts(batch.items), dataAsOf, autoSendOn: batch.autoSendOn ?? null, autoSendAt: batch.autoSendAt });
     const r = await sendMailDetailed({ to: NOTICE_APPROVER_TO, subject: mail.subject, textBody: mail.text, htmlBody: mail.html });
     if (r.ok) batch.approverNotifiedAt = new Date().toISOString();
-    else { batch.remindOn = null; batch.autoSendOn = null; console.error(`[tenant-notices] could not email the approver: ${r.error}`); }
+    else { batch.remindOn = null; batch.autoSendOn = null; batch.remindAt = null; batch.autoSendAt = null; console.error(`[tenant-notices] could not email the approver: ${r.error}`); }
   }
   await saveBatch(batch);
   return batch;
@@ -270,18 +275,19 @@ export async function previewNotice(b: ReminderBatch, item: BatchItem) {
 /** Send every ticked notice. Progress is saved after each email, so a timeout
  *  or a second press never sends a tenant twice. */
 type SendResult = { batch: ReminderBatch | null; sent: number; failed: number; remaining: number; stale?: string; busy?: string };
-export async function sendBatch(month: string, by: string | null, deadlineMs = 270_000): Promise<SendResult> {
+export async function sendBatch(month: string, by: string | null, deadlineMs = 270_000, opts: { automatic?: boolean } = {}): Promise<SendResult> {
   return withBatchLock<SendResult>(month,
     () => ({ batch: null, sent: 0, failed: 0, remaining: 0, busy: "The notices are already being sent — this run stopped so no tenant gets two." }),
-    () => sendBatchLocked(month, by, deadlineMs));
+    () => sendBatchLocked(month, by, deadlineMs, !!opts.automatic));
 }
 
-async function sendBatchLocked(month: string, by: string | null, deadlineMs: number): Promise<SendResult> {
+async function sendBatchLocked(month: string, by: string | null, deadlineMs: number, automatic = false): Promise<SendResult> {
   const started = Date.now();
   const b = await getBatch(month);
   if (!b) return { batch: null, sent: 0, failed: 0, remaining: 0 };
   // The 24-hour gate — checked here so no path (page, retry, cron) can skip it.
-  const fresh = dataFreshness(b.dataRunAt);
+  // The automatic send (nobody pressed Send) goes on the data Greg was emailed.
+  const fresh = automatic && !b.approvedAt ? autoSendFreshness(b) : dataFreshness(b.dataRunAt);
   if (!fresh.fresh) return { batch: b, sent: 0, failed: 0, remaining: b.items.filter(willSend).length, stale: staleMessage(fresh) };
   if (!b.approvedAt) { b.approvedAt = new Date().toISOString(); b.approvedBy = by; await saveBatch(b); }
   let sent = 0, failed = 0;
@@ -331,35 +337,40 @@ async function sendBatchLocked(month: string, by: string | null, deadlineMs: num
 
 /** The daily cron: remind Greg one business day after the build, and send
  *  every ticked notice on its own after two. Unticked tenants stay held. */
-export async function autoSendTick(opts: { today?: string } = {}): Promise<{ action: "none" | "reminded" | "sent"; detail?: string }> {
+export async function autoSendTick(opts: { today?: string; now?: Date } = {}): Promise<{ action: "none" | "reminded" | "sent"; detail?: string }> {
+  const now = opts.now ?? new Date();
   const today = opts.today ?? etToday();
   const b = await getBatch(today.slice(0, 7));
   if (!b || b.approvedAt && !b.items.some((i) => willSend(i) && i.status !== "failed")) return { action: "none" };
+  // A batch from before the 48-hour clock carries dates only.
+  const autoDue = b.autoSendAt ? now.getTime() >= Date.parse(b.autoSendAt) : !!(b.autoSendOn && today >= b.autoSendOn);
+  const remindDue = b.remindAt ? now.getTime() >= Date.parse(b.remindAt) : !!(b.remindOn && today >= b.remindOn);
   // Stale data: nothing goes on its own. Tell Greg (and Drew) once, so the
   // automatic send does not just quietly never happen.
-  if (!dataFreshness(b.dataRunAt).fresh) {
-    const due = b.approvedAt || (b.autoSendOn && today >= b.autoSendOn);
+  const fresh = b.approvedAt ? dataFreshness(b.dataRunAt, now) : autoSendFreshness(b, now);
+  if (!fresh.fresh) {
+    const due = b.approvedAt || autoDue;
     if (due && !b.staleNotifiedAt) {
-      const mail = staleDataEmail({ month: b.month, counts: batchCounts(b.items), message: staleMessage(dataFreshness(b.dataRunAt)) });
+      const mail = staleDataEmail({ month: b.month, counts: batchCounts(b.items), message: staleMessage(dataFreshness(b.dataRunAt, now)) });
       const r = await sendMailDetailed({ to: NOTICE_APPROVER_TO, cc: STALE_COPY_TO, subject: mail.subject, textBody: mail.text, htmlBody: mail.html });
       if (r.ok) { b.staleNotifiedAt = new Date().toISOString(); await saveBatch(b); }
-      return { action: "none", detail: "data more than 24 hours old — told the approver" };
+      return { action: "none", detail: "data too old — told the approver" };
     }
-    if (due) return { action: "none", detail: "data more than 24 hours old" };
+    if (due) return { action: "none", detail: "data too old" };
   }
   if (b.approvedAt) {
     // A send that ran out of time — finish it.
     const r = await sendBatch(b.month, b.approvedBy ?? "Automatic");
     return { action: "sent", detail: `${r.sent} more sent` };
   }
-  if (b.autoSendOn && today >= b.autoSendOn) {
+  if (autoDue) {
     b.autoSent = true;
     await saveBatch(b);
-    const r = await sendBatch(b.month, "Automatic");
+    const r = await sendBatch(b.month, "Automatic", undefined, { automatic: true });
     return { action: "sent", detail: `${r.sent} sent · ${r.failed} failed` };
   }
-  if (b.remindOn && today >= b.remindOn && !b.approverRemindedAt) {
-    const mail = approvalReminderEmail({ month: b.month, counts: batchCounts(b.items), autoSendOn: b.autoSendOn ?? today });
+  if (remindDue && !b.approverRemindedAt) {
+    const mail = approvalReminderEmail({ month: b.month, counts: batchCounts(b.items), autoSendOn: b.autoSendOn ?? today, autoSendAt: b.autoSendAt ?? null });
     const r = await sendMailDetailed({ to: NOTICE_APPROVER_TO, subject: mail.subject, textBody: mail.text, htmlBody: mail.html });
     if (r.ok) { b.approverRemindedAt = new Date().toISOString(); await saveBatch(b); }
     return { action: "reminded" };
