@@ -448,7 +448,7 @@ type BRow = {
 };
 
 /** Every expense behind the tenant's computed estimate, as its own row: each
- *  CAM line's slice of the pool × the tenant's share, the admin fee, insurance
+ *  CAM line's slice of the pool at the tenant's share, the admin fee, insurance
  *  and taxes — beside the same line in the recon year, so the change in the
  *  estimate can be explained expense by expense. Both columns add to the
  *  totals (a recovery-ratio trim, or the recon's cap / occupancy, is its own
@@ -505,7 +505,7 @@ function breakdownRows(e: EstimateRow): BRow[] {
       sum = final; priorSum = priorTotal ?? 0;
     }
     if (Math.abs(final - sum) >= 1) out.push({ key: `${p}:check`, label: `${LABEL[p]} recovery-ratio check`, part: p, priorPool: null, pool: null, annual: final - sum, prior: 0 });
-    // What the recon billed beyond its lines × share: cap, part year, rounding.
+    // What the recon billed beyond its lines at that share: cap, part year, rounding.
     if (priorTotal != null && Math.abs(priorTotal - priorSum) >= 1)
       out.push({ key: `${p}:recon-adj`, label: `${LABEL[p]} cap, occupancy & rounding (last recon)`, part: p, priorPool: null, pool: null, annual: 0, prior: priorTotal - priorSum });
   }
@@ -615,7 +615,7 @@ function EstimateBreakdown({ e, year, ry }: { e: EstimateRow; year: number; ry: 
             {live.map(line)}
             {idle.map(line)}
             <tr>
-              <td colSpan={hasPrior ? 4 : 2} style={{ ...foot, textAlign: "left" }}>{hasPrior ? `${ry} reconciliation ${fmt(totPrior)} → ${year} estimate` : `${year} estimate (computed)`}</td>
+              <td colSpan={hasPrior ? 4 : 2} style={{ ...foot, textAlign: "left" }}>{hasPrior ? `${ry} reconciliation ${fmt(totPrior)} to ${year} estimate` : `${year} estimate (computed)`}</td>
               <td style={{ ...foot, borderLeft: DIVIDE }}>{fmt(totNow)}</td>
               {hasPrior && <td style={{ ...foot, color: tone(unit === "psf" ? totChange * 100 : totChange) }}>{fmtS(totChange)}</td>}
               <td style={foot}>100%</td>
@@ -624,7 +624,7 @@ function EstimateBreakdown({ e, year, ry }: { e: EstimateRow; year: number; ry: 
         </table>
       </div>
       <div className="muted" style={{ fontSize: "var(--fs-12)" }}>
-        A CAM line is the line × the tenant&rsquo;s share ({e.method?.kind === "retail" && e.method.basis?.cam ? `${e.method.basis.cam.prs.toFixed(2)}%` : "PRS"}), the {ry ?? "recon"} column at the same share.
+        A CAM line is the line at the tenant&rsquo;s share ({e.method?.kind === "retail" && e.method.basis?.cam ? `${e.method.basis.cam.prs.toFixed(2)}%` : "PRS"}), the {ry ?? "recon"} column at the same share.
         {unit === "monthly" ? " A month is the year ÷ the months billed, before the $5 rounding." : ""}
         {unit === "psf" ? ` $/SF on ${e.sqft.toLocaleString("en-US")} SF.` : ""}
         {rows.some((r) => r.label.endsWith(" *")) ? " * No budget line found — grown at the pool's rate." : ""}
