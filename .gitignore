@@ -45,3 +45,8 @@ data/leasing-activity/
 data/investor-k1/
 data/investor-k1-files/
 data/investor-links/
+
+# Sensitive files live in protected storage (lib/secureFiles.ts), never the repo
+/data/allocation.xlsx
+/data/budgets/
+/data/onboarding/

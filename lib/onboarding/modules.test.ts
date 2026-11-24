@@ -34,7 +34,7 @@ describe("orientation modules", () => {
     expect(authorizeRequest("tami", "/api/onboarding/handbook", "GET")).toBe(false);
     expect(authorizeRequest("greg", "/api/onboarding/handbook", "GET")).toBe(false);
   });
-  it("the handbook file ships with the app", () => {
-    expect(existsSync(path.join(process.cwd(), "data", "onboarding", "Korman New Accountant Handbook.docx"))).toBe(true);
+  it("the handbook is never shipped in the repo (protected storage only)", () => {
+    expect(existsSync(path.join(process.cwd(), "data", "onboarding", "Korman New Accountant Handbook.docx"))).toBe(false);
   });
 });
