@@ -16,6 +16,8 @@ import { createPortal } from "react-dom";
 import { StatPill, Pill, TONE_AMBER, TONE_NEUTRAL, TONE_BLUE, PortionPill } from "@/app/components/Pill";
 import { HoverCard, type TipRow } from "@/app/components/HoverCard";
 import { DownloadMenu } from "@/app/components/DownloadMenu";
+import { breakdownRows, expenseDrivers, type BRow } from "@/lib/financials/budgets/estimateBreakdown";
+import type { EstimatePart } from "@/lib/financials/budgets/estimateOverrides";
 import { estimateRows, estimateTotals, skylineEstimateRows, allFromStatement, type EstimateRow, type WhyPart } from "@/lib/financials/budgets/estimatesByTenant";
 import { buildEstimatesXlsx } from "@/lib/financials/budgets/estimatesExport";
 import { recoveryCheck, type GroupCheck } from "@/lib/financials/budgets/recoveryCheck";
@@ -437,89 +439,16 @@ function Row({ e, v, ry, year, canOverride, onEdit }: {
 }
 
 type BUnit = "annual" | "monthly" | "psf";
-type BPart = "cam" | "ins" | "ret";
-type BRow = {
-  key: string; label: string; part: BPart;
-  /** The expense line: the recon year's actual and this budget. */
-  priorPool: number | null; pool: number | null;
-  /** The tenant's part of it, a year: on this budget, and on the recon year's actual. */
-  annual: number; prior: number | null;
-  struck?: boolean; note?: string;
-};
-
-/** Every expense behind the tenant's computed estimate, as its own row: each
- *  CAM line's slice of the pool at the tenant's share, the admin fee, insurance
- *  and taxes — beside the same line in the recon year, so the change in the
- *  estimate can be explained expense by expense. Both columns add to the
- *  totals (a recovery-ratio trim, or the recon's cap / occupancy, is its own
- *  row). */
-function breakdownRows(e: EstimateRow): BRow[] {
-  const out: BRow[] = [];
-  const m = e.method;
-  for (const p of ["cam", "ins", "ret"] as const) {
-    const w = e.why.find((x) => x.part === p);
-    if (!w) continue;
-    const final = w.annual ? w.annual : w.year ?? (w.computed ?? w.next) * (w.months || 12);
-    const priorTotal = w.recon != null ? w.recon * 12 : null;
-    let sum = 0, priorSum = 0;
-    const b = m?.kind === "retail" ? m.basis?.[p] : undefined;
-    if (b?.lines?.length) {
-      const billed = b.lines.filter((l) => l.billed);
-      const tot = billed.reduce((a, l) => a + l.budget, 0);
-      const scale = tot > 0 ? b.expense / tot : 0;
-      const share = b.prs / 100;
-      for (const l of b.lines) {
-        const v = l.billed ? l.budget * scale * share : 0;
-        const pv = l.billed ? l.actual * share : 0;
-        sum += v; priorSum += pv;
-        out.push({ key: `${p}:${l.label}`, label: `${l.label}${l.from === "ratio" ? " *" : ""}`, part: p,
-          priorPool: l.actual, pool: l.budget, annual: v, prior: pv,
-          struck: !l.billed, note: !l.billed ? "Excluded by lease" : undefined });
-      }
-      if (b.adminPct && (Math.abs(b.admin) >= 0.5)) {
-        const priorBase = billed.filter((l) => !l.adminExcluded).reduce((a, l) => a + l.actual, 0);
-        const pv = (b.adminPct / 100) * share * priorBase;
-        sum += b.admin; priorSum += pv;
-        out.push({ key: `${p}:admin`, label: `Administrative fee ${b.adminPct}%`, part: p,
-          priorPool: null, pool: null, annual: b.admin, prior: pv,
-          note: billed.some((l) => l.adminExcluded) ? "Not charged on every line" : undefined });
-      }
-      if (b.capped) out.push({ key: `${p}:cap`, label: "Controllable CAM cap", part: p, priorPool: null, pool: b.expense - tot, annual: 0, prior: null, note: "Already taken off each line above" });
-    } else if (m?.kind === "office" && p === "cam" && m.lines?.length) {
-      for (const l of m.lines) {
-        const v = l.over > 0 ? (l.over * m.proRataPct) / 100 : 0;
-        sum += v;
-        out.push({ key: `${p}:${l.label}`, label: `${l.label}${l.fromLine ? "" : " *"}`, part: p,
-          priorPool: null, pool: l.budget, annual: v, prior: null, struck: v === 0,
-          note: v === 0 ? `At or under its ${m.baseYear ?? "base-year"} base of ${money0(l.base)}` : `Over its base of ${money0(l.base)} by ${money0(l.over)}` });
-      }
-      // Office recons are not kept line by line, so last year is one row.
-      if (priorTotal != null) {
-        out.push({ key: `${p}:prior`, label: "Last reconciliation (not split by line)", part: p, priorPool: null, pool: null, annual: 0, prior: priorTotal });
-        priorSum = priorTotal;
-      }
-    } else if (final || priorTotal) {
-      const label = p === "cam" ? "Common area maintenance" : p === "ins" ? "Property insurance" : "Real estate taxes";
-      out.push({ key: `${p}:all`, label, part: p, priorPool: b?.actual ?? null, pool: b ? b.expense : null, annual: final, prior: priorTotal,
-        note: b?.flat ? "Own parcel — a fixed amount" : w.annual ? "Collected at reconciliation, not monthly" : undefined });
-      sum = final; priorSum = priorTotal ?? 0;
-    }
-    if (Math.abs(final - sum) >= 1) out.push({ key: `${p}:check`, label: `${LABEL[p]} recovery-ratio check`, part: p, priorPool: null, pool: null, annual: final - sum, prior: 0 });
-    // What the recon billed beyond its lines at that share: cap, part year, rounding.
-    if (priorTotal != null && Math.abs(priorTotal - priorSum) >= 1)
-      out.push({ key: `${p}:recon-adj`, label: `${LABEL[p]} cap, occupancy & rounding (last recon)`, part: p, priorPool: null, pool: null, annual: 0, prior: priorTotal - priorSum });
-  }
-  return out;
-}
 
 function EstimateBreakdown({ e, year, ry }: { e: EstimateRow; year: number; ry: number | null }) {
   const [unit, setUnit] = useState<BUnit>("monthly");
   const [order, setOrder] = useState<"change" | "share">(ry != null ? "change" : "share");
-  const rows = useMemo(() => breakdownRows(e), [e]);
+  const rows = useMemo(() => breakdownRows(e.method, e.why), [e]);
+  const missing = useMemo(() => expenseDrivers(e.method, e.why).filter((d) => d.notInToday), [e]);
   const total = rows.reduce((a, r) => a + r.annual, 0);
   if (!rows.length || (Math.abs(total) < 1 && !rows.some((r) => r.prior))) return null;
-  const months = (p: BPart) => e.why.find((x) => x.part === p)?.months || 12;
-  const conv = (annual: number, p: BPart) =>
+  const months = (p: EstimatePart) => e.why.find((x) => x.part === p)?.months || 12;
+  const conv = (annual: number, p: EstimatePart) =>
     unit === "annual" ? annual : unit === "monthly" ? annual / months(p) : e.sqft > 0 ? annual / e.sqft : 0;
   const fmt = (v: number) => (unit === "psf" ? `$${v.toFixed(2)}` : money0(v));
   const fmtS = (v: number) => (unit === "psf" ? (Math.abs(v) < 0.005 ? "–" : `${v > 0 ? "+" : "−"}$${Math.abs(v).toFixed(2)}`) : signed(v));
@@ -593,6 +522,11 @@ function EstimateBreakdown({ e, year, ry }: { e: EstimateRow; year: number; ry: 
           {drivers.length ? <> — mostly {drivers.map(driverText).join(", ")}.</> : "."}
         </div>
       )}
+      {missing.map((d) => (
+        <div key={d.label} style={{ fontSize: "var(--fs-14)" }}>
+          <b style={{ color: UP }}>{d.label} is not in today&rsquo;s estimate.</b> Today&rsquo;s CAM sits short of the {ry} actual by about this tenant&rsquo;s share of it, so adding it back is {signed(d.monthly)} a month of the change.
+        </div>
+      ))}
       <div style={{ maxHeight: 380, overflow: "auto", border: "1px solid var(--border)", borderRadius: 8 }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead style={{ position: "sticky", top: 0, background: "var(--card)", zIndex: 1 }}>

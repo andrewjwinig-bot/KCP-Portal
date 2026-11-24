@@ -26,6 +26,7 @@ import type { ReimbursementEstimate } from "./reimbursementEstimate";
 import type { SkylineChargeRow } from "@/lib/cam/office/exports";
 import { monthlyEstimate, estimateJump, type EstimateJump } from "./estimateJump";
 import { ESTIMATE_PARTS, type EstimatePart } from "./estimateOverrides";
+import { expenseDrivers, driverText } from "./estimateBreakdown";
 
 export type Estimates = { cam: number; ins: number; ret: number; total: number };
 
@@ -285,6 +286,18 @@ function reasonCore(r: TenantRevenueRow, now: Estimates | null, recon: Estimates
   const pool = big?.poolPct != null && Math.abs(big.poolPct) >= 0.5 ? ` (${LABEL[big.part]} pool ${big.poolPct >= 0 ? "+" : "−"}${Math.abs(big.poolPct).toFixed(1)}%)` : "";
   const capped = m?.kind === "retail" && m.capPct != null ? ` · CAM capped at ${m.capPct}%` : "";
   if (Math.abs(catchUp) < 1 && Math.abs(budget) < 1) return "Unchanged";
+  // Name the expenses moving it: "+$185/mo: Snow Removal +$140 (not in today's estimate) · ...".
+  // Only where the budget is kept line by line; a one-line pool keeps the
+  // catch-up / pool wording below. The catch-up no line explains is said too.
+  if (m?.kind === "retail" && m.basis?.cam?.lines?.length) {
+    const drivers = expenseDrivers(m, why);
+    const named = driverText(drivers, next.total - now.total);
+    if (named) {
+      const rest = catchUp - drivers.reduce((a, d) => a + (d.catchUp ?? 0), 0);
+      const tail = Math.abs(rest) >= 5 ? ` · ${signed(rest)} to the ${reconYear ?? "last"} actual` : "";
+      return `${signed(next.total - now.total)}/mo: ${named}${tail}${capped}`;
+    }
+  }
   const parts: string[] = [];
   if (Math.abs(catchUp) >= 1) parts.push(`${signed(catchUp)} to the ${reconYear ?? "last"} actual`);
   if (Math.abs(budget) >= 1) parts.push(`${signed(budget)} budget${pool}`);

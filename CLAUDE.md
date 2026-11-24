@@ -4130,7 +4130,18 @@ years, the basis and "not an offer to lease". Only centres with CAM recons carry
     $85 a month from the 2025 reconciliation — mostly Snow Removal up 40%
     (+$52)…"). Both columns tie to the totals: a recovery-ratio trim and the
     recon's cap / occupancy / rounding are their own rows. Office lines show
-    budget − base; their recon is one row (not kept by line).
+    budget − base; their recon is one row (not kept by line). The rows live in
+    `lib/financials/budgets/estimateBreakdown.ts` (pure, pinned by its test).
+  - **THE WHY COLUMN NAMES THE EXPENSES** (owner: "x expense is driving it"):
+    for a retail tenant budgeted line by line, `expenseDrivers` / `driverText`
+    give "+$185/mo: Snow Removal +$140 (not in today's estimate) · Landscaping
+    +$30, line up 50%" — up to three lines moving the bill the same way, each
+    $5+ a month, plus any catch-up to the recon actual no line explains. **SNOW
+    LEFT OUT OF TODAY'S ESTIMATE IS DETECTED, not assumed** (owner believes
+    2026's estimates excluded snow): when today's CAM sits short of the recon
+    actual by 60–160% of the tenant's snow share, the whole snow line is named
+    as the driver, and the modal says so. Other tenants read the old catch-up /
+    pool wording.
   - **"BILLED TODAY" IS READ OFF THE MONTHLY STATEMENTS — ONE SOURCE**
     (owner: "we have to make it work using the monthly statements report";
     `statementBilling.ts` / `statementBillingMath.ts`, `currentBilling`). Every
