@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   const buf = Buffer.from(await file.arrayBuffer());
 
   // The TENANT aging (Aging Report (Detailed)) comes through the same button.
-  if (buf.subarray(0, 4).toString() !== "%PDF" && isTenantAging(buf)) {
+  if (await isTenantAging(buf)) {
     const user = await budgetUser().catch(() => null);
     try {
       const r = await importArAging(buf, file.name, user ? (USERS[user]?.label ?? user) : null);

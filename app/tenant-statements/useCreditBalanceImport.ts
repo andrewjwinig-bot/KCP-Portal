@@ -17,7 +17,7 @@ export function useCreditBalanceImport(onDone: () => void | Promise<void>) {
     await startImport({
       kind: "credit-balance",
       title: (n) => `Reading ${n} Credit Balance report${n === 1 ? "" : "s"}`,
-      subtitle: "Skyline · Credit Balance · Any With Open Credits",
+      subtitle: "Skyline · Aging Report (Detailed) · PDF or Excel",
       files, by: user?.label,
       upload: async (file, { signal }) => {
         const fd = new FormData(); fd.append("file", file);

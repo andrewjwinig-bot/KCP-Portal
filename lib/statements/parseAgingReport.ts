@@ -84,7 +84,7 @@ const lines = (v: unknown) => s(v).split("\n").map((x) => x.trim());
 const isCode = (x: string) => /^[A-Z0-9&]{1,5}$/.test(x);
 const isDate = (x: string) => /^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(x);
 
-function runAtOf(dateText: string, timeText: string): string | null {
+export function runAtOf(dateText: string, timeText: string): string | null {
   const d = toISODate(dateText.trim());
   if (!d) return null;
   const m = timeText.trim().match(/^(\d{1,2}):(\d{2}):(\d{2})\s*([AP]M)$/i);

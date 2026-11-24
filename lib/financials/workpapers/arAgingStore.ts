@@ -9,7 +9,8 @@ import { createMapStore } from "@/lib/collectionStore";
 import { listJSON } from "@/lib/storage";
 import { resolveCurrentRentroll, rollAsOf } from "@/lib/rentroll/current";
 import { allRuns } from "@/lib/statements/store";
-import { parseAgingReport, resolveAgingProperties, type AgingTenant, type KnownUnit } from "@/lib/statements/parseAgingReport";
+import { parseAgingFile, isTenantAgingFile } from "@/lib/statements/agingFile";
+import { resolveAgingProperties, type AgingTenant, type KnownUnit } from "@/lib/statements/parseAgingReport";
 import { arSections, coversEveryBalance, placeByBalance, type ArSection } from "./arAging";
 import { listGls, assembledGl } from "@/lib/financials/operating-statements/statementStore";
 
@@ -74,13 +75,13 @@ async function receivablesAt(asOf: string): Promise<{ key: string; owed: number 
   }));
 }
 
-/** Is this workbook Skyline's tenant Aging Report (Detailed)? */
-export function isTenantAging(buf: Buffer): boolean {
-  try { parseAgingReport(buf); return true; } catch { return false; }
+/** Is this file (PDF or Excel) Skyline's tenant Aging Report (Detailed)? */
+export async function isTenantAging(buf: Buffer): Promise<boolean> {
+  return isTenantAgingFile(buf);
 }
 
 export async function importArAging(buf: Buffer, file: string, by: string | null): Promise<ArImportResult> {
-  const parsed = parseAgingReport(buf);
+  const parsed = await parseAgingFile(buf);
   if (!parsed.asOfISO) throw new Error("Couldn't read the report's \"as of\" date.");
   const { blocks } = resolveAgingProperties(parsed.blocks, await knownUnits(parsed.asOfISO));
   // A group the names could not place: try its total against each property's
